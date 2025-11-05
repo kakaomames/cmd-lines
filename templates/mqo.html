@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>MQO → OBJ 変換ツール</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; margin-top: 50px; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
+        input[type="file"] { margin-top: 20px; }
+        button { padding: 10px 20px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        h1 { color: #333; }
+        p { color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>MQOファイル → OBJファイル 変換ツール 🚂✨</h1>
+        <p>Metasequoia (.mqo) ファイルをアップロードして、Minecraftモデル化に使える汎用的な (.obj) ファイルに変換します。</p>
+        <form method="post" enctype="multipart/form-data">
+            <input type="file" name="file" accept=".mqo">
+            <br><br>
+            <button type="submit">変換してダウンロード</button>
+        </form>
+        <p style="margin-top: 30px; font-size: small;">※注意: 本ツールは頂点と面情報のみを抽出し、テクスチャや材質情報は無視されます。</p>
+    </div>
+</body>
+</html>
