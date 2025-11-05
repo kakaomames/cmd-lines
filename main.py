@@ -1581,8 +1581,8 @@ LICENSE_HTML = """
 # ----------------------------------------------------------------------
 # 3-1. home /scratch (scratch.html)
 @app.route('/scratch')
-def license_page():
-    """免責事項ページを表示する。"""
+def scratch():
+    """scratchページを表示する。"""
     return render_template_string(INDEXSS_HTML)
 print(f"Flask Route: /indexss を定義しました。")
 
