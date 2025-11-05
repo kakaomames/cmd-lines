@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>URL探索フォームと結果表示</title>
+    <style>
+        body { font-family: sans-serif; }
+        .log-container { background-color: #f4f4f4; border: 1px solid #ddd; padding: 15px; margin-top: 20px; white-space: pre-wrap; font-family: monospace; font-size: 14px; }
+        .json-output { background-color: #e6e6ff; border: 1px solid #aaa; padding: 15px; margin-top: 20px; white-space: pre-wrap; font-family: monospace; font-size: 14px; }
+        .content-preview { 
+            border: 2px solid #333; 
+            margin-top: 20px; 
+            height: 300px; 
+            overflow: auto; 
+            padding: 10px; 
+            background-color: white; 
+        }
+    </style>
+    <link rel="stylesheet" href="https://kakaomames.github.io/Minecraft-flask-app/static/style.css">
+</head>
+<body>
+    <h1>URL探索✨</h1>
+        <nav>
+            <ul>
+                <li><a href="/home">ホーム</a></li>
+                <li><a href="/h">GITHUBにセーブデータ保存</a></li>
+                <li><a href="/cmd">Webコマンド実行ツール</a></li>
+                <br>
+                <li><a href="/run?cmd=">直接コマンド実行したい方向け...</a></li>
+                <li><a href="/link">URL検索✨</a></li>
+                <li><a href="/url-dl">オンラインダウンローダー</a></li>
+                <br>
+                <li><a href="/ikkatu-url">🔗一括URLダウンローダー🔗</a></li>
+                <li><a href="/games">ゲーム👿</a></li>
+                
+            </ul>
+        </nav>
+    <form id="linkForm">
+        <input type="text" name="url" id="urlInput" placeholder="URLを入力してください (例: https://example.com)" size="50" required>
+        <button type="submit">探索🚀</button>
+    </form>
+
+    <div id="loading" style="display:none; color: blue; margin-top: 10px;">処理中... しばらくお待ちください。⏳</div>
+
+    <div id="results" style="margin-top: 30px; display:none;">
+        <h2>📝 JSON レスポンス</h2>
+        <pre class="json-output" id="jsonOutput"></pre>
+        
+        <h2>🌐 ネットワークログ (NL / logs)</h2>
+        <pre class="log-container" id="networkLog"></pre>
+
+        <h2>📄 コンテンツ (Base64からデコードし表示)</h2>
+        <p id="htmlStatus"></p>
+        <div class="content-preview" id="contentPreview"></div>
+    </div>
+
+    <script>
+        document.getElementById('linkForm').addEventListener('submit', async function(e) {
+            e.preventDefault(); // デフォルトのフォーム送信をキャンセル
+
+            const url = document.getElementById('urlInput').value;
+            const loading = document.getElementById('loading');
+            const resultsDiv = document.getElementById('results');
+            const jsonOutput = document.getElementById('jsonOutput');
+            const networkLog = document.getElementById('networkLog');
+            const contentPreview = document.getElementById('contentPreview');
+            const htmlStatus = document.getElementById('htmlStatus');
+
+            loading.style.display = 'block';
+            resultsDiv.style.display = 'none';
+
+            try {
+                // /curl エンドポイントにリクエスト
+                const response = await fetch(`/curl?url=${encodeURIComponent(url)}`);
+                const json = await response.json();
+
+                // JSON全体を表示
+                jsonOutput.textContent = JSON.stringify(json, null, 2);
+                
+                const data = json.data;
+
+                // ネットワークログを表示
+                networkLog.textContent = data.NL || data.logs || 'ログなし';
+
+                // Base64コンテンツをデコード
+                // Base64はASCII文字のみなので、デコードは安全に行えます
+                const decodedContent = atob(data.code);
+                
+                // HTMLリライト情報
+                const isRewritten = json.data.is_html_rewritten;
+                htmlStatus.innerHTML = isRewritten 
+                    ? '💡 **HTMLコンテンツ**が検出され、**相対パス**が**絶対URL**に変換されました。'
+                    : '（HTMLコンテンツではない、またはリライトされませんでした。）';
+                
+                // コンテンツをエスケープして表示 (preタグでソースコード表示のように扱う)
+                contentPreview.textContent = decodedContent;
+                
+                // 結果を表示
+                resultsDiv.style.display = 'block';
+
+            } catch (error) {
+                // ネットワーク接続などのエラーの場合
+                jsonOutput.textContent = `リクエストエラー: ${error.message}`;
+                networkLog.textContent = `リクエストエラーが発生しました。`;
+                resultsDiv.style.display = 'block';
+            } finally {
+                loading.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
