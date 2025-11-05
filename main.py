@@ -1499,7 +1499,7 @@ INDEXSS_HTML = """
             const fullUrl = document.getElementById('projectUrl').value;
             // URLからプロジェクトIDを抽出 (正規表現でID部分のみを取得)
             //例:https://scratch.mit.edu/projects/1059423894
-            const match = fullUrl.match(/scratch\.mit\.edu\projects\/(\d+)/);
+            const match = fullUrl.match(/scratch\.mit\.edu\/projects\/(\d+)/);
             if (!match) {
                 alert("有効なScratchプロジェクトURLを入力してください。");
                 return;
