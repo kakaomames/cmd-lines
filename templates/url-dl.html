@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>オンラインダウンローダー</title>
+    {CUSTOM_CSS}
+</head>
+<body>
+    <div class="container">
+     <h1>🔗 オンラインダウンローダー</h1>
+        <nav>
+            <ul>
+                <li><a href="/home">ホーム</a></li>
+                <li><a href="/h">GITHUBにセーブデータ保存</a></li>
+                <li><a href="/cmd">Webコマンド実行ツール</a></li>
+                <br>
+                <li><a href="/run?cmd=">直接コマンド実行したい方向け...</a></li>
+                <li><a href="/link">URL検索✨</a></li>
+                <li><a href="/url-dl">オンラインダウンローダー</a></li>
+                <br>
+                <li><a href="/ikkatu-url">🔗一括URLダウンローダー🔗</a></li>
+                <li><a href="/games">ゲーム👿</a></li>
+                
+            </ul>
+        </nav>
+    </header>
+        {f'<p class="warning">{warning}</p>' if warning else ''}
+        <p>ダウンロードしたいファイルのURLを入力してください。</p>
+        <form method="POST" action="/select_name">
+            <input type="text" name="url" placeholder="例: https://kakaomames.gothub.io/a/index.html" required>
+            <br>
+            <button type="submit">ファイル名選択へ進む</button>
+        </form>
+    </div>
+</body>
+</html>
