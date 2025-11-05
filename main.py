@@ -15,6 +15,8 @@ from urllib.parse import urlparse
  
 
 app = Flask(__name__)
+# CORS許可
+CORS(app)
 
 #### # HTML始め‼️‼️
 
