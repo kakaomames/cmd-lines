@@ -697,69 +697,11 @@ kakaomamesと、pokemogukunnsと、pokemogukunnと、kakaomameと、pokemogukunn
 # FSK (Flask Secret Key) を環境変数から取得
 app.secret_key = os.environ.get('FSK', 'my_insecure_development_key')
 
-# ユーザーが用意したHTML文字列（変更なし）
-HTML1 = """
-<!DOCTYPE html>
-<html>
-<head>
-    <title>トップページ - GitHub連携ツール</title>
-    <style>
-        body { font-family: sans-serif; padding: 40px; background-color: #f4f7f9; }
-        .container { max-width: 600px; margin: auto; padding: 25px; border: 1px solid #e0e0e0; border-radius: 10px; background-color: white; box-shadow: 0 4px 6px rgba(0, 4px, 6px, 0.1); }
-        h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
-        textarea { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
-        button { padding: 10px 20px; background-color: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; transition: background-color 0.3s; }
-        button:hover { background-color: #2980b9; }
-    </style>
-    <link rel="stylesheet" href="https://kakaomames.github.io/Minecraft-flask-app/static/style.css">
-</head>
-<body>
-    <div class="container">
-        <h1>GitHub API ファイル操作ツール 📁</h1>
-        <nav>
-            <ul>
-                <li><a href="/home">ホーム</a></li>
-                <li><a href="/h">GITHUBにセーブデータ保存</a></li>
-                <li><a href="/cmd">Webコマンド実行ツール</a></li>
-                <br>
-                <li><a href="/run?cmd=">直接コマンド実行したい方向け...</a></li>
-                <li><a href="/link">URL検索✨</a></li>
-                <li><a href="/url-dl">オンラインダウンローダー</a></li>
-                <br>
-                <li><a href="/ikkatu-url">🔗一括URLダウンローダー🔗</a></li>
-                <li><a href="/games">ゲーム👿</a></li>
-                
-            </ul>
-        </nav>
-        <p>上書き保存 (SHA取得) に対応しました。</p>
-
-        <h2>/post エンドポイントへの送信テスト</h2>
-        <form action="/post" method="POST">
-            <label for="data">送信用JSONデータ (ファイル情報):</label>
-            <textarea id="data" name="data" rows="15">
-{
-    "metadata": {
-        "type": "py",
-        "size": "500B",
-        "name": "app_v1.py",
-        "data": {
-            "code": "print('Updated code!')",
-            "url": "https://github.com/GN_placeholder/project_repo/src/main/"
-        }
-    }
-}
-            </textarea>
-            <button type="submit">GitHubへデータをPOST送信</button>
-        </form>
-    </div>
-</body>
-</html>
-"""
 
 # ルートURL ("/")
 @app.route('/h', methods=['GET'])
 def indexhhh():
-    return render_template_string(HTML1)
+    return render_template('github1.html')
 
 # GitHub APIへのデータ送信エンドポイント - 上書き保存機能付き
 @app.route('/post', methods=['POST'])
