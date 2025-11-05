@@ -71,138 +71,6 @@ https://example.com/folder/image.png" required></textarea>
 </html>
 """
 
-INDEX_HTML = """
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ホームページ - pokemoguプロジェクト</title>
-    <link rel="apple-touch-icon" sizes="180x180" href="https://kakaomames.github.io/Minecraft-flask-app/static/apple-touch-icon.png">
-<link rel="icon" type="image/png" sizes="32x32" href="https://kakaomames.github.io/Minecraft-flask-app/static/favicon-32x32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="https://kakaomames.github.io/Minecraft-flask-app/static/favicon-16x16.png">
-<link rel="manifest" href="https://kakaomames.github.io/Minecraft-flask-app/static/site.webmanifest">
-    <link rel="stylesheet" href="https://kakaomames.github.io/Minecraft-flask-app/static/style.css">
-</head>
-<body>
-    <header>
-        <h1>HOME🏠</h1>
-        <nav>
-            <ul>
-                <li><a href="/home">ホーム</a></li>
-            </ul>
-        </nav>
-    </header>
-    <main>
-    </main>
-    <footer>
-        <p>&copy; 2025  pokemoguプロジェクト</p>
-    </footer>
-</body>
-</html>
-"""
-
-HOMEHTML = """
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ホーム - pokemoguプロジェクト</title>
-    <link rel="apple-touch-icon" sizes="180x180" href="https://kakaomames.github.io/Minecraft-flask-app/static/apple-touch-icon.png">
-<link rel="icon" type="image/png" sizes="32x32" href="https://kakaomames.github.io/Minecraft-flask-app/static/favicon-32x32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="https://kakaomames.github.io/Minecraft-flask-app/static/favicon-16x16.png">
-<link rel="manifest" href="https://kakaomames.github.io/Minecraft-flask-app/static/site.webmanifest">
-    <link rel="stylesheet" href="https://kakaomames.github.io/Minecraft-flask-app/static/style.css">
-</head>
-<body>
-    <header>
-        <h1>マイクラプロジェクト</h1>
-        <nav>
-            <ul>
-                <li><a href="/home">ホーム</a></li>
-                <li><a href="/h">GITHUBにセーブデータ保存</a></li>
-                <li><a href="/cmd">Webコマンド実行ツール</a></li>
-                <br>
-                <li><a href="/run?cmd=">直接コマンド実行したい方向け...</a></li>
-                <li><a href="/link">URL検索✨</a></li>
-                <li><a href="/url-dl">オンラインダウンローダー</a></li>
-                <br>
-                <li><a href="/ikkatu-url">🔗一括URLダウンローダー🔗</a></li>
-                <li><a href="/games">ゲーム👿</a></li>
-                
-            </ul>
-        </nav>
-    </header>
-    <main>
-        <p>ここはホーム画面です。各メニューから移動してください。</p>
-    </main>
-    <footer>
-        <p>&copy; 2025 pokemoguプロジェクト</p>
-    </footer>
-</body>
-</html>
-"""
-
-GAMEHTML = """
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ホーム - pokemoguプロジェクト</title>
-    <link rel="apple-touch-icon" sizes="180x180" href="https://kakaomames.github.io/Minecraft-flask-app/static/apple-touch-icon.png">
-<link rel="icon" type="image/png" sizes="32x32" href="https://kakaomames.github.io/Minecraft-flask-app/static/favicon-32x32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="https://kakaomames.github.io/Minecraft-flask-app/static/favicon-16x16.png">
-<link rel="manifest" href="https://kakaomames.github.io/Minecraft-flask-app/static/site.webmanifest">
-    <link rel="stylesheet" href="https://kakaomames.github.io/Minecraft-flask-app/static/style.css">
-</head>
-<body>
-    <header>
-        <h1>マイクラプロジェクト</h1>
-        <nav>
-            <ul>
-                <li><a href="/home">ホーム</a></li>
-                <li><a href="/h">GITHUBにセーブデータ保存</a></li>
-                <li><a href="/cmd">Webコマンド実行ツール</a></li>
-                <br>
-                <li><a href="/run?cmd=">直接コマンド実行したい方向け...</a></li>
-                <li><a href="/link">URL検索✨</a></li>
-                <li><a href="/url-dl">オンラインダウンローダー</a></li>
-                <br>
-                <li><a href="/ikkatu-url">🔗一括URLダウンローダー🔗</a></li>
-                <li><a href="/games">ゲーム👿</a></li>
-                
-            </ul>
-        </nav>
-    </header>
-    <main>
-        <p>ここはゲーム選択画面です。</p>
-        <nav>
-            <ul>
-                <li><a href="https://kakaomames.github.io/rei/UNO/">UNO</a></li>
-                <li><a href="https://kakaomames.github.io/rei/db/draft-boss">drift boss</a></li>
-                <li><a href="https://kakaomames.github.io/suika/file/">スイカゲーム</a></li>
-                <br>
-                <li><a href="https://kakaomames.github.io/rei/WebMC/">マイクラ❶</a></li>
-                <li><a href="https://kakaomames.github.io/rei/minecraft classic/">マイクラ❷</a></li>
-                <li><a href="https://kakaomames.github.io/rei/ビビットアーミー/">ビビットアーミー（試験的）</a></li>
-                <br>
-                <li><a href="https://kakaomames.github.io/yuki-bookmark/">youtube👿</a></li>
-                
-            </ul>
-        </nav>
-    </main>
-    <footer>
-        <p>&copy; 2025 pokemoguプロジェクト</p>
-    </footer>
-</body>
-</html>
-"""
-
-
-
-
 
 
 
@@ -1312,18 +1180,18 @@ def faviconing():
 @app.route('/', methods=['GET'])
 def indexhhhhhhhh():
     """最初のURL入力フォームを表示"""
-    return render_template_string(INDEX_HTML)
+    return render_template('index.html')
 
 
 @app.route('/home', methods=['GET'])
 def indexhhhhhhhd():
     """最初のURL入力フォームを表示"""
-    return render_template_string(HOMEHTML)
+    return render_template('home.html')
 
 @app.route('/games', methods=['GET'])
 def indexhhhhhhd():
     """最初のURL入力フォームを表示"""
-    return render_template_string(GAMEHTML)
+    return render_template('game.html')
 
 
 
