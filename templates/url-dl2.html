@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ファイル名を選択</title>
+    {CUSTOM_CSS}
+</head>
+<body>
+    <div class="container">
+     <h1>ファイル名の選択</h1>
+        <nav>
+            <ul>
+                <li><a href="/home">ホーム</a></li>
+                <li><a href="/h">GITHUBにセーブデータ保存</a></li>
+                <li><a href="/cmd">Webコマンド実行ツール</a></li>
+                <br>
+                <li><a href="/run?cmd=">直接コマンド実行したい方向け...</a></li>
+                <li><a href="/link">URL検索✨</a></li>
+                <li><a href="/url-dl">オンラインダウンローダー</a></li>
+                <br>
+                <li><a href="/ikkatu-url">🔗一括URLダウンローダー🔗</a></li>
+                <li><a href="/games">ゲーム👿</a></li>
+                
+            </ul>
+        </nav>
+    </header>
+        <p>ダウンロードするファイル名を以下の2つの候補から選択してください。</p>
+        <form method="POST" action="/download">
+            <input type="hidden" name="original_url" value="{original_url}">
+            
+            <label for="filename_select">ダウンロード名:</label>
+            <select id="filename_select" name="filename" required>
+                <option value="{name1}">{name1} (ファイル名のみ)</option>
+                <option value="{name2}">{name2} (パスを含む)</option>
+            </select>
+            <br><br>
+            <button type="submit">📥 ダウンロード開始</button>
+        </form>
+        <hr>
+        <p>元のURL: <pre>{original_url}</pre></p>
+        <p><a href="/url-dl">最初に戻る</a></p>
+    </div>
+</body>
+</html>
