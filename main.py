@@ -1451,7 +1451,7 @@ import io # ダウンロードのためにバイトデータを扱う
 # 外部APIのベースURL
 TURBOWARP_API_BASE = "https://trampoline.turbowarp.org/api/projects/"
 # プロジェクト本体を取得するためのCURLコマンドのベースURL (ユーザー指定)
-BASE_URL = "https://xeroxapp032.vercel.app/run?cmd=curl%20"
+BASE_URL = "https://xeroxapp032.vercel.app/dl?data_url="
 print(f"BASE_URL:{BASE_URL}")
 
 # ----------------------------------------------------------------------
