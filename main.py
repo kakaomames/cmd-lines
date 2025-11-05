@@ -1476,7 +1476,7 @@ INDEXSS_HTML = """
     <h1>Scratchプロジェクトデータ解析</h1>
     <p>プロジェクトのURLを入力してください（トークン付きも可）。</p>
     
-    <input type="text" id="projectUrl" placeholder="例: https://projects.scratch.mit.edu/123456789?token=..." value="https://projects.scratch.mit.edu/846673644">
+    <input type="text" id="projectUrl" placeholder="例: https://projects.scratch.mit.edu/123456789?token=..." value="https://scratch.mit.edu/projects/846673644">
     <button onclick="getData()">データ取得</button>
     
     <a href="/license" target="_blank" class="license-link">ライセンス（免責事項）を確認する</a>
