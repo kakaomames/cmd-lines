@@ -892,6 +892,188 @@ def handle_github_post():
 
 
 
+import os
+import random
+import requests
+from flask import Flask, request, render_template_string
+
+
+
+# レスポンスを表示するためのシンプルなHTMLテンプレート
+XEROXAPP_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML取得結果</title>
+    <style>
+        body { font-family: 'Arial', sans-serif; margin: 20px; background-color: #f4f7f6; color: #333; }
+        h1 { color: #007bff; }
+        .container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); max-width: 900px; margin: auto; }
+        pre { 
+            background-color: #282c34; 
+            color: #f8f8f8; 
+            padding: 15px; 
+            border-radius: 4px; 
+            overflow-x: auto; 
+            white-space: pre-wrap; 
+            word-break: break-all;
+            max-height: 400px;
+        }
+        .error { color: #dc3545; font-weight: bold; background-color: #ffe0e0; padding: 10px; border-radius: 4px; }
+        .info { margin-bottom: 20px; border-left: 4px solid #ffc107; padding-left: 10px; background-color: #fffbe6; padding: 10px; border-radius: 4px; }
+        .usage { margin-top: 30px; padding: 10px; border: 1px dashed #ccc; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>外部HTML取得結果 (Flaskサーバー実行) 🚀</h1>
+        <div class="info">
+            <strong>使用方法:</strong> ブラウザで <code>/fetch?number=X</code> にアクセスしてください。<br>
+            X = 1: 1桁 (0-9), X = 2: 2桁 (00-99), X = 3: 3桁 (000-999), X = 4: 4桁 (0000-9999)
+        </div>
+        
+        <p><strong>リクエスト詳細:</strong></p>
+        <ul>
+            <li><strong>要求された桁数パート (number):</strong> {{ number_part }}</li>
+            <li><strong>生成されたランダム番号:</strong> {{ random_part }}</li>
+            <li><strong>フェッチ先の完全なURL:</strong> <code>{{ full_url }}</code></li>
+            <li><strong>ステータスコード:</strong> <span style="color: {{ '#dc3545' if status_code != 200 else '#198754' }}; font-weight: bold;">{{ status_code }}</span></li>
+        </ul>
+
+        <h2>取得したHTMLコンテンツ:</h2>
+        {% if error_message %}
+            <pre class="error">エラー: {{ error_message }}</pre>
+        {% else %}
+            <pre>{{ html_content }}</pre>
+        {% endif %}
+
+        <div class="usage">
+            <p><strong>実行環境:</strong> このフェッチはサーバーサイド (Python) で実行されています。これにより、外部サイトのHTMLを問題なく取得できます。</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+def generate_url_and_fetch(number_param):
+    """
+    numberパラメータに基づいてランダムな数字を生成し、URLを構築してフェッチを実行します。
+    """
+    
+    # 桁数とゼロパディングのフォーマットを決定
+    max_val = None
+    padding = None
+    
+    # number_paramの型を文字列として扱う
+    if number_param == '1':
+        max_val = 9
+        padding = 1
+    elif number_param == '2':
+        max_val = 99
+        padding = 2
+    elif number_param == '3':
+        max_val = 999
+        padding = 3
+    elif number_param == '4':
+        max_val = 9999
+        padding = 4
+    else:
+        # 無効なパラメータの場合
+        return {
+            "status_code": 400,
+            "error_message": f"無効な 'number' パラメータです。'{number_param}' ではなく、1, 2, 3, 4のいずれかを指定してください。",
+            "number_part": number_param,
+            "random_part": "N/A",
+            "full_url": "N/A",
+            "html_content": ""
+        }
+
+    # ランダムな数字を生成し、ゼロパディング
+    random_num = random.randint(0, max_val)
+    random_part = str(random_num).zfill(padding) 
+    
+    # ターゲットURLを構築
+    full_url = f"https://xeroxapp{random_part}.vercel.app"
+    
+    # コンソールに情報を表示
+    print(f"--- Pythonフェッチログ ---")
+    print(f"要求桁数: {padding} (number={number_param})")
+    print(f"生成された番号: {random_part}")
+    print(f"フェッチ先URL: {full_url}")
+
+    # HTMLコンテンツの取得
+    try:
+        # requestsで外部URLにアクセス
+        # ユーザーエージェントを設定し、タイムアウトを設定
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+        response = requests.get(full_url, timeout=15, headers=headers)
+        
+        status_code = response.status_code
+        
+        # 成功の場合
+        if status_code == 200:
+            html_content = response.text.strip()
+            print(f"ステータスコード: {status_code} (成功)")
+            return {
+                "status_code": status_code,
+                "error_message": None,
+                "number_part": number_param,
+                "random_part": random_part,
+                "full_url": full_url,
+                "html_content": html_content
+            }
+        # 成功以外の場合
+        else:
+            error_message = f"外部サーバーエラー: HTTPステータスコード {status_code} - ページの取得に失敗しました。"
+            print(f"ステータスコード: {status_code} (エラー)")
+            return {
+                "status_code": status_code,
+                "error_message": error_message,
+                "number_part": number_param,
+                "random_part": random_part,
+                "full_url": full_url,
+                "html_content": ""
+            }
+
+    except requests.exceptions.RequestException as e:
+        # タイムアウトや接続エラーなど
+        error_message = f"リクエスト中にエラーが発生しました: {e}"
+        print(f"エラー: {error_message}")
+        return {
+            "status_code": 500,
+            "error_message": error_message,
+            "number_part": number_param,
+            "random_part": random_part,
+            "full_url": full_url,
+            "html_content": ""
+        }
+    finally:
+        print(f"--- 処理完了 ---")
+
+@app.route('/xerxapp', methods=['GET'])
+def fetch_external_html():
+    """
+    URLのクエリパラメータ 'number' に基づいて外部HTMLをフェッチし、結果をレンダリングします。
+    """
+    # URLから 'number' パラメータを取得 (デフォルトは '1')
+    number_param = request.args.get('number', '1') 
+    
+    # フェッチロジックを実行
+    result = generate_url_and_fetch(number_param)
+
+    # テンプレートをレンダリングして返す
+    return render_template_string(
+        XEROXAPP_TEMPLATE,
+        number_part=result['number_part'],
+        random_part=result['random_part'],
+        full_url=result['full_url'],
+        status_code=result['status_code'],
+        error_message=result['error_message'],
+        html_content=result['html_content']
+    )
+
 
 
 
