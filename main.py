@@ -1443,7 +1443,7 @@ import io # ダウンロードのためにバイトデータを扱う
 # 1. セットアップと定数の定義
 # ----------------------------------------------------------------------
 
-app = Flask(__name__)
+
 
 # 外部APIのベースURL
 TURBOWARP_API_BASE = "https://trampoline.turbowarp.org/api/projects/"
