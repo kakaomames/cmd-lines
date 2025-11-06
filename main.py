@@ -20,7 +20,7 @@ app = Flask(__name__)
 CORS(app)
 print(f"math:{math}")
 print(f"io:{io}")
-print(f"flask:{flask}")
+print(f"flask:{Flask}")
 print(f"math:{app}")
 #### # HTML始め‼️‼️
 
