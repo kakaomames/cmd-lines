@@ -1641,46 +1641,51 @@ print("="*40)
 
 
 
-@app.route('/mqo', methods=['GET', 'POST'])
-def upload_file():
+@app.route('/mqo', methods=['GET', 'POST']) 
+def mqo():
     if request.method == 'POST':
-        # 1. ファイルがリクエストに含まれているかチェック
+        # --- POST処理（ファイルアップロードと変換）---
         if 'file' not in request.files:
             return 'ファイルが選択されていません', 400
         
         file = request.files['file']
         
-        # 2. ファイル名が空ではないかチェック
         if file.filename == '':
             return 'ファイル名が空です', 400
 
-        # 3. MQOファイルかどうかの簡易チェック
         if file and file.filename.lower().endswith('.mqo'):
-            # ファイルの内容をメモリに読み込む
+            # ファイルの内容をメモリに読み込み（Shift_JIS と UTF-8 の両方に対応）
             try:
-                # MQOはテキストファイルなので、デコードして文字列として取得
-                # Metasequoiaは日本語環境でCodePage 932 (Shift_JIS) を使う可能性があるため、
-                # まずは Shift_JIS でデコードを試みます。
                 mqo_content = file.read().decode('shift_jis')
+                print("デコード: Shift_JISで成功")
             except UnicodeDecodeError:
-                # デコードに失敗したら、UTF-8など他のエンコーディングを試すこともできますが、
-                # ここでは Shift_JIS を基本とします。
-                # ユーザーのファイルは CodePage 932 でした
-                return 'ファイルの読み込みエラー、またはサポートされていない文字コードです', 500
+                file.seek(0) 
+                try:
+                    mqo_content = file.read().decode('utf-8')
+                    print("デコード: UTF-8で成功")
+                except Exception as e:
+                    print(f"デコードエラー: {e}")
+                    return 'ファイルの読み込みエラー: サポートされていない文字コードです', 500
+            
+            # 拡張子なしのファイル名を生成
+            base_name = os.path.splitext(file.filename)[0]
+            print(f"base_name:{base_name}")
             
             # MQO解析とOBJ変換を実行
-            obj_data = mqo_to_obj(mqo_content)
-            print(f"obj_data:{obj_data[:100]}...") # 結果の一部を出力
-            
+            try:
+                obj_data = mqo_to_obj(mqo_content, base_name) 
+                print("OBJ変換成功")
+            except Exception as e:
+                print(f"MQOパーサー内部エラー: {e}")
+                return f'サーバー内部エラーが発生しました。コンソールまたはブラウザのエラー画面を確認してください。', 500
+
             # 変換後のOBJデータをバイナリストリームとして用意
             obj_bytes = BytesIO(obj_data.encode('utf-8'))
             
-            # ダウンロード用のファイル名を生成
-            base_name = os.path.splitext(file.filename)[0]
             download_name = f"{base_name}.obj"
-            print(f"download_name:{download_name}") # ダウンロードファイル名を出力
+            print(f"download_name:{download_name}")
             
-            # 4. 変換結果をOBJファイルとしてダウンロードさせる
+            # 変換結果をOBJファイルとしてダウンロードさせる
             return send_file(
                 obj_bytes,
                 mimetype='text/plain',
