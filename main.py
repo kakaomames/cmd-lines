@@ -37,48 +37,46 @@ SCALE_FACTOR = 0.01
 def mqo_to_obj_and_mtl(mqo_content, base_name):
     """
     MQOファイルを解析し、OBJとMTL形式の文字列を返します。
-    このバージョンでは、OBJ出力時に座標を自動で縮小します。
+    このバージョンでは、OBJ出力時に座標を自動で縮小し、NaN/Infをチェックします。
     """
+    # 【重要】スケールを0.005 (1/200) に設定
+    SCALE_FACTOR = 0.005 
+
     mqo_content = mqo_content.replace('\r\n', '\n')
     
     vertices = []
     tex_coords = []
     faces = []
-    materials = {} # MTLファイル作成のために材質情報を保持
+    materials = {} 
     
     in_vertex_data = False
     in_face_data = False
     
-    # ------------------ MTLファイル作成に必要な材質情報を抽出 ------------------
-    # MQOファイルは、マテリアル名が分かればOBJファイルに組み込めます。
     current_mat_index = 0
+    mat_count = 0
     
+    # ------------------ MTLファイル作成に必要な材質情報を抽出 ------------------
     for line in mqo_content.split('\n'):
         line = line.strip()
+        
         if line.startswith('Material'):
-            # 例: Material 1 { ...
             try:
                 mat_count = int(line.split()[1])
-                # その後のmat_count行が材質定義
             except:
                 continue
         elif line.startswith('"') and current_mat_index < mat_count:
-            # 例: "材質0" col(0.5 0.5 0.5 1) ...
             try:
                 mat_name = line.split('"')[1]
-                # MQOファイルの材質インデックス (0から) と名前を対応付け
                 materials[current_mat_index] = mat_name
                 current_mat_index += 1
             except:
                 pass
             
-    # マテリアルが見つからなかった場合、デフォルトを設定
     if not materials:
         materials[0] = "default_material"
     
-    # ------------------ OBJデータ抽出（座標縮小とUV処理） ------------------
+    # ------------------ OBJデータ抽出（座標縮小とNaNチェック） ------------------
     
-    # 再度MQOファイルを解析
     for line in mqo_content.split('\n'):
         line = line.strip()
         
@@ -108,8 +106,9 @@ def mqo_to_obj_and_mtl(mqo_content, base_name):
                     y = float(coords[1])
                     z = float(coords[2])
                     
-                    if math.isfinite(x) and math.isfinite(y) and math.isfinite(z):
-                         # 【重要】座標をここで自動縮小
+                    # 【NaN対策】非数(NaN)や無限大(Inf)でないかを確認し、有効な頂点のみ追加
+                    if math.isfinite(x) and math.isfinite(y) and math.isfinite(z): 
+                         # 座標をSCALE_FACTORで自動縮小
                          vertices.append((x * SCALE_FACTOR, y * SCALE_FACTOR, z * SCALE_FACTOR)) 
                     
             except ValueError:
@@ -122,7 +121,7 @@ def mqo_to_obj_and_mtl(mqo_content, base_name):
             mat_index_start = line.find('M(')
             
             # マテリアルインデックスの取得
-            mat_name = materials.get(0, "default_material") # デフォルトは0番
+            mat_name = materials.get(0, "default_material")
             if mat_index_start != -1:
                 mat_index_end = line.find(')', mat_index_start)
                 if mat_index_end != -1:
@@ -149,8 +148,13 @@ def mqo_to_obj_and_mtl(mqo_content, base_name):
                                 for i in range(0, len(uv_raw_values), 2):
                                     u = float(uv_raw_values[i])
                                     v = float(uv_raw_values[i+1])
-                                    tex_coords.append((u, v))
-                                    current_face_uv_indices.append(len(tex_coords))
+                                    # UV座標のNaNチェックは通常不要だが、念のため
+                                    if math.isfinite(u) and math.isfinite(v):
+                                        tex_coords.append((u, v))
+                                        current_face_uv_indices.append(len(tex_coords))
+                                    else:
+                                        # 不正なUVはスキップ
+                                        continue
                                 uv_indices = current_face_uv_indices
                             except ValueError:
                                 pass
@@ -169,8 +173,8 @@ def mqo_to_obj_and_mtl(mqo_content, base_name):
                                 if uv_indices and i < len(uv_indices):
                                     face_elements.append(f"{v_idx}/{uv_indices[i]}")
                                 else:
-                                    face_elements.append(f"{v_idx}")
-
+                                    face_elements.append(f"{v_idx}") # UVがない場合はvのみ
+                                    
                             faces.append({
                                 'elements': face_elements,
                                 'material': mat_name
@@ -180,22 +184,17 @@ def mqo_to_obj_and_mtl(mqo_content, base_name):
     
     # ------------------ OBJ形式の文字列を構築 ------------------
     obj_output = f"# Converted from MQO by Flask App (Scaled by {SCALE_FACTOR})\n"
-    # MTLファイルの参照を追加
     obj_output += f"mtllib {base_name}.mtl\n"
-    
     obj_output += f"o {base_name}_mesh\n" 
     
-    # 頂点 (v)
     obj_output += "\n# Vertices\n"
     for v in vertices:
         obj_output += f"v {v[0]:.6f} {v[1]:.6f} {v[2]:.6f}\n"
 
-    # UV座標 (vt)
     obj_output += "\n# Texture Coordinates\n"
     for uv in tex_coords:
         obj_output += f"vt {uv[0]:.6f} {uv[1]:.6f}\n" 
 
-    # 面 (f)
     obj_output += "\n# Faces (v/vt index)\n"
     current_mat = None
     for face in faces:
@@ -207,15 +206,10 @@ def mqo_to_obj_and_mtl(mqo_content, base_name):
     # ------------------ MTL形式の文字列を構築 ------------------
     mtl_output = f"# Material File for {base_name}.obj\n"
     
-    # MQOの材質名を使ってMTLファイルを生成 (テクスチャパスは不明なので省略)
     for index, name in materials.items():
-        # newmtl [材質名]
         mtl_output += f"\nnewmtl {name}\n"
-        # 拡散反射の色 (白) - Blockbenchはテクスチャがない場合、この色を使用
         mtl_output += f"Kd 1.000 1.000 1.000\n" 
-        # 環境光の色 (白)
         mtl_output += f"Ka 1.000 1.000 1.000\n"
-        # map_Kd (テクスチャファイル名) は不明なので省略
 
     return obj_output, mtl_output
 
