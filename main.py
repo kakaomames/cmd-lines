@@ -1701,18 +1701,14 @@ print("="*40)
 
 
 @app.route('/mqo', methods=['GET', 'POST']) 
-def mqo():
+def mqo_converter():
     if request.method == 'POST':
         # --- POST処理（ファイルアップロードと変換）---
-        if 'file' not in request.files:
+        file = request.files.get('file')
+        if not file or file.filename == '':
             return 'ファイルが選択されていません', 400
-        
-        file = request.files['file']
-        
-        if file.filename == '':
-            return 'ファイル名が空です', 400
 
-        if file and file.filename.lower().endswith('.mqo'):
+        if file.filename.lower().endswith('.mqo'):
             # ファイルの内容をメモリに読み込み（Shift_JIS と UTF-8 の両方に対応）
             try:
                 mqo_content = file.read().decode('shift_jis')
@@ -1723,31 +1719,38 @@ def mqo():
                 except Exception as e:
                     return 'ファイルの読み込みエラー: サポートされていない文字コードです', 500
             
-            # 拡張子なしのファイル名を生成
             base_name = os.path.splitext(file.filename)[0]
             
-            # MQO解析とOBJ変換を実行
+            # MQO解析とOBJ/MTL変換を実行
             try:
-                obj_data = mqo_to_obj(mqo_content, base_name) 
+                # OBJとMTLの2つの文字列を受け取る
+                obj_data, mtl_data = mqo_to_obj_and_mtl(mqo_content, base_name) 
             except Exception as e:
-                # この段階でエラーが起きる場合、パーサー内部に致命的な問題
-                print(f"MQOパーサー内部エラー（UV処理中）: {e}")
+                print(f"MQOパーサー内部エラー（最終版）: {e}")
                 return f'サーバー内部エラーが発生しました。エラーログを確認してください。', 500
 
-            # 変換後のOBJデータをバイナリストリームとして用意
-            obj_bytes = BytesIO(obj_data.encode('utf-8'))
+            # 変換結果をZIPファイルとしてまとめてダウンロードさせる (OBJとMTLを同梱)
+            from zipfile import ZipFile
+            temp_zip = BytesIO()
+            with ZipFile(temp_zip, 'w') as zf:
+                # 1. OBJファイルをZIPに追加
+                zf.writestr(f"{base_name}.obj", obj_data)
+                # 2. MTLファイルをZIPに追加
+                zf.writestr(f"{base_name}.mtl", mtl_data)
+
+            temp_zip.seek(0)
             
-            download_name = f"{base_name}.obj"
+            download_name = f"{base_name}_model.zip"
             
-            # 変換結果をOBJファイルとしてダウンロードさせる
+            # ZIPファイルをダウンロードさせる
             return send_file(
-                obj_bytes,
-                mimetype='text/plain',
+                temp_zip,
+                mimetype='application/zip',
                 as_attachment=True,
                 download_name=download_name
             )
         
-        return 'MQOファイルを選択してください', 200
+        return 'MQOファイルを選択してください', 400
 
     return render_template('mqo.html')
     
