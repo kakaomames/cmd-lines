@@ -24,20 +24,11 @@ CORS(app)
 
 
 
-# app.py (UV対応最終修正版)
-
-import os
-import math
-from flask import Flask, render_template, request, send_file
-from io import BytesIO
-
-# print(f"Flask:{Flask}") # デバッグログ削減
-SCALE_FACTOR = 0.01 
-
 def mqo_to_obj_and_mtl(mqo_content, base_name):
     """
     MQOファイルを解析し、OBJとMTL形式の文字列を返します。
-    このバージョンでは、OBJ出力時に座標を自動で縮小し、NaN/Infをチェックします。
+    このバージョンでは、OBJ出力時に座標を自動で縮小し、
+    厳格なNaN/Infチェックとデータ検証を行います。
     """
     # 【重要】スケールを0.005 (1/200) に設定
     SCALE_FACTOR = 0.005 
@@ -56,6 +47,7 @@ def mqo_to_obj_and_mtl(mqo_content, base_name):
     mat_count = 0
     
     # ------------------ MTLファイル作成に必要な材質情報を抽出 ------------------
+    # ... (この部分は変更なし) ...
     for line in mqo_content.split('\n'):
         line = line.strip()
         
@@ -100,7 +92,8 @@ def mqo_to_obj_and_mtl(mqo_content, base_name):
         # 頂点データの抽出 (v)
         if in_vertex_data and len(line) > 0 and line[0].isdigit(): 
             try:
-                coords = line.split()[:3]
+                coords = line.split()
+                # 【NaN対策強化】coordsリストが空ではないか、要素数が3以上あるか確認
                 if len(coords) >= 3:
                     x = float(coords[0])
                     y = float(coords[1])
@@ -112,7 +105,7 @@ def mqo_to_obj_and_mtl(mqo_content, base_name):
                          vertices.append((x * SCALE_FACTOR, y * SCALE_FACTOR, z * SCALE_FACTOR)) 
                     
             except ValueError:
-                continue
+                continue # 数値に変換できない行はスキップ
 
         # 面データ、UV座標、マテリアル情報の抽出 (f, vt, usemtl)
         elif in_face_data and len(line) > 0 and line[0].isdigit():
@@ -148,12 +141,10 @@ def mqo_to_obj_and_mtl(mqo_content, base_name):
                                 for i in range(0, len(uv_raw_values), 2):
                                     u = float(uv_raw_values[i])
                                     v = float(uv_raw_values[i+1])
-                                    # UV座標のNaNチェックは通常不要だが、念のため
                                     if math.isfinite(u) and math.isfinite(v):
                                         tex_coords.append((u, v))
                                         current_face_uv_indices.append(len(tex_coords))
                                     else:
-                                        # 不正なUVはスキップ
                                         continue
                                 uv_indices = current_face_uv_indices
                             except ValueError:
@@ -173,7 +164,7 @@ def mqo_to_obj_and_mtl(mqo_content, base_name):
                                 if uv_indices and i < len(uv_indices):
                                     face_elements.append(f"{v_idx}/{uv_indices[i]}")
                                 else:
-                                    face_elements.append(f"{v_idx}") # UVがない場合はvのみ
+                                    face_elements.append(f"{v_idx}")
                                     
                             faces.append({
                                 'elements': face_elements,
@@ -183,6 +174,7 @@ def mqo_to_obj_and_mtl(mqo_content, base_name):
                             continue
     
     # ------------------ OBJ形式の文字列を構築 ------------------
+    # ... (この部分は変更なし) ...
     obj_output = f"# Converted from MQO by Flask App (Scaled by {SCALE_FACTOR})\n"
     obj_output += f"mtllib {base_name}.mtl\n"
     obj_output += f"o {base_name}_mesh\n" 
@@ -204,6 +196,7 @@ def mqo_to_obj_and_mtl(mqo_content, base_name):
         obj_output += f"f {' '.join(face['elements'])}\n"
         
     # ------------------ MTL形式の文字列を構築 ------------------
+    # ... (この部分は変更なし) ...
     mtl_output = f"# Material File for {base_name}.obj\n"
     
     for index, name in materials.items():
