@@ -12,15 +12,123 @@ import zipfile
 from io import BytesIO
 from urllib.parse import urlparse
 from flask_cors import CORS
-from mqo_parser import mqo_to_obj
+import math
  
 
 app = Flask(__name__)
 # CORS許可
 CORS(app)
-
+print(f"math:{math}")
+print(f"io:{io}")
+print(f"flask:{flask}")
+print(f"math:{app}")
 #### # HTML始め‼️‼️
 
+
+
+
+def mqo_to_obj(mqo_content, base_name):
+    """
+    MQOファイルの内容を解析し、OBJ形式の文字列に変換します。
+
+    Args:
+        mqo_content (str): MQOファイルの内容全体。
+        base_name (str): 元ファイル名（拡張子なし）。
+    """
+    # 処理前に改行コードを統一
+    mqo_content = mqo_content.replace('\r\n', '\n')
+    
+    vertices = []
+    faces = []
+    
+    in_vertex_data = False
+    in_face_data = False
+    
+    for line in mqo_content.split('\n'):
+        line = line.strip()
+        
+        # 空行とコメントはスキップ
+        if not line or line.startswith('#'):
+            continue
+        
+        # --- チャンクの開始/終了の検出と状態遷移 ---
+        
+        if line.startswith('vertex'):
+            in_vertex_data = True
+            in_face_data = False 
+            continue
+        
+        elif line.startswith('face'):
+            in_vertex_data = False 
+            in_face_data = True
+            continue
+        
+        # 【SyntaxError修正済】チャンクの終了（'}'）
+        elif line == '}':
+            in_vertex_data = False
+            in_face_data = False
+            continue
+
+        # --- データの抽出 ---
+        
+        # 頂点データの抽出 (v)
+        if in_vertex_data and len(line) > 0 and line[0].isdigit(): 
+            try:
+                coords = line.split()[:3]
+                if len(coords) >= 3:
+                    x = float(coords[0])
+                    y = float(coords[1])
+                    z = float(coords[2])
+                    
+                    # 【サイズエラー対策】無限大や非数 (NaN/Inf) を含む行はスキップ
+                    if math.isfinite(x) and math.isfinite(y) and math.isfinite(z):
+                         vertices.append((x, y, z))
+                    
+            except ValueError:
+                continue
+
+        # 面データの抽出 (f)
+        elif in_face_data and len(line) > 0 and line[0].isdigit():
+            v_index_start = line.find('V(')
+            
+            if v_index_start != -1: 
+                v_index_end = line.find(')', v_index_start)
+                
+                if v_index_end != -1:
+                    # V(...) から "0 1 3 2" を抽出
+                    v_indices_str = line[v_index_start + 2:v_index_end].strip()
+                    
+                    if v_indices_str:
+                        v_indices = v_indices_str.split()
+                        
+                        try:
+                            # OBJは1-based indexなので、MQOの0-based indexに +1
+                            face_indices = [str(int(i) + 1) for i in v_indices]
+                            faces.append(face_indices)
+                        except ValueError:
+                            continue
+    
+    # --- OBJ形式の文字列を構築 ---
+    obj_output = f"# Converted from MQO by Flask App\n"
+    
+    # 【メッシュ非認識対策】OBJメッシュの構造を認識させるための 'o' (Object) 宣言を追加
+    obj_output += f"o {base_name}_mesh\n" 
+    
+    # 頂点の出力
+    obj_output += "\n# Vertices\n"
+    for v in vertices:
+        obj_output += f"v {v[0]:.6f} {v[1]:.6f} {v[2]:.6f}\n"
+
+    # 面の出力
+    obj_output += "\n# Faces (v index only)\n"
+    for f in faces:
+        obj_output += f"f {' '.join(f)}\n"
+        
+    print(f"抽出された頂点数: {len(vertices)}")
+    print(f"抽出された面数: {len(faces)}")
+    
+    return obj_output
+ 
 
 # --- テンプレート (3): 複数URL入力フォーム ---
 HTML_IKKATU_FORM = lambda warning="": f"""
