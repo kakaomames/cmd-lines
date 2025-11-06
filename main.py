@@ -27,27 +27,37 @@ print(f"math:{app}")
 
 
 
+# app.py (UV対応最終修正版)
+
+import os
+import math
+from flask import Flask, render_template, request, send_file
+from io import BytesIO
+
+# print(f"Flask:{Flask}") # デバッグログ削減
+# print(f"math:{math}") # デバッグログ削減
+
 def mqo_to_obj(mqo_content, base_name):
     """
     MQOファイルの内容を解析し、OBJ形式の文字列に変換します。
-
-    Args:
-        mqo_content (str): MQOファイルの内容全体。
-        base_name (str): 元ファイル名（拡張子なし）。
+    UV座標を抽出し、面データに組み込むように修正。
     """
-    # 処理前に改行コードを統一
     mqo_content = mqo_content.replace('\r\n', '\n')
     
     vertices = []
-    faces = []
+    tex_coords = [] # UV座標リスト
+    faces = []      # 面データリスト (v/vt のタプルを格納)
     
     in_vertex_data = False
     in_face_data = False
     
+    # 頂点インデックスとUVインデックスを対応させるためのカウンター
+    # MQOの面は0から始まるインデックス、OBJは1から始まるインデックス
+    mqo_face_count = 0 
+    
     for line in mqo_content.split('\n'):
         line = line.strip()
         
-        # 空行とコメントはスキップ
         if not line or line.startswith('#'):
             continue
         
@@ -63,7 +73,6 @@ def mqo_to_obj(mqo_content, base_name):
             in_face_data = True
             continue
         
-        # 【SyntaxError修正済】チャンクの終了（'}'）
         elif line == '}':
             in_vertex_data = False
             in_face_data = False
@@ -80,54 +89,104 @@ def mqo_to_obj(mqo_content, base_name):
                     y = float(coords[1])
                     z = float(coords[2])
                     
-                    # 【サイズエラー対策】無限大や非数 (NaN/Inf) を含む行はスキップ
                     if math.isfinite(x) and math.isfinite(y) and math.isfinite(z):
                          vertices.append((x, y, z))
                     
             except ValueError:
                 continue
 
-        # 面データの抽出 (f)
+        # 面データとUV座標の抽出 (f と vt)
         elif in_face_data and len(line) > 0 and line[0].isdigit():
             v_index_start = line.find('V(')
+            uv_index_start = line.find('UV(')
             
+            # V(...) の抽出 (必須)
             if v_index_start != -1: 
                 v_index_end = line.find(')', v_index_start)
                 
+                # UV(...) の抽出 (オプション)
+                uv_indices = []
+                if uv_index_start != -1:
+                    uv_index_end = line.find(')', uv_index_start)
+                    
+                    if uv_index_end != -1:
+                        # UV(u1 v1 u2 v2...) から "u1 v1 u2 v2..." を抽出
+                        uv_str = line[uv_index_start + 3:uv_index_end].strip()
+                        if uv_str:
+                            uv_raw_values = uv_str.split()
+                            
+                            # 2つずつUV座標を抽出
+                            try:
+                                # 新しいUV座標を tex_coords に追加し、OBJのインデックスを取得
+                                current_face_uv_indices = []
+                                for i in range(0, len(uv_raw_values), 2):
+                                    u = float(uv_raw_values[i])
+                                    v = float(uv_raw_values[i+1])
+                                    tex_coords.append((u, v))
+                                    # OBJインデックスは1から始まるため +1
+                                    current_face_uv_indices.append(len(tex_coords))
+                                
+                                uv_indices = current_face_uv_indices
+                            except ValueError:
+                                uv_indices = [] # 失敗したらUVはなし
+                
+                # V(...) の処理
                 if v_index_end != -1:
-                    # V(...) から "0 1 3 2" を抽出
                     v_indices_str = line[v_index_start + 2:v_index_end].strip()
                     
                     if v_indices_str:
                         v_indices = v_indices_str.split()
                         
                         try:
-                            # OBJは1-based indexなので、MQOの0-based indexに +1
-                            face_indices = [str(int(i) + 1) for i in v_indices]
-                            faces.append(face_indices)
+                            # OBJは1-based indexなので、+1
+                            obj_v_indices = [str(int(i) + 1) for i in v_indices]
+
+                            # 面データ (v/vt の形式で構築)
+                            face_elements = []
+                            for i, v_idx in enumerate(obj_v_indices):
+                                if uv_indices and i < len(uv_indices):
+                                    # v/vt 形式
+                                    face_elements.append(f"{v_idx}/{uv_indices[i]}")
+                                else:
+                                    # v のみ (UVがない場合)
+                                    face_elements.append(f"{v_idx}")
+
+                            faces.append(face_elements)
                         except ValueError:
                             continue
     
     # --- OBJ形式の文字列を構築 ---
-    obj_output = f"# Converted from MQO by Flask App\n"
+    obj_output = f"# Converted from MQO by Flask App (with UV support)\n"
     
-    # 【メッシュ非認識対策】OBJメッシュの構造を認識させるための 'o' (Object) 宣言を追加
+    # メッシュを認識させる 'o' (Object) 宣言
     obj_output += f"o {base_name}_mesh\n" 
     
-    # 頂点の出力
+    # 頂点の出力 (v)
     obj_output += "\n# Vertices\n"
     for v in vertices:
         obj_output += f"v {v[0]:.6f} {v[1]:.6f} {v[2]:.6f}\n"
 
-    # 面の出力
-    obj_output += "\n# Faces (v index only)\n"
-    for f in faces:
-        obj_output += f"f {' '.join(f)}\n"
+    # UV座標の出力 (vt)
+    obj_output += "\n# Texture Coordinates\n"
+    for uv in tex_coords:
+        # V座標を反転させる (OpenGL/BlockbenchとMQOの慣習の違いに対応することが多いが、
+        # ここではとりあえずそのまま出力。必要に応じて u, 1-v に修正する)
+        obj_output += f"vt {uv[0]:.6f} {uv[1]:.6f}\n" 
+
+    # 面の出力 (f)
+    obj_output += "\n# Faces (v/vt index)\n"
+    for f_elements in faces:
+        obj_output += f"f {' '.join(f_elements)}\n"
         
-    print(f"抽出された頂点数: {len(vertices)}")
-    print(f"抽出された面数: {len(faces)}")
+    print(f"抽出された頂点数 (v): {len(vertices)}")
+    print(f"抽出されたUV座標数 (vt): {len(tex_coords)}")
+    print(f"抽出された面数 (f): {len(faces)}")
     
     return obj_output
+
+
+
+
  
 
 # --- テンプレート (3): 複数URL入力フォーム ---
@@ -1657,33 +1716,28 @@ def mqo():
             # ファイルの内容をメモリに読み込み（Shift_JIS と UTF-8 の両方に対応）
             try:
                 mqo_content = file.read().decode('shift_jis')
-                print("デコード: Shift_JISで成功")
             except UnicodeDecodeError:
                 file.seek(0) 
                 try:
                     mqo_content = file.read().decode('utf-8')
-                    print("デコード: UTF-8で成功")
                 except Exception as e:
-                    print(f"デコードエラー: {e}")
                     return 'ファイルの読み込みエラー: サポートされていない文字コードです', 500
             
             # 拡張子なしのファイル名を生成
             base_name = os.path.splitext(file.filename)[0]
-            print(f"base_name:{base_name}")
             
             # MQO解析とOBJ変換を実行
             try:
                 obj_data = mqo_to_obj(mqo_content, base_name) 
-                print("OBJ変換成功")
             except Exception as e:
-                print(f"MQOパーサー内部エラー: {e}")
-                return f'サーバー内部エラーが発生しました。コンソールまたはブラウザのエラー画面を確認してください。', 500
+                # この段階でエラーが起きる場合、パーサー内部に致命的な問題
+                print(f"MQOパーサー内部エラー（UV処理中）: {e}")
+                return f'サーバー内部エラーが発生しました。エラーログを確認してください。', 500
 
             # 変換後のOBJデータをバイナリストリームとして用意
             obj_bytes = BytesIO(obj_data.encode('utf-8'))
             
             download_name = f"{base_name}.obj"
-            print(f"download_name:{download_name}")
             
             # 変換結果をOBJファイルとしてダウンロードさせる
             return send_file(
@@ -1693,7 +1747,7 @@ def mqo():
                 download_name=download_name
             )
         
-        return 'MQOファイルを選択してください', 400
+        return 'MQOファイルを選択してください', 200
 
     return render_template('mqo.html')
     
