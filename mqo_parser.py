@@ -52,7 +52,7 @@ def mqo_to_obj(mqo_content, base_name):
             print(f"in_vertex_data:{in_vertex_data}")
             in_face_data = False
             print(f"in_face_data:{in_face_data}")
-            print(f"チャンク終了 '}' を検出しました!")
+            print(f"チャンク終了 '}}' を検出しました!")
             continue
 
         # --- データの抽出 ---
