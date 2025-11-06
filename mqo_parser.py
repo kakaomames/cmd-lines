@@ -109,3 +109,7 @@ def mqo_to_obj(mqo_content, base_name):
     return obj_output
 
 # if __name__ == '__main__': ... のテストコードも、返り値に合わせて修正し、面データ抽出が動作するか確認してください
+if __name__ == '__main__':
+    # 【重要】デバッグモードをONにすると、詳細なトレースバックが
+    #           コンソールとブラウザ（500エラー画面）に表示されます
+    app.run(debug=True)
