@@ -18,11 +18,8 @@ import math
 app = Flask(__name__)
 # CORS許可
 CORS(app)
-print(f"math:{math}")
-print(f"io:{io}")
-print(f"flask:{Flask}")
-print(f"math:{app}")
-#### # HTML始め‼️‼️
+
+#### # HTML始め‼️‼️!.!,?
 
 
 
@@ -35,33 +32,57 @@ from flask import Flask, render_template, request, send_file
 from io import BytesIO
 
 # print(f"Flask:{Flask}") # デバッグログ削減
-# print(f"math:{math}") # デバッグログ削減
+SCALE_FACTOR = 0.01 
 
-def mqo_to_obj(mqo_content, base_name):
+def mqo_to_obj_and_mtl(mqo_content, base_name):
     """
-    MQOファイルの内容を解析し、OBJ形式の文字列に変換します。
-    UV座標を抽出し、面データに組み込むように修正。
+    MQOファイルを解析し、OBJとMTL形式の文字列を返します。
+    このバージョンでは、OBJ出力時に座標を自動で縮小します。
     """
     mqo_content = mqo_content.replace('\r\n', '\n')
     
     vertices = []
-    tex_coords = [] # UV座標リスト
-    faces = []      # 面データリスト (v/vt のタプルを格納)
+    tex_coords = []
+    faces = []
+    materials = {} # MTLファイル作成のために材質情報を保持
     
     in_vertex_data = False
     in_face_data = False
     
-    # 頂点インデックスとUVインデックスを対応させるためのカウンター
-    # MQOの面は0から始まるインデックス、OBJは1から始まるインデックス
-    mqo_face_count = 0 
+    # ------------------ MTLファイル作成に必要な材質情報を抽出 ------------------
+    # MQOファイルは、マテリアル名が分かればOBJファイルに組み込めます。
+    current_mat_index = 0
     
     for line in mqo_content.split('\n'):
         line = line.strip()
+        if line.startswith('Material'):
+            # 例: Material 1 { ...
+            try:
+                mat_count = int(line.split()[1])
+                # その後のmat_count行が材質定義
+            except:
+                continue
+        elif line.startswith('"') and current_mat_index < mat_count:
+            # 例: "材質0" col(0.5 0.5 0.5 1) ...
+            try:
+                mat_name = line.split('"')[1]
+                # MQOファイルの材質インデックス (0から) と名前を対応付け
+                materials[current_mat_index] = mat_name
+                current_mat_index += 1
+            except:
+                pass
+            
+    # マテリアルが見つからなかった場合、デフォルトを設定
+    if not materials:
+        materials[0] = "default_material"
+    
+    # ------------------ OBJデータ抽出（座標縮小とUV処理） ------------------
+    
+    # 再度MQOファイルを解析
+    for line in mqo_content.split('\n'):
+        line = line.strip()
         
-        if not line or line.startswith('#'):
-            continue
-        
-        # --- チャンクの開始/終了の検出と状態遷移 ---
+        if not line or line.startswith('#'): continue
         
         if line.startswith('vertex'):
             in_vertex_data = True
@@ -78,8 +99,6 @@ def mqo_to_obj(mqo_content, base_name):
             in_face_data = False
             continue
 
-        # --- データの抽出 ---
-        
         # 頂点データの抽出 (v)
         if in_vertex_data and len(line) > 0 and line[0].isdigit(): 
             try:
@@ -90,99 +109,115 @@ def mqo_to_obj(mqo_content, base_name):
                     z = float(coords[2])
                     
                     if math.isfinite(x) and math.isfinite(y) and math.isfinite(z):
-                         vertices.append((x, y, z))
+                         # 【重要】座標をここで自動縮小
+                         vertices.append((x * SCALE_FACTOR, y * SCALE_FACTOR, z * SCALE_FACTOR)) 
                     
             except ValueError:
                 continue
 
-        # 面データとUV座標の抽出 (f と vt)
+        # 面データ、UV座標、マテリアル情報の抽出 (f, vt, usemtl)
         elif in_face_data and len(line) > 0 and line[0].isdigit():
             v_index_start = line.find('V(')
             uv_index_start = line.find('UV(')
+            mat_index_start = line.find('M(')
             
-            # V(...) の抽出 (必須)
+            # マテリアルインデックスの取得
+            mat_name = materials.get(0, "default_material") # デフォルトは0番
+            if mat_index_start != -1:
+                mat_index_end = line.find(')', mat_index_start)
+                if mat_index_end != -1:
+                    try:
+                        mat_idx = int(line[mat_index_start + 2:mat_index_end].strip())
+                        mat_name = materials.get(mat_idx, mat_name)
+                    except:
+                        pass
+            
+            # V(...) の抽出
             if v_index_start != -1: 
                 v_index_end = line.find(')', v_index_start)
                 
-                # UV(...) の抽出 (オプション)
                 uv_indices = []
+                # UV(...) の抽出
                 if uv_index_start != -1:
                     uv_index_end = line.find(')', uv_index_start)
-                    
                     if uv_index_end != -1:
-                        # UV(u1 v1 u2 v2...) から "u1 v1 u2 v2..." を抽出
                         uv_str = line[uv_index_start + 3:uv_index_end].strip()
                         if uv_str:
                             uv_raw_values = uv_str.split()
-                            
-                            # 2つずつUV座標を抽出
                             try:
-                                # 新しいUV座標を tex_coords に追加し、OBJのインデックスを取得
                                 current_face_uv_indices = []
                                 for i in range(0, len(uv_raw_values), 2):
                                     u = float(uv_raw_values[i])
                                     v = float(uv_raw_values[i+1])
                                     tex_coords.append((u, v))
-                                    # OBJインデックスは1から始まるため +1
                                     current_face_uv_indices.append(len(tex_coords))
-                                
                                 uv_indices = current_face_uv_indices
                             except ValueError:
-                                uv_indices = [] # 失敗したらUVはなし
+                                pass
                 
-                # V(...) の処理
+                # V(...) の処理と面データ構築
                 if v_index_end != -1:
                     v_indices_str = line[v_index_start + 2:v_index_end].strip()
                     
                     if v_indices_str:
                         v_indices = v_indices_str.split()
-                        
                         try:
-                            # OBJは1-based indexなので、+1
                             obj_v_indices = [str(int(i) + 1) for i in v_indices]
 
-                            # 面データ (v/vt の形式で構築)
                             face_elements = []
                             for i, v_idx in enumerate(obj_v_indices):
                                 if uv_indices and i < len(uv_indices):
-                                    # v/vt 形式
                                     face_elements.append(f"{v_idx}/{uv_indices[i]}")
                                 else:
-                                    # v のみ (UVがない場合)
                                     face_elements.append(f"{v_idx}")
 
-                            faces.append(face_elements)
+                            faces.append({
+                                'elements': face_elements,
+                                'material': mat_name
+                            })
                         except ValueError:
                             continue
     
-    # --- OBJ形式の文字列を構築 ---
-    obj_output = f"# Converted from MQO by Flask App (with UV support)\n"
+    # ------------------ OBJ形式の文字列を構築 ------------------
+    obj_output = f"# Converted from MQO by Flask App (Scaled by {SCALE_FACTOR})\n"
+    # MTLファイルの参照を追加
+    obj_output += f"mtllib {base_name}.mtl\n"
     
-    # メッシュを認識させる 'o' (Object) 宣言
     obj_output += f"o {base_name}_mesh\n" 
     
-    # 頂点の出力 (v)
+    # 頂点 (v)
     obj_output += "\n# Vertices\n"
     for v in vertices:
         obj_output += f"v {v[0]:.6f} {v[1]:.6f} {v[2]:.6f}\n"
 
-    # UV座標の出力 (vt)
+    # UV座標 (vt)
     obj_output += "\n# Texture Coordinates\n"
     for uv in tex_coords:
-        # V座標を反転させる (OpenGL/BlockbenchとMQOの慣習の違いに対応することが多いが、
-        # ここではとりあえずそのまま出力。必要に応じて u, 1-v に修正する)
         obj_output += f"vt {uv[0]:.6f} {uv[1]:.6f}\n" 
 
-    # 面の出力 (f)
+    # 面 (f)
     obj_output += "\n# Faces (v/vt index)\n"
-    for f_elements in faces:
-        obj_output += f"f {' '.join(f_elements)}\n"
+    current_mat = None
+    for face in faces:
+        if face['material'] != current_mat:
+            obj_output += f"usemtl {face['material']}\n"
+            current_mat = face['material']
+        obj_output += f"f {' '.join(face['elements'])}\n"
         
-    print(f"抽出された頂点数 (v): {len(vertices)}")
-    print(f"抽出されたUV座標数 (vt): {len(tex_coords)}")
-    print(f"抽出された面数 (f): {len(faces)}")
+    # ------------------ MTL形式の文字列を構築 ------------------
+    mtl_output = f"# Material File for {base_name}.obj\n"
     
-    return obj_output
+    # MQOの材質名を使ってMTLファイルを生成 (テクスチャパスは不明なので省略)
+    for index, name in materials.items():
+        # newmtl [材質名]
+        mtl_output += f"\nnewmtl {name}\n"
+        # 拡散反射の色 (白) - Blockbenchはテクスチャがない場合、この色を使用
+        mtl_output += f"Kd 1.000 1.000 1.000\n" 
+        # 環境光の色 (白)
+        mtl_output += f"Ka 1.000 1.000 1.000\n"
+        # map_Kd (テクスチャファイル名) は不明なので省略
+
+    return obj_output, mtl_output
 
 
 
