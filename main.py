@@ -24,6 +24,11 @@ CORS(app)
 
 
 
+import os
+import math
+# from flask import Flask, render_template, request, send_file # (app.py本体でimport済み)
+from io import BytesIO
+
 def mqo_to_obj_and_mtl(mqo_content, base_name):
     """
     MQOファイルを解析し、OBJとMTL形式の文字列を返します。
@@ -33,7 +38,13 @@ def mqo_to_obj_and_mtl(mqo_content, base_name):
     # 【重要】スケールを0.005 (1/200) に設定
     SCALE_FACTOR = 0.005 
 
+    # ------------------ クリーンアップ処理 ------------------
     mqo_content = mqo_content.replace('\r\n', '\n')
+    
+    # 【最終NaN対策】すべての空白、タブ、制御文字を単一の半角スペースに置換
+    # これにより、float()変換を妨げる特殊文字が排除されます。
+    # ただし、MQOの構造 (チャンクの開始/終了) を保つため、行単位の処理の前に特殊な置換は行わない方が安全です。
+    # ここでは、元の mqo_content.split('\n') に戻します。
     
     vertices = []
     tex_coords = []
@@ -46,8 +57,7 @@ def mqo_to_obj_and_mtl(mqo_content, base_name):
     current_mat_index = 0
     mat_count = 0
     
-    # ------------------ MTLファイル作成に必要な材質情報を抽出 ------------------
-    # ... (この部分は変更なし) ...
+    # ------------------ 1. MTLファイル作成に必要な材質情報を抽出 ------------------
     for line in mqo_content.split('\n'):
         line = line.strip()
         
@@ -67,13 +77,15 @@ def mqo_to_obj_and_mtl(mqo_content, base_name):
     if not materials:
         materials[0] = "default_material"
     
-    # ------------------ OBJデータ抽出（座標縮小とNaNチェック） ------------------
+    # ------------------ 2. OBJデータ抽出（座標縮小とNaNチェック） ------------------
     
     for line in mqo_content.split('\n'):
         line = line.strip()
         
+        # 空行とコメントはスキップ
         if not line or line.startswith('#'): continue
         
+        # --- チャンクの開始/終了の検出と状態遷移 ---
         if line.startswith('vertex'):
             in_vertex_data = True
             in_face_data = False 
@@ -92,8 +104,10 @@ def mqo_to_obj_and_mtl(mqo_content, base_name):
         # 頂点データの抽出 (v)
         if in_vertex_data and len(line) > 0 and line[0].isdigit(): 
             try:
-                coords = line.split()
-                # 【NaN対策強化】coordsリストが空ではないか、要素数が3以上あるか確認
+                # ラインを空白で分割後、空の要素を完全に除去（NaN対策）
+                coords = [c for c in line.split() if c]
+                
+                # 要素が3つ以上あるか厳密にチェック
                 if len(coords) >= 3:
                     x = float(coords[0])
                     y = float(coords[1])
@@ -101,7 +115,7 @@ def mqo_to_obj_and_mtl(mqo_content, base_name):
                     
                     # 【NaN対策】非数(NaN)や無限大(Inf)でないかを確認し、有効な頂点のみ追加
                     if math.isfinite(x) and math.isfinite(y) and math.isfinite(z): 
-                         # 座標をSCALE_FACTORで自動縮小
+                         # 座標をSCALE_FACTOR (0.005) で自動縮小
                          vertices.append((x * SCALE_FACTOR, y * SCALE_FACTOR, z * SCALE_FACTOR)) 
                     
             except ValueError:
@@ -135,7 +149,8 @@ def mqo_to_obj_and_mtl(mqo_content, base_name):
                     if uv_index_end != -1:
                         uv_str = line[uv_index_start + 3:uv_index_end].strip()
                         if uv_str:
-                            uv_raw_values = uv_str.split()
+                            # 空の要素を除去しつつ、floatに変換
+                            uv_raw_values = [c for c in uv_str.split() if c]
                             try:
                                 current_face_uv_indices = []
                                 for i in range(0, len(uv_raw_values), 2):
@@ -155,7 +170,8 @@ def mqo_to_obj_and_mtl(mqo_content, base_name):
                     v_indices_str = line[v_index_start + 2:v_index_end].strip()
                     
                     if v_indices_str:
-                        v_indices = v_indices_str.split()
+                        # 空の要素を除去しつつ、intに変換
+                        v_indices = [c for c in v_indices_str.split() if c]
                         try:
                             obj_v_indices = [str(int(i) + 1) for i in v_indices]
 
@@ -173,8 +189,7 @@ def mqo_to_obj_and_mtl(mqo_content, base_name):
                         except ValueError:
                             continue
     
-    # ------------------ OBJ形式の文字列を構築 ------------------
-    # ... (この部分は変更なし) ...
+    # ------------------ 3. OBJ形式の文字列を構築 ------------------
     obj_output = f"# Converted from MQO by Flask App (Scaled by {SCALE_FACTOR})\n"
     obj_output += f"mtllib {base_name}.mtl\n"
     obj_output += f"o {base_name}_mesh\n" 
@@ -195,8 +210,7 @@ def mqo_to_obj_and_mtl(mqo_content, base_name):
             current_mat = face['material']
         obj_output += f"f {' '.join(face['elements'])}\n"
         
-    # ------------------ MTL形式の文字列を構築 ------------------
-    # ... (この部分は変更なし) ...
+    # ------------------ 4. MTL形式の文字列を構築 ------------------
     mtl_output = f"# Material File for {base_name}.obj\n"
     
     for index, name in materials.items():
@@ -205,7 +219,6 @@ def mqo_to_obj_and_mtl(mqo_content, base_name):
         mtl_output += f"Ka 1.000 1.000 1.000\n"
 
     return obj_output, mtl_output
-
 
 
 
