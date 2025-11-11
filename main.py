@@ -68,9 +68,13 @@ def analyze_wasm_module(wasm_data: bytes) -> dict:
             analysis_result["imports"].append(imp_name)
 
         # 4. Export情報の抽出 (外部から呼び出し可能なロジックの手がかり)
-        for exp in module.exports:
-            # エクスポートされる型 (関数、メモリなど) も含めてリスト化
-            exp_kind = str(exp.type.kind).split('.')[-1]
+for exp in module.exports:
+            # exp.typeのクラス名（例: <class 'wasmtime._store.FuncType'>）から 'Func' や 'Memory' を抽出
+            type_name = type(exp.type).__name__.replace('Type', '')
+            
+            # Wasmtimeの型オブジェクトの構造に合わせて、kindがない場合でも安全に処理
+            exp_kind = str(type_name)
+            
             analysis_result["exports"].append(f"{exp.name} ({exp_kind})")
 
         # 5. データセクションの確認 (初期データ/文字列の手がかり)
