@@ -44,8 +44,10 @@ def analyze_wasm_module(wasm_data: bytes) -> dict:
     try:
         # 1. wasmtimeでモジュールをロード（解析）
         # モジュールをメモリにデシリアライズして操作
-        module = wasmtime.Module.from_binary(wasm_data)
+        engine = wasmtime.Engine()
+        store = wasmtime.Store(engine)
         
+        module = wasmtime.Module(store.engine, wasm_data)
         # 2. Import情報の抽出
         for imp in module.imports:
             imp_name = f"{imp.module_name}.{imp.name}"
