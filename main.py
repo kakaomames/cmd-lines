@@ -1,5 +1,6 @@
 from flask import Flask, request, render_template_string, render_template, send_file,redirect, url_for, jsonify, Response, send_from_directory # 正しい順序に並べ替えてもOK
 import subprocess
+import wasmtime
 import os
 import io
 from urllib.parse import urljoin, urlparse
@@ -21,10 +22,85 @@ CORS(app)
 
 #### # HTML始め‼️‼️!.!,?
 
+# ----------------------------------------------------
+# 1-1. Wasm解析ロジック (コア部分)
+# ----------------------------------------------------
+
+def analyze_wasm_module(wasm_data: bytes) -> dict:
+    """
+    Wasmバイナリデータを解析し、Import情報とCustomセクションを抽出し、言語を推測する。
+    """
+    
+    # 解析結果を格納する辞書
+    analysis_result = {
+        "status": "failure",
+        "language_guess": "Unknown",
+        "imports": [],
+        "custom_sections": [],
+        "error": None
+    }
+    
+    try:
+        # 1. wasmtimeでモジュールをロード（解析）
+        # モジュールをメモリにデシリアライズして操作
+        module = wasmtime.Module.deserialize(wasm_data)
+        
+        # 2. Import情報の抽出
+        for imp in module.imports:
+            imp_name = f"{imp.module_name}.{imp.name}"
+            analysis_result["imports"].append(imp_name)
+        
+        # 3. 言語の推測ロジック (Import関数名による判定)
+        imports_text = " ".join(analysis_result["imports"])
+        
+        if "__wbindgen_" in imports_text or "rust_begin_panic" in imports_text:
+            analysis_result["language_guess"] = "Rust (wasm-bindgen)"
+        elif "emscripten_" in imports_text or "_sbrk" in imports_text:
+            analysis_result["language_guess"] = "C/C++ (Emscripten)"
+        elif "syscall/js" in imports_text or "runtime." in imports_text:
+            analysis_result["language_guess"] = "Go (TinyGo)"
+        else:
+            analysis_result["language_guess"] = "Native or Generic WASM (C/C++/Rustの可能性あり)"
+
+        # 成功ステータスに更新
+        analysis_result["status"] = "success"
+
+        # Importが多すぎる場合は一部を省略して可読性を確保
+        if len(analysis_result["imports"]) > 50:
+            analysis_result["imports"] = analysis_result["imports"][:50]
+            analysis_result["imports_truncated"] = True
+
+        return analysis_result
+
+    except wasmtime.WasmtimeError as e:
+        analysis_result["error"] = f"Wasmtimeによる解析エラー (Wasmファイルが不正な可能性があります): {e}"
+        return analysis_result
+    except Exception as e:
+        analysis_result["error"] = f"予期せぬエラー: {e}"
+        return analysis_result
+
+# ----------------------------------------------------
+# 1-2. URLからのWasm取得機能
+# ----------------------------------------------------
+
+def fetch_wasm_from_url(url):
+    """URLからWasmバイナリを取得する関数"""
+    try:
+        # タイムアウトを設定し、リクエスト
+        response = requests.get(url, timeout=10)
+        # 200番台以外のステータスコードなら例外を発生
+        response.raise_for_status() 
+        
+        # バイナリデータとして返す
+        return response.content
+        
+    except requests.exceptions.RequestException as e:
+        # リクエストエラー (接続失敗、タイムアウト、4xx/5xxエラーなど)
+        return {"error": f"URLからのファイル取得中にエラーが発生しました: {e}"}
+     
 
 
-
-# app.py の mqo_to_obj_and_mtl 関数全体を、以下のように修正してください。
+# app.py の mqo_to_obj_and_mtl 関数
 
 def mqo_to_obj_and_mtl(mqo_content, base_name):
     """
@@ -1780,8 +1856,85 @@ def mqo_converter():
 
     return render_template('mqo.html')
     
+# Wasmファイルアップロード用画面
+@app.route('/wasm', methods=['GET'])
+def wasm_upload_form():
+    """Wasmファイルのアップロード/URL指定フォームを表示する"""
+    html_form = """
+    <!DOCTYPE html>
+    <html lang="ja">
+    <head>
+        <meta charset="UTF-8">
+        <title>Wasm言語解析ツール</title>
+        <style>body { font-family: sans-serif; }</style>
+    </head>
+    <body>
+        <h1>Wasm言語解析ツール 🔍</h1>
+        <p>Wasmバイナリをアップロードするか、URLを指定して、元の言語候補を推測します。</p>
+        
+        <h2>ファイルアップロード (POST /analyze)</h2>
+        <form method="POST" action="/analyze" enctype="multipart/form-data">
+            <input type="file" name="file" accept=".wasm" required>
+            <input type="submit" value="解析開始 (ファイル)">
+        </form>
+        
+        <hr>
+        
+        <h2>URL指定 (GET /analyze?link=...)</h2>
+        <form method="GET" action="/analyze">
+            <input type="url" name="link" placeholder="WasmファイルのURLを入力" required style="width: 300px;">
+            <input type="submit" value="解析開始 (URL)">
+        </form>
+        
+        <p>結果はJSON形式で表示されます。</p>
+    </body>
+    </html>
+    """
+    return render_template_string(html_form)
 
+
+# 解析エンドポイント：GET (URL) と POST (ファイル) に対応
+@app.route('/analyze', methods=['GET', 'POST'])
+def analyze():
+    wasm_data = None
+    
+    # 1. GETリクエストの処理 (?link=URL の場合)
+    if request.method == 'GET':
+        url = request.args.get('link')
+        if not url:
+            return jsonify({"error": "GETリクエストの場合、?link=URL パラメータが必要です。"}), 400
+        
+        data_or_error = fetch_wasm_from_url(url)
+        if isinstance(data_or_error, dict) and 'error' in data_or_error:
+            # URL取得エラー
+            return jsonify(data_or_error), 400
+        
+        wasm_data = data_or_error
+        
+    # 2. POSTリクエストの処理 (ファイルアップロードの場合)
+    elif request.method == 'POST':
+        if 'file' not in request.files or request.files['file'].filename == '':
+            return jsonify({"error": "ファイルがアップロードされていません。"}), 400
+            
+        file = request.files['file']
+        # ファイルの内容をバイナリデータとして読み込む
+        wasm_data = file.read()
+    
+    # 3. Wasmデータの解析
+    if wasm_data:
+        # Wasm解析ロジックの呼び出し
+        analysis_result = analyze_wasm_module(wasm_data)
+        
+        # データの追加情報
+        analysis_result["source_type"] = "URL" if request.method == 'GET' else "File Upload"
+        analysis_result["size_bytes"] = len(wasm_data)
+        
+        # 結果をJSONで返却
+        return jsonify(analysis_result)
+        
+    return jsonify({"error": "処理できないリクエスト、またはデータが空です。"}), 400
+    
 
 if __name__ == '__main__':
-    # デバッグモードは開発用です。本番環境では絶対に有効にしないでください。
+    print(" デバッグモードは開発用です。本番環境では絶対に有効にしないでください。")
     app.run(debug=True, host='0.0.0.0', port=5000)
