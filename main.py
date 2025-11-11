@@ -42,18 +42,25 @@ def analyze_wasm_module(wasm_data: bytes) -> dict:
     }
     
     try:
-        # 1. wasmtimeでモジュールをロード（解析）
-        # モジュールをメモリにデシリアライズして操作
+        # 1. StoreオブジェクトとEngineを作成
         engine = wasmtime.Engine()
         store = wasmtime.Store(engine)
         
-        module = wasmtime.Module(store.engine, wasm_data)
-        # 2. Import情報の抽出
+        # 2. wasmtimeでモジュールをロード（解析）
+        # 生のバイナリデータからモジュールを作成する、汎用的な方法
+        module = wasmtime.Module(store.engine, wasm_data) 
+        
+        # 3. Import情報の抽出
+        analysis_result["imports"] = []
         for imp in module.imports:
-            imp_name = f"{imp.module_name}.{imp.name}"
+            # ★修正済み: module_name/name属性の有無をチェックし、エラーを回避★
+            module_name = getattr(imp, 'module_name', getattr(imp, 'module', ''))
+            func_name = getattr(imp, 'name', '')
+            
+            imp_name = f"{module_name}.{func_name}"
             analysis_result["imports"].append(imp_name)
         
-        # 3. 言語の推測ロジック (Import関数名による判定)
+        # 4. 言語の推測ロジック (Import関数名による判定)
         imports_text = " ".join(analysis_result["imports"])
         
         if "__wbindgen_" in imports_text or "rust_begin_panic" in imports_text:
@@ -79,20 +86,26 @@ def analyze_wasm_module(wasm_data: bytes) -> dict:
         analysis_result["error"] = f"Wasmtimeによる解析エラー (Wasmファイルが不正な可能性があります): {e}"
         return analysis_result
     except Exception as e:
+        # 予期せぬエラーの場合、エラーメッセージを出力
         analysis_result["error"] = f"予期せぬエラー: {e}"
         return analysis_result
 
 # ----------------------------------------------------
-# 1-2. URLからのWasm取得機能
+# 2. URLからのWasm取得機能
 # ----------------------------------------------------
 
 def fetch_wasm_from_url(url):
     """URLからWasmバイナリを取得する関数"""
     try:
         # タイムアウトを設定し、リクエスト
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, timeout=15) # タイムアウトを少し長めに設定
         # 200番台以外のステータスコードなら例外を発生
         response.raise_for_status() 
+        
+        # Content-TypeがWASMでない場合も一応チェック
+        content_type = response.headers.get('Content-Type', '')
+        if 'wasm' not in content_type and 'octet-stream' not in content_type:
+             return {"error": f"Content-TypeがWasmではありません: {content_type}"}
         
         # バイナリデータとして返す
         return response.content
@@ -100,6 +113,8 @@ def fetch_wasm_from_url(url):
     except requests.exceptions.RequestException as e:
         # リクエストエラー (接続失敗、タイムアウト、4xx/5xxエラーなど)
         return {"error": f"URLからのファイル取得中にエラーが発生しました: {e}"}
+
+
      
 
 
@@ -1862,7 +1877,7 @@ def mqo_converter():
 # Wasmファイルアップロード用画面
 @app.route('/wasm', methods=['GET'])
 def wasm_upload_form():
-    """Wasmファイルのアップロード/URL指定フォームを表示する"""
+    """Wasmファイルのアップロード/URL指定フォームを表示する (簡易HTML)"""
     html_form = """
     <!DOCTYPE html>
     <html lang="ja">
@@ -1920,7 +1935,6 @@ def analyze():
             return jsonify({"error": "ファイルがアップロードされていません。"}), 400
             
         file = request.files['file']
-        # ファイルの内容をバイナリデータとして読み込む
         wasm_data = file.read()
     
     # 3. Wasmデータの解析
@@ -1935,7 +1949,7 @@ def analyze():
         # 結果をJSONで返却
         return jsonify(analysis_result)
         
-    return jsonify({"error": "処理できないリクエスト、またはデータが空です。"}), 400
+    return jsonify({"error": "処理できないリクエストです。"}), 400
     
 
 if __name__ == '__main__':
