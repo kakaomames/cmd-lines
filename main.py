@@ -21,7 +21,8 @@ app = Flask(__name__)
 CORS(app)
 
 #### # HTML始め‼️‼️!.!..?
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
+app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024
+print("aaaaaaa")
 # ----------------------------------------------------
 # 1-1. Wasm解析ロジック (コア部分)
 # ----------------------------------------------------
@@ -43,7 +44,7 @@ def analyze_wasm_module(wasm_data: bytes) -> dict:
     try:
         # 1. wasmtimeでモジュールをロード（解析）
         # モジュールをメモリにデシリアライズして操作
-        module = wasmtime.Module.deserialize(wasm_data)
+        module = wasmtime.Module.from_binary(wasm_data)
         
         # 2. Import情報の抽出
         for imp in module.imports:
