@@ -29,6 +29,8 @@ print("aaaaaaa")
 
 
 
+import wasmtime
+
 def analyze_wasm_module(wasm_data: bytes) -> dict:
     """
     Wasmバイナリデータを解析し、Import情報、Export情報、Customセクションを抽出し、言語を推測する。
@@ -44,9 +46,9 @@ def analyze_wasm_module(wasm_data: bytes) -> dict:
         "status": "failure",
         "language_guess": "Unknown",
         "imports": [],
-        "exports": [],          # ★新規追加★
-        "custom_sections": [],  # (wasmtimeでは直接コンテンツ抽出が難しいため、存在情報のみ)
-        "has_data_segments": False, # ★新規追加★
+        "exports": [],          
+        "custom_sections": [],  
+        "has_data_segments": False, 
         "error": None
     }
     
@@ -60,7 +62,7 @@ def analyze_wasm_module(wasm_data: bytes) -> dict:
         
         # 3. Import情報の抽出 (言語推測の主要な手がかり)
         for imp in module.imports:
-            # module_name/name属性の有無をチェックし、エラーを回避
+            # 互換性確保のため、module_name/module属性の有無をチェック
             module_name = getattr(imp, 'module_name', getattr(imp, 'module', ''))
             func_name = getattr(imp, 'name', '')
             
@@ -68,23 +70,17 @@ def analyze_wasm_module(wasm_data: bytes) -> dict:
             analysis_result["imports"].append(imp_name)
 
         # 4. Export情報の抽出 (外部から呼び出し可能なロジックの手がかり)
-for exp in module.exports:
-            # exp.typeのクラス名（例: <class 'wasmtime._store.FuncType'>）から 'Func' や 'Memory' を抽出
+        for exp in module.exports:
+            # ★修正済み: exp.typeのクラス名から型名を安全に抽出 ('MemoryType' object has no attribute 'kind'を回避)
             type_name = type(exp.type).__name__.replace('Type', '')
             
-            # Wasmtimeの型オブジェクトの構造に合わせて、kindがない場合でも安全に処理
             exp_kind = str(type_name)
             
             analysis_result["exports"].append(f"{exp.name} ({exp_kind})")
 
         # 5. データセクションの確認 (初期データ/文字列の手がかり)
-        # wasmtimeではデータセクションのコンテンツ抽出は複雑なため、存在確認のみ
-        # wasmtime.Module.data_count() のようなAPIがあればそれを使いますが、
-        # ない場合はメモリセクションの存在で間接的に確認します。
-        
-        # メモリセクションが存在すれば、通常データセクションも存在します
-        if any(e.type.kind.name == 'memory' for e in module.exports):
-             analysis_result["has_data_segments"] = True
+        # ExportされたアイテムにMemoryが存在するかどうかで、間接的にデータセクションの存在を推測
+        analysis_result["has_data_segments"] = any(type(e.type).__name__.startswith('Memory') for e in module.exports)
 
 
         # 6. 言語の推測ロジック (Import関数名による判定)
