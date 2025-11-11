@@ -27,17 +27,26 @@ print("aaaaaaa")
 # 1-1. Wasm解析ロジック (コア部分)
 # ----------------------------------------------------
 
+
+
 def analyze_wasm_module(wasm_data: bytes) -> dict:
     """
-    Wasmバイナリデータを解析し、Import情報とCustomセクションを抽出し、言語を推測する。
+    Wasmバイナリデータを解析し、Import情報、Export情報、Customセクションを抽出し、言語を推測する。
+    
+    Args:
+        wasm_data (bytes): Wasmバイナリデータ
+        
+    Returns:
+        dict: 解析結果
     """
     
-    # 解析結果を格納する辞書
     analysis_result = {
         "status": "failure",
         "language_guess": "Unknown",
         "imports": [],
-        "custom_sections": [],
+        "exports": [],          # ★新規追加★
+        "custom_sections": [],  # (wasmtimeでは直接コンテンツ抽出が難しいため、存在情報のみ)
+        "has_data_segments": False, # ★新規追加★
         "error": None
     }
     
@@ -46,21 +55,35 @@ def analyze_wasm_module(wasm_data: bytes) -> dict:
         engine = wasmtime.Engine()
         store = wasmtime.Store(engine)
         
-        # 2. wasmtimeでモジュールをロード（解析）
-        # 生のバイナリデータからモジュールを作成する、汎用的な方法
+        # 2. Wasmバイナリからモジュールをロード（解析）
         module = wasmtime.Module(store.engine, wasm_data) 
         
-        # 3. Import情報の抽出
-        analysis_result["imports"] = []
+        # 3. Import情報の抽出 (言語推測の主要な手がかり)
         for imp in module.imports:
-            # ★修正済み: module_name/name属性の有無をチェックし、エラーを回避★
+            # module_name/name属性の有無をチェックし、エラーを回避
             module_name = getattr(imp, 'module_name', getattr(imp, 'module', ''))
             func_name = getattr(imp, 'name', '')
             
             imp_name = f"{module_name}.{func_name}"
             analysis_result["imports"].append(imp_name)
+
+        # 4. Export情報の抽出 (外部から呼び出し可能なロジックの手がかり)
+        for exp in module.exports:
+            # エクスポートされる型 (関数、メモリなど) も含めてリスト化
+            exp_kind = str(exp.type.kind).split('.')[-1]
+            analysis_result["exports"].append(f"{exp.name} ({exp_kind})")
+
+        # 5. データセクションの確認 (初期データ/文字列の手がかり)
+        # wasmtimeではデータセクションのコンテンツ抽出は複雑なため、存在確認のみ
+        # wasmtime.Module.data_count() のようなAPIがあればそれを使いますが、
+        # ない場合はメモリセクションの存在で間接的に確認します。
         
-        # 4. 言語の推測ロジック (Import関数名による判定)
+        # メモリセクションが存在すれば、通常データセクションも存在します
+        if any(e.type.kind.name == 'memory' for e in module.exports):
+             analysis_result["has_data_segments"] = True
+
+
+        # 6. 言語の推測ロジック (Import関数名による判定)
         imports_text = " ".join(analysis_result["imports"])
         
         if "__wbindgen_" in imports_text or "rust_begin_panic" in imports_text:
@@ -75,10 +98,14 @@ def analyze_wasm_module(wasm_data: bytes) -> dict:
         # 成功ステータスに更新
         analysis_result["status"] = "success"
 
-        # Importが多すぎる場合は一部を省略して可読性を確保
+        # Import/Exportが多すぎる場合は一部を省略
         if len(analysis_result["imports"]) > 50:
             analysis_result["imports"] = analysis_result["imports"][:50]
             analysis_result["imports_truncated"] = True
+            
+        if len(analysis_result["exports"]) > 50:
+            analysis_result["exports"] = analysis_result["exports"][:50]
+            analysis_result["exports_truncated"] = True
 
         return analysis_result
 
