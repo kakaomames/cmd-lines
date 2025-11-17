@@ -15,14 +15,44 @@ from urllib.parse import urlparse
 from flask_cors import CORS
 import math
  
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN") # Vercelの環境変数で設定
+GITHUB_OWNER = "kakaomames"        # あなたのGitHubユーザー名
+GITHUB_REPO = "backup"            # データ保存用のリポジトリ名
+GAME_FOLDER = "pokeque"
 
 app = Flask(__name__)
 # CORS許可
 CORS(app)
 
+GITHUB_BASE_URL = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/"
+HEADERS = {
+    "Authorization": f"token {GITHUB_TOKEN}",
+    "Accept": "application/vnd.github.v3+json"
+}
+
 #### # HTML始め‼️‼️!.!..?
 app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024
 print("aaaaaaa")
+
+
+
+def _get_github_api_url(username: str) -> str:
+    """ユーザー名に基づいて完全なGitHub API URLを生成する"""
+    # 目的のパス: pokeque/{username}/save.json
+    content_path = f"{GAME_FOLDER}/{username}/save.json"
+    return GITHUB_BASE_URL + content_path
+
+def _get_content_info(github_url: str) -> Union[Dict[str, Any], None]:
+    """ファイルの現在のSHAを取得する"""
+    response = requests.get(github_url, headers=HEADERS)
+    if response.status_code == 200:
+        return response.json()
+    elif response.status_code == 404:
+        return None # ファイルが存在しない
+    else:
+        response.raise_for_status()
+        return None
+     
 # ----------------------------------------------------
 # 1-1. Wasm解析ロジック (コア部分)
 # ----------------------------------------------------
@@ -1977,7 +2007,75 @@ def analyze():
         return jsonify(analysis_result)
         
     return jsonify({"error": "処理できないリクエストです。"}), 400
+
+
+    # --- データをロードするAPI ---
+@app.route('/api/load_backup/<string:username>', methods=['GET'])
+def load_backup(username):
+    """GitHubからセーブデータを取得し、返すAPI"""
+    github_url = _get_github_api_url(username)
+    print(f"API: load_backup for user {username}")
+
+    try:
+        content_info = _get_content_info(github_url)
+        
+        if content_info is None:
+            # ファイルが存在しない場合は、新規作成として空のデータを返す
+            return jsonify({"status": "success", "data": {}, "message": f"New save file created for {username}."}), 200
+        
+        # Base64デコード
+        encoded_content = content_info['content']
+        decoded_content = base64.b64decode(encoded_content).decode('utf-8')
+        save_data = json.loads(decoded_content)
+        
+        return jsonify({"status": "success", "data": save_data}), 200
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error loading backup: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# --- データを保存するAPI ---
+@app.route('/api/save_backup/<string:username>', methods=['POST'])
+def save_backup(username):
+    """フロントエンドからセーブデータを受け取り、GitHubにコミットするAPI"""
+    github_url = _get_github_api_url(username)
+    print(f"API: save_backup for user {username}")
     
+    data_to_save = request.json.get('save_data', {})
+    
+    # 1. データをJSON化し、Base64エンコード
+    # 📝 バックスラッシュを含むJSON記号はそのままにして欲しいという要望を尊重
+    json_data = json.dumps(data_to_save, indent=2, ensure_ascii=False) 
+    encoded_content = base64.b64encode(json_data.encode('utf-8')).decode('utf-8')
+
+    # 2. 現在のファイルのSHAを取得 (更新に必要なため)
+    current_sha = None
+    try:
+        content_info = _get_content_info(github_url)
+        if content_info:
+            current_sha = content_info.get('sha')
+    except requests.exceptions.RequestException as e:
+        return jsonify({"status": "error", "message": "Failed to check existing file."}), 500
+
+    # 3. GitHub Contents APIへのペイロードを作成
+    payload = {
+        "message": f"Backup save data for user {username} (from Vercel API)",
+        "content": encoded_content,
+        "sha": current_sha # 更新の場合は必須
+    }
+
+    # 4. GitHubにPUTリクエストでコミット
+    try:
+        response = requests.put(github_url, headers=HEADERS, data=json.dumps(payload))
+        response.raise_for_status() 
+        
+        return jsonify({"status": "success", "message": f"Backup successful for {username}!"}), 200
+    
+    except requests.exceptions.RequestException as e:
+        print(f"Error saving backup: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 
 if __name__ == '__main__':
     print(" デバッグモードは開発用です。本番環境では絶対に有効にしないでください。")
