@@ -21,10 +21,12 @@ GITHUB_OWNER = "kakaomames"        # あなたのGitHubユーザー名
 GITHUB_REPO = "backup"            # データ保存用のリポジトリ名
 GAME_FOLDER = "pokeque"
 
+
+
+app = Flask(__name__)
 app.config['SECRET_KEY'] = 'SECRET_KEY_TEST'
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-app = Flask(__name__)
 # CORS許可
 CORS(app)
 
