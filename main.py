@@ -2116,4 +2116,4 @@ def handle_chat_message(data):
 
 if __name__ == '__main__':
     print(" デバッグモードは開発用です。本番環境では絶対に有効にしないでください。")
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    socketio.run(app, debug=True, host='0.0.0.0', port=5000)
