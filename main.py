@@ -1,4 +1,5 @@
 from flask import Flask, request, render_template_string, render_template, send_file,redirect, url_for, jsonify, Response, send_from_directory # 正しい順序に並べ替えてもOK
+from flask_socketio import SocketIO, emit, join_room, leave_room
 import subprocess
 import wasmtime
 import os
@@ -19,6 +20,9 @@ GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN") # Vercelの環境変数で設定
 GITHUB_OWNER = "kakaomames"        # あなたのGitHubユーザー名
 GITHUB_REPO = "backup"            # データ保存用のリポジトリ名
 GAME_FOLDER = "pokeque"
+
+app.config['SECRET_KEY'] = 'SECRET_KEY_TEST'
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 app = Flask(__name__)
 # CORS許可
@@ -2074,6 +2078,39 @@ def save_backup(username):
     except requests.exceptions.RequestException as e:
         print(f"Error saving backup: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
+# ----------------------------------------------------------------------
+# 3. SocketIO (WebSocket) イベントハンドラ
+# ----------------------------------------------------------------------
+
+# クライアントが接続したときのイベント
+@socketio.on('connect')
+def handle_connect():
+    print('Client connected:', request.sid)
+    # ここで接続ユーザーに「ようこそ」メッセージなどを送信できます
+    # emit('system_message', {'data': 'Welcome!'}, room=request.sid)
+
+# クライアントが切断したときのイベント
+@socketio.on('disconnect')
+def handle_disconnect():
+    print('Client disconnected:', request.sid)
+
+# 'send_message' という名前のカスタムイベントを受信したときのイベント
+# TurboWarpのJS拡張機能側から、このイベント名でデータを送ります。
+@socketio.on('send_message')
+def handle_chat_message(data):
+    # data はクライアントから送られてきた辞書型データ（例: {'user': 'カカオマメ', 'text': 'Hello'}）
+    
+    # Pythonのコンソールに出力して確認
+    user = data.get('user', 'Unknown')
+    text = data.get('text', 'No Text')
+    print(f"[{user}]: {text}")
+    
+    # 受け取ったメッセージを、接続している他の全てのクライアントにブロードキャスト（送信）する
+    # 'new_message' というイベント名で、元のデータを送信します。
+    # この 'new_message' をTurboWarp側で受け取ります。
+    socketio.emit('new_message', data, broadcast=True)
 
 
 
