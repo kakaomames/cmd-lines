@@ -2114,6 +2114,97 @@ def handle_chat_message(data):
     # この 'new_message' をTurboWarp側で受け取ります。
     socketio.emit('new_message', data, broadcast=True)
 
+# --- データ取得元APIの情報 ---
+EXTERNAL_API_URL = 'https://go-friend.com/wp-content/themes/simplicity2-child/map/map_json.php'
+# 認証クッキーのテンプレート（ユーザーからpm_idを受け取って変更する）
+COOKIE_TEMPLATE = 'PHPSESSID=test_session_id; pmu_id={pm_id}'
+# --- ---------------------- ---
+
+@app.route('/api/data', methods=['GET', 'POST'])
+def proxy_data():
+    """
+    外部APIにアクセスし、その応答をそのままクライアントに返すプロキシエンドポイント。
+    パラメータ: lat, lng, id, pmu_id, v (version)
+    """
+    
+    # ユーザーからのリクエストがGETでもPOSTでも対応できるように request.values を使用
+    params = request.values
+    
+    # 必須パラメータの取得とデフォルト値の設定
+    pm_id = params.get('pmu_id', '4826388')  # 変更 (デフォルト値として以前解析で得たIDを使用)
+    spot_id = params.get('id', '123456')    # 変更 (デフォルト値として以前解析で得たIDを使用)
+    version = params.get('v', '433')        # 変更 (以前解析で得たバージョンを使用)
+    
+    # --- 1. 外部APIへ送るPOSTデータの準備 ---
+    
+    # type=dataget、id、versionをPOSTデータとしてエンコード
+    # (緯度経度パラメーターは無視し、スポット詳細取得リクエストをシミュレート)
+    external_data = {
+        'type': 'dataget',
+        'id': spot_id,
+        'version': version
+    }
+    encoded_data = urllib.parse.urlencode(external_data).encode('utf-8')
+    print(f"encoded_data:{encoded_data}") # 値を出力
+    
+    # --- 2. 認証クッキーの準備 ---
+    
+    cookie_header = COOKIE_TEMPLATE.format(pm_id=pm_id)
+    print(f"cookie_header:{cookie_header}") # 値を出力
+    
+    # --- 3. 外部APIへのリクエスト実行（urllib.requestを使用） ---
+    
+    try:
+        # HTTPリクエストヘッダーの設定
+        headers = {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Cookie': cookie_header,
+            'User-Agent': 'Mozilla/5.0 (Custom Flask Proxy)', # ユーザーエージェントを設定
+            'Content-Length': len(encoded_data)
+        }
+        print(f"headers:{headers}") # 値を出力
+        
+        # リクエストオブジェクトの生成
+        req = urllib.request.Request(
+            url=EXTERNAL_API_URL, 
+            data=encoded_data, 
+            headers=headers, 
+            method='POST'
+        )
+        print(f"req:{req}") # 値を出力
+        
+        # リクエストの実行と応答の取得
+        with urllib.request.urlopen(req) as response:
+            external_response_data = response.read()
+            # print(f"external_response_data:{external_response_data}") # デバッグ用
+            
+            # 応答のステータスコードを取得
+            status_code = response.getcode()
+            print(f"status_code:{status_code}") # 値を出力
+            
+            # コンテンツタイプを取得
+            content_type = response.info().get('Content-Type')
+            print(f"content_type:{content_type}") # 値を出力
+            
+            # --- 4. 応答をそのままクライアントに返す ---
+            
+            # JSONエンコードせず、取得したバイトデータをそのまま返す
+            # Content-Typeを外部APIのものに合わせる
+            return Response(
+                external_response_data, 
+                status=status_code, 
+                content_type=content_type
+            )
+
+    except urllib.error.URLError as e:
+        error_message = f"外部APIアクセスエラー: {e.reason}"
+        print(f"error_message:{error_message}") # 値を出力
+        return Response(json.dumps({"error": error_message}), status=500, content_type='application/json')
+    except Exception as e:
+        error_message = f"予期せぬエラー: {str(e)}"
+        print(f"error_message:{error_message}") # 値を出力
+        return Response(json.dumps({"error": error_message}), status=500, content_type='application/json')
+
 
 
 if __name__ == '__main__':
