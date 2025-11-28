@@ -2114,82 +2114,133 @@ def handle_chat_message(data):
     # この 'new_message' をTurboWarp側で受け取ります。
     socketio.emit('new_message', data, broadcast=True)
 
+from flask import Flask, request, Response
+import urllib.request
+import urllib.parse
+import json
+
+app = Flask(__name__)
+
 # --- データ取得元APIの情報 ---
 EXTERNAL_API_URL = 'https://go-friend.com/wp-content/themes/simplicity2-child/map/map_json.php'
-# 認証クッキーのテンプレート（ユーザーからpm_idを受け取って変更する）
+# 認証クッキーのテンプレート
 COOKIE_TEMPLATE = 'PHPSESSID=test_session_id; pmu_id={pm_id}'
 # --- ---------------------- ---
 
-@app.route('/api/data', methods=['GET', 'POST'])
-def proxy_data():
+# ズームレベルに応じた緯度・経度の「変化量」を定義（簡易的な計算）
+# ズームが小さいほど（遠景）、範囲が広くなる。
+ZOOM_DELTA = {
+    12: 0.2,   # 広範囲
+    13: 0.1,
+    14: 0.05,
+    15: 0.02,   # 標準的な範囲
+    16: 0.01,
+    17: 0.005,  # 狭い範囲
+    18: 0.002
+}
+
+def calculate_bounds(lat, lng, zoom):
     """
-    外部APIにアクセスし、その応答をそのままクライアントに返すプロキシエンドポイント。
-    パラメータ: lat, lng, id, pmu_id, v (version)
+    中心座標とズームレベルから、簡易的な境界ボックス座標を計算する。
     """
+    # ズームレベルに対応する変化量を取得。デフォルトは15の時の値を使用
+    delta = ZOOM_DELTA.get(zoom, ZOOM_DELTA[15])
+    print(f"delta:{delta}") # 値を出力
+
+    # 南西 (SW) の座標
+    maxswla = lat - delta
+    maxswln = lng - delta
+
+    # 北東 (NE) の座標
+    maxnela = lat + delta
+    maxneln = lng + delta
     
-    # ユーザーからのリクエストがGETでもPOSTでも対応できるように request.values を使用
-    params = request.values
+    # 計算結果を辞書で返す
+    bounds = {
+        'maxswla': maxswla,
+        'maxswln': maxswln,
+        'maxnela': maxnela,
+        'maxneln': maxneln
+    }
+    print(f"calculated_bounds:{bounds}") # 値を出力
+    return bounds
+
+
+@app.route('/api/listget', methods=['GET'])
+def proxy_listget():
+    """
+    中心座標(lat, lng)とズームレベル(zoom)を受け取り、
+    リスト取得(type=listget)リクエストを実行するプロキシエンドポイント。
+    """
+    params = request.args # GETリクエストのクエリパラメータを取得
+
+    # --- 1. ユーザーからの必須パラメータの取得 ---
     
-    # 必須パラメータの取得とデフォルト値の設定
-    pm_id = params.get('pmu_id', '4826388')  # 変更 (デフォルト値として以前解析で得たIDを使用)
-    spot_id = params.get('id', '123456')    # 変更 (デフォルト値として以前解析で得たIDを使用)
-    version = params.get('v', '433')        # 変更 (以前解析で得たバージョンを使用)
+    try:
+        center_lat = float(params.get('lat'))
+        center_lng = float(params.get('lng'))
+        zoom_level = int(params.get('zoom', 15)) # zoomがなければデフォルト15
+    except (TypeError, ValueError):
+        return Response(
+            json.dumps({"error": "必須パラメータ(lat, lng, zoom)が不正です。"}), 
+            status=400, 
+            content_type='application/json'
+        )
+
+    # 認証情報の設定 (ユーザーIDはデフォルト値またはパラメータから取得)
+    pm_id = params.get('pmu_id', '4826388')
+    version = params.get('v', '433')
     
-    # --- 1. 外部APIへ送るPOSTデータの準備 ---
+    print(f"center_lat:{center_lat}") # 値を出力
+    print(f"center_lng:{center_lng}") # 値を出力
+    print(f"zoom_level:{zoom_level}") # 値を出力
+
+
+    # --- 2. 境界ボックスの計算 ---
     
-    # type=dataget、id、versionをPOSTデータとしてエンコード
-    # (緯度経度パラメーターは無視し、スポット詳細取得リクエストをシミュレート)
+    bounds = calculate_bounds(center_lat, center_lng, zoom_level)
+
+    # --- 3. 外部APIへ送るPOSTデータの準備 ---
+    
+    # listgetに必要な全てのパラメータを結合
     external_data = {
-        'type': 'dataget',
-        'id': spot_id,
-        'version': version
+        'type': 'listget',
+        'zoom': zoom_level,
+        'version': version,
+        'pmu_id': pm_id,
+        # 計算された境界ボックスの座標を追加
+        **bounds 
+        # ここにフィルタリング情報（pm_typeのON/OFFなど）が追加される
     }
     encoded_data = urllib.parse.urlencode(external_data).encode('utf-8')
     print(f"encoded_data:{encoded_data}") # 値を出力
     
-    # --- 2. 認証クッキーの準備 ---
+    # --- 4. 外部APIへのリクエスト実行（urllib.requestを使用） ---
     
     cookie_header = COOKIE_TEMPLATE.format(pm_id=pm_id)
     print(f"cookie_header:{cookie_header}") # 値を出力
     
-    # --- 3. 外部APIへのリクエスト実行（urllib.requestを使用） ---
-    
     try:
-        # HTTPリクエストヘッダーの設定
         headers = {
             'Content-Type': 'application/x-www-form-urlencoded',
             'Cookie': cookie_header,
-            'User-Agent': 'Mozilla/5.0 (Custom Flask Proxy)', # ユーザーエージェントを設定
+            'User-Agent': 'Mozilla/5.0 (Custom Flask Proxy)',
             'Content-Length': len(encoded_data)
         }
-        print(f"headers:{headers}") # 値を出力
         
-        # リクエストオブジェクトの生成
         req = urllib.request.Request(
             url=EXTERNAL_API_URL, 
             data=encoded_data, 
             headers=headers, 
             method='POST'
         )
-        print(f"req:{req}") # 値を出力
         
-        # リクエストの実行と応答の取得
         with urllib.request.urlopen(req) as response:
             external_response_data = response.read()
-            # print(f"external_response_data:{external_response_data}") # デバッグ用
-            
-            # 応答のステータスコードを取得
             status_code = response.getcode()
-            print(f"status_code:{status_code}") # 値を出力
-            
-            # コンテンツタイプを取得
             content_type = response.info().get('Content-Type')
-            print(f"content_type:{content_type}") # 値を出力
             
-            # --- 4. 応答をそのままクライアントに返す ---
-            
-            # JSONエンコードせず、取得したバイトデータをそのまま返す
-            # Content-Typeを外部APIのものに合わせる
+            # 応答をそのままクライアントに返す
             return Response(
                 external_response_data, 
                 status=status_code, 
@@ -2198,11 +2249,9 @@ def proxy_data():
 
     except urllib.error.URLError as e:
         error_message = f"外部APIアクセスエラー: {e.reason}"
-        print(f"error_message:{error_message}") # 値を出力
         return Response(json.dumps({"error": error_message}), status=500, content_type='application/json')
     except Exception as e:
         error_message = f"予期せぬエラー: {str(e)}"
-        print(f"error_message:{error_message}") # 値を出力
         return Response(json.dumps({"error": error_message}), status=500, content_type='application/json')
 
 
