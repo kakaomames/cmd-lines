@@ -810,7 +810,7 @@ def link_form() -> Response:
 
 # --- エンドポイント2: curl実行と結果表示 (JSONレスポンス) ---
 @app.route('/curl', methods=['GET', 'POST'])
-print("curl")
+# print("curl")
 def curl_request() -> Tuple[Response, int]:
     """
     curl -v -L を実行し、結果をJSON形式で返す
