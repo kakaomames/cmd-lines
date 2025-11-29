@@ -794,7 +794,7 @@ def rewrite_html_paths(html_content_bytes: bytes, base_url: str) -> Tuple[bytes,
 
 # --- エンドポイント1: URL入力フォーム ---
 @app.route('/link', methods=['GET', 'POST'])
-print("link")
+# print("link")
 def link_form() -> Response:
     """
     URL入力フォームの表示と、POSTリクエストを/curlへリダイレクトする処理
@@ -920,7 +920,7 @@ app.secret_key = os.environ.get('FSK', 'my_insecure_development_key')
 
 # ルートURL ("/")
 @app.route('/h', methods=['GET'])
-print("/h")
+# print("/h")
 def indexhhh():
     return render_template('github1.html')
 
