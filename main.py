@@ -794,6 +794,7 @@ def rewrite_html_paths(html_content_bytes: bytes, base_url: str) -> Tuple[bytes,
 
 # --- エンドポイント1: URL入力フォーム ---
 @app.route('/link', methods=['GET', 'POST'])
+print("link|||||||||")
 def link_form() -> Response:
     """
     URL入力フォームの表示と、POSTリクエストを/curlへリダイレクトする処理
@@ -809,6 +810,7 @@ def link_form() -> Response:
 
 # --- エンドポイント2: curl実行と結果表示 (JSONレスポンス) ---
 @app.route('/curl', methods=['GET', 'POST'])
+print("curl||||||||||||")
 def curl_request() -> Tuple[Response, int]:
     """
     curl -v -L を実行し、結果をJSON形式で返す
@@ -918,6 +920,7 @@ app.secret_key = os.environ.get('FSK', 'my_insecure_development_key')
 
 # ルートURL ("/")
 @app.route('/h', methods=['GET'])
+print("/h|||||||||")
 def indexhhh():
     return render_template('github1.html')
 
@@ -2114,12 +2117,6 @@ def handle_chat_message(data):
     # この 'new_message' をTurboWarp側で受け取ります。
     socketio.emit('new_message', data, broadcast=True)
 
-from flask import Flask, request, Response
-import urllib.request
-import urllib.parse
-import json
-
-app = Flask(__name__)
 
 # --- データ取得元APIの情報 ---
 EXTERNAL_API_URL = 'https://go-friend.com/wp-content/themes/simplicity2-child/map/map_json.php'
