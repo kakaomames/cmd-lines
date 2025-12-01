@@ -2253,6 +2253,169 @@ def proxy_listget():
 
 
 
+# 🚨 環境変数を設定してください
+# Vercelのプロジェクト設定でこの変数を定義する必要があります
+RENDER_URL = os.environ.get("RENDER_URL", "https://rei-knnv.onrender.com")
+
+
+
+
+@app.route('/wasm', methods=['GET'])
+def wasm():
+    """最初のURL入力フォームを表示"""
+    return render_template('wasm.html')
+
+## =========================================================
+## 2. Render コンパイラへのプロキシ API ルート
+## =========================================================
+
+# @app.route('/api/compile', methods=['POST'])
+# def compile_proxy_curl():
+#     """
+#     ⚠️ curl を使用するプロキシエンドポイント (非推奨)
+#     """
+#     try:
+#         data = flask.request.get_json()
+#         rust_code = data.get('code')
+        
+#         # ユーザー入力を直接含むため、セキュリティに注意が必要
+#         json_payload = json.dumps({'code': rust_code})
+        
+#         command = [
+#             'curl', '-s', '-X', 'POST', 
+#             '-H', 'Content-Type: application/json',
+#             # -d にペイロードを渡す
+#             '-d', json_payload, 
+#             f'{RENDER_URL}/api/compile'
+#         ]
+#         
+#         process = subprocess.run(command, capture_output=True, text=True, timeout=60)
+#         
+#         if process.returncode != 0:
+#             # curl自体が失敗、または Renderがエラーを返した場合
+#             return flask.jsonify({'status': 'error', 'message': 'Render compilation failed (cURL error)'}), 500
+# 
+#         render_response = json.loads(process.stdout)
+#         return flask.jsonify(render_response), 200
+# 
+#     except Exception as e:
+#         print(f"Compilation Proxy Error (cURL): {e}")
+#         return flask.jsonify({'status': 'error', 'message': f'Proxy Error: {e}'}), 500
+
+@app.route('/api/compile', methods=['POST'])
+def compile_proxy_requests():
+    """
+    ✅ requests を使用するプロキシエンドポイント (推奨)
+    """
+    try:
+        # クライアントから送信されたRustコードを取得
+        rust_code = flask.request.get_json().get('code')
+        
+        # Renderコンパイラサーバーにコードを転送
+        render_response = requests.post(
+            f"{RENDER_URL}/api/compile",
+            json={'code': rust_code},
+            timeout=30 
+        )
+        
+        # Renderからの応答をそのままクライアントに返す
+        # Content-Typeをapplication/jsonに設定し、レスポンスを返す
+        return flask.Response(
+            response=render_response.text,
+            status=render_response.status_code,
+            mimetype='application/json'
+        )
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error communicating with Render: {e}")
+        return flask.jsonify({'status': 'error', 'message': 'Compiler service (Render) is unavailable.'}), 503
+    except Exception as e:
+        print(f"Vercel internal error: {e}")
+        return flask.jsonify({'status': 'error', 'message': f'Internal Proxy Error: {e}'}), 500
+
+
+@app.route('/api/status', methods=['GET'])
+def status_proxy():
+    """
+    進捗ポーリングのためのプロキシエンドポイント
+    """
+    task_id = flask.request.args.get('id')
+    if not task_id:
+        return flask.jsonify({'error': 'Missing task_id'}), 400
+
+    try:
+        # Renderのステータスエンドポイントに問い合わせ
+        render_response = requests.get(
+            f"{RENDER_URL}/api/status/{task_id}",
+            timeout=10
+        )
+        
+        # Renderからの応答をそのままクライアントに中継
+        return flask.Response(
+            response=render_response.text,
+            status=render_response.status_code,
+            mimetype='application/json'
+        )
+
+    except requests.exceptions.RequestException as e:
+        print(f"Status Proxy Error: {e}")
+        return flask.jsonify({'status': 'error', 'message': 'Status service unavailable.'}), 503
+    except Exception as e:
+        print(f"Internal Status Error: {e}")
+        return flask.jsonify({'status': 'error', 'message': 'Internal Error'}), 500
+    
+## =========================================================
+## 3. ダウンロードプロキシ (ZIPファイルを中継)
+## =========================================================
+
+@app.route('/api/download/<task_id>', methods=['GET'])
+def download_proxy(task_id):
+    """
+    RenderからのZIPファイルダウンロードを中継するエンドポイント
+    """
+    if not task_id:
+        return flask.jsonify({'error': 'Missing task_id'}), 400
+
+    try:
+        # Renderのダウンロードエンドポイントに問い合わせ (ストリーミング推奨だが、ここではrequestsを使用)
+        render_response = requests.get(
+            f"{RENDER_URL}/api/download/{task_id}",
+            stream=True, # ストリーミングを有効に
+            timeout=120
+        )
+
+        if render_response.status_code != 200:
+             # Renderからのエラー応答をそのまま返す
+            return flask.Response(
+                response=render_response.text,
+                status=render_response.status_code,
+                mimetype='application/json'
+            )
+
+        # 成功の場合、ZIPファイルをストリーミングで中継する
+        response = flask.Response(
+            flask.stream_with_context(render_response.iter_content(chunk_size=8192)),
+            content_type=render_response.headers['Content-Type']
+        )
+        
+        # ファイル名ヘッダーをRenderから受け継ぐ
+        download_name = render_response.headers.get('Content-Disposition', f'attachment; filename="wasm_package_{task_id}.zip"')
+        response.headers['Content-Disposition'] = download_name
+        
+        return response
+
+    except requests.exceptions.RequestException as e:
+        print(f"Download Proxy Error: {e}")
+        return flask.jsonify({'status': 'error', 'message': 'Download service unavailable.'}), 503
+    except Exception as e:
+        print(f"Internal Download Error: {e}")
+        return flask.jsonify({'status': 'error', 'message': 'Internal Error'}), 500
+
+
+
+
+
+
 if __name__ == '__main__':
     print(" デバッグモードは開発用です。本番環境では絶対に有効にしないでください。")
     socketio.run(app, debug=True, host='0.0.0.0', port=5000)
