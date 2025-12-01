@@ -2256,7 +2256,7 @@ def proxy_listget():
 
 # 🚨 環境変数を設定してください
 # Vercelのプロジェクト設定でこの変数を定義する必要があります
-RENDER_URL = os.environ.get("RENDER_URL", "https://rei-knnv.onrender.com")
+RENDER_URL = os.environ.get("RENDER_URL", "https://rei-1.onrender.com")
 
 
 
