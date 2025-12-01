@@ -2260,7 +2260,7 @@ RENDER_URL = os.environ.get("RENDER_URL", "https://rei-knnv.onrender.com")
 
 
 
-@app.route('/wasm', methods=['GET'])
+@app.route('/wasm2', methods=['GET'])
 def wasm():
     """最初のURL入力フォームを表示"""
     return render_template('wasm.html')
