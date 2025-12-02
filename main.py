@@ -2313,7 +2313,7 @@ def compile_endpoint():
     cargo_toml = data.get('cargo_toml', '') 
     
     # 2. Render サーバーの URL を取得（環境変数から）
-    RENDER_COMPILER_URL = os.environ.get('RENDER_COMPILER_URL', 'YOUR_RENDER_URL/api/compile') 
+    RENDER_URL = os.environ.get('RENDER_URL') 
     
     # 3. Render サーバーに転送するためのペイロードを作成
     transfer_payload = {
@@ -2324,7 +2324,7 @@ def compile_endpoint():
     # 4. Render サーバーへプロキシ転送
     try:
         render_response = requests.post(
-            RENDER_COMPILER_URL,
+            f"{RENDER_URL}/api/compile",
             json=transfer_payload,
             timeout=55 
         )
