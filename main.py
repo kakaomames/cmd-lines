@@ -2307,33 +2307,62 @@ def wasm():
 
 # /api/compile の修正
 @app.route('/api/compile', methods=['POST'])
-def compile_proxy_requests():
+# Vercel のサーバーレス関数エントリポイント
+def handler(request):
     """
-    Renderにコンパイルを依頼し、即座にタスクIDを取得してクライアントに返す。
+    クライアントからのPOSTリクエストをRenderサーバーにプロキシ（転送）する。
     """
+    if request.method != 'POST':
+        return {
+            'statusCode': 405,
+            'body': 'Method Not Allowed'
+        }
+
     try:
-        rust_code = request.get_json().get('code')
-        
-        # Renderコンパイラサーバーにコードを転送 (即時応答を期待するため、タイムアウトは短くて良い)
-        render_response = requests.post(
-            f"{RENDER_URL}/api/compile",
-            json={'code': rust_code},
-            timeout=25 # 25秒程度に設定。Vercelの30秒制限内に応答を受け取る。
-        )
-        
-        # Renderが成功コード (202 Accepted) を返したら、タスクIDをクライアントに返す
-        if render_response.status_code == 202:
-            return jsonify(render_response.json()), 202
-        else:
-            # Render側でエラーが発生した場合
-            return jsonify({'status': 'error', 'message': f'Render failed to start task: {render_response.text}'}), render_response.status_code
-            
-    except requests.exceptions.RequestException as e:
-        # ネットワークエラーや接続エラーの場合
-        print(f"Error communicating with Render: {e}")
-        return jsonify({'status': 'error', 'message': 'Compiler service (Render) is unavailable.'}), 503
+        # クライアントからのJSONペイロードを読み込む
+        # (Vercel環境によってリクエストボディの読み取り方が異なる場合があるが、ここでは標準的な想定)
+        body = request.get_json() 
     except Exception as e:
-        return jsonify({'status': 'error', 'message': f'Internal Vercel error: {e}'}), 500
+        return {
+            'statusCode': 400,
+            'body': json.dumps({'error': 'Invalid JSON in request body.'})
+        }
+
+    # クライアントから送信された全ペイロード（code, cargo_toml, など）をそのままRenderに転送する
+    # cargo_toml が含まれていなくても、そのまま転送すれば Render 側で None として処理できる
+    transfer_payload = body 
+    
+    # Render サーバーにリクエストを転送 (プロキシ)
+    try:
+        render_response = requests.post(
+            RENDER_COMPILER_URL,
+            json=transfer_payload,
+            timeout=55 # Vercel のタイムアウトより短く設定 (例: 60秒より短い55秒)
+        )
+
+        # Render からの応答をそのままクライアントに返す
+        response_data = render_response.json()
+        
+        return {
+            'statusCode': render_response.status_code,
+            'headers': {
+                'Content-Type': 'application/json',
+                # 必要に応じて CORS ヘッダーを追加
+                'Access-Control-Allow-Origin': '*' 
+            },
+            'body': json.dumps(response_data)
+        }
+
+    except requests.exceptions.Timeout:
+        return {
+            'statusCode': 504,
+            'body': json.dumps({'error': 'Render server timed out after Vercel proxying.'})
+        }
+    except requests.exceptions.RequestException as e:
+        return {
+            'statusCode': 500,
+            'body': json.dumps({'error': f'Proxy request failed: {str(e)}'})
+        }
 
 
 # /api/status の追加
