@@ -8,6 +8,10 @@
   ],
   "routes": [
     {
+      "src": "/api/compile",
+      "dest": "/api/compile.py"
+    },
+    {
       "src": "/(.*)",
       "dest": "main.py"
     }
