@@ -2303,71 +2303,60 @@ def wasm():
 #         print(f"Compilation Proxy Error (cURL): {e}")
 #         return flask.jsonify({'status': 'error', 'message': f'Proxy Error: {e}'}), 500
 
+# Vercel Serverless Function: app.py の該当部分
+
+# /api/compile の修正
 @app.route('/api/compile', methods=['POST'])
 def compile_proxy_requests():
     """
-    ✅ requests を使用するプロキシエンドポイント (推奨)
+    Renderにコンパイルを依頼し、即座にタスクIDを取得してクライアントに返す。
     """
     try:
-        # クライアントから送信されたRustコードを取得
-        rust_code = flask.request.get_json().get('code')
+        rust_code = request.get_json().get('code')
         
-        # Renderコンパイラサーバーにコードを転送
+        # Renderコンパイラサーバーにコードを転送 (即時応答を期待するため、タイムアウトは短くて良い)
         render_response = requests.post(
             f"{RENDER_URL}/api/compile",
             json={'code': rust_code},
-            timeout=30 
+            timeout=25 # 25秒程度に設定。Vercelの30秒制限内に応答を受け取る。
+        )
+        
+        # Renderが成功コード (202 Accepted) を返したら、タスクIDをクライアントに返す
+        if render_response.status_code == 202:
+            return jsonify(render_response.json()), 202
+        else:
+            # Render側でエラーが発生した場合
+            return jsonify({'status': 'error', 'message': f'Render failed to start task: {render_response.text}'}), render_response.status_code
+            
+    except requests.exceptions.RequestException as e:
+        # ネットワークエラーや接続エラーの場合
+        print(f"Error communicating with Render: {e}")
+        return jsonify({'status': 'error', 'message': 'Compiler service (Render) is unavailable.'}), 503
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': f'Internal Vercel error: {e}'}), 500
+
+
+# /api/status の追加
+@app.route('/api/status/<task_id>', methods=['GET'])
+def get_status_proxy(task_id):
+    """
+    クライアントからのポーリングリクエストをRenderサーバーにプロキシする。
+    """
+    try:
+        # Renderの/api/status/<task_id>に問い合わせる
+        render_response = requests.get(
+            f"{RENDER_URL}/api/status/{task_id}",
+            timeout=10 # ポーリングは高速であるべきため、短めのタイムアウト
         )
         
         # Renderからの応答をそのままクライアントに返す
-        # Content-Typeをapplication/jsonに設定し、レスポンスを返す
-        return flask.Response(
-            response=render_response.text,
-            status=render_response.status_code,
-            mimetype='application/json'
-        )
-
-    except requests.exceptions.RequestException as e:
-        print(f"Error communicating with Render: {e}")
-        return flask.jsonify({'status': 'error', 'message': 'Compiler service (Render) is unavailable.'}), 503
-    except Exception as e:
-        print(f"Vercel internal error: {e}")
-        return flask.jsonify({'status': 'error', 'message': f'Internal Proxy Error: {e}'}), 500
-
-
-@app.route('/api/status', methods=['GET'])
-def status_proxy():
-    """
-    進捗ポーリングのためのプロキシエンドポイント
-    """
-    task_id = flask.request.args.get('id')
-    if not task_id:
-        return flask.jsonify({'error': 'Missing task_id'}), 400
-
-    try:
-        # Renderのステータスエンドポイントに問い合わせ
-        REQUEST_TIMEOUT = 600 # 10分
+        return jsonify(render_response.json()), render_response.status_code
         
-        # Renderコンパイラサーバーにコードを転送
-        render_response = requests.post(
-            f"{RENDER_URL}/api/compile",
-            json={'code': rust_code},
-            timeout=REQUEST_TIMEOUT
-        )
-        
-        # Renderからの応答をそのままクライアントに中継
-        return flask.Response(
-            response=render_response.text,
-            status=render_response.status_code,
-            mimetype='application/json'
-        )
-
     except requests.exceptions.RequestException as e:
-        print(f"Status Proxy Error: {e}")
-        return flask.jsonify({'status': 'error', 'message': 'Status service unavailable.'}), 503
+        print(f"Error communicating with Render for status: {e}")
+        return jsonify({'status': 'error', 'message': 'Status service (Render) is unavailable.'}), 503
     except Exception as e:
-        print(f"Internal Status Error: {e}")
-        return flask.jsonify({'status': 'error', 'message': 'Internal Error'}), 500
+        return jsonify({'status': 'error', 'message': f'Internal Vercel error: {e}'}), 500
     
 ## =========================================================
 ## 3. ダウンロードプロキシ (ZIPファイルを中継)
