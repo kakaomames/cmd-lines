@@ -169,18 +169,18 @@ pub fn greet() {
          */
         async function handleSuccessfulCompilation(data) {
             try {
+                // JSZipがロードされているか確認
+                if (typeof JSZip === 'undefined') {
+                    throw new Error("JSZipライブラリがロードされていません。インターネット接続を確認してください。");
+                }
+
                 const wasmBinary = base64ToArrayBuffer(data.wasm_base64);
                 
-                // wasm-bindgenのJSコードは 'wasm_project_bg.wasm' を参照するため、
-                // ダウンロードファイル名をこれに合わせるか、JSコードを書き換える必要があります。
-                // 隊員のリクエスト通り、wasmファイル名は 'wasm.wasm' とし、
-                // index.htmのJSコードでwasm.wasmを参照するように調整します。
-                
-                // wasm-bindgenの生成するJSコード内の Wasm ファイル名参照を 'wasm_project_bg.wasm' から 'wasm.wasm' に置換
+                // wasm-bindgenのJSコード内の Wasm ファイル名参照を 'wasm_project_bg.wasm' から 'wasm.wasm' に置換
                 let jsCode = data.js_code.replace(/wasm_project_bg\.wasm/g, 'wasm.wasm');
 
 
-                // 1. ZIPオブジェクトの初期化 (JSZipがグローバルで利用可能であることを前提)
+                // 1. ZIPオブジェクトの初期化
                 const zip = new JSZip();
                 
                 // 2. Wasmファイル (wasm.wasm) の追加 (ArrayBufferとして)
@@ -223,7 +223,9 @@ pub fn greet() {
          * Wasmをロードし、greet()を実行するシンプルな index.htm の内容を生成
          */
         function createIndexHtml() {
-            // script.js (ES Module) から init と greet をインポートし、wasm.wasmをロードして実行するHTML
+            // 閉じタグ「</scri pt>」を「</scr' + 'ipt>」に分割して、HTMLパーサーに誤認識されないようにする
+            const SCRIPT_END = '</scr' + 'ipt>';
+
             return `<!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -240,8 +242,7 @@ pub fn greet() {
 
         async function run() {
             try {
-                // init() に Wasm ファイルへのパス (ここでは './wasm.wasm') を渡すことでロードを開始
-                // script.js 内の参照を 'wasm.wasm' に置換済みなので、ここでパス指定は不要
+                // init() を引数なしで呼ぶと、script.js 内で参照されている 'wasm.wasm' をロード
                 await init(); 
                 
                 // Wasmで定義された関数を実行 (Rust側のalertが実行される)
@@ -253,7 +254,7 @@ pub fn greet() {
             }
         }
         run();
-    </script>
+    ` + SCRIPT_END + `
 </body>
 </html>`;
         }
@@ -278,6 +279,8 @@ pub fn greet() {
             return bytes.buffer;
         }
 
+        // 初期ロード時の状態設定
+        updateStatus('準備完了', 0, 'ボタンを押してコンパイルを開始してください。');
     </script>
 </body>
 </html>
