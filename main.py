@@ -2472,7 +2472,10 @@ def download_proxy(task_id):
         return flask.jsonify({'status': 'error', 'message': 'Internal Error'}), 500
 
 
-
+@app.route('/pokemonquest', methods=['GET'])
+def pokeque():
+    """最初のURL入力フォームを表示"""
+    return render_template('pokemonquest.html')
 
 
 
