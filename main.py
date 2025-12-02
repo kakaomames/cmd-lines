@@ -2346,9 +2346,13 @@ def status_proxy():
 
     try:
         # Renderのステータスエンドポイントに問い合わせ
-        render_response = requests.get(
-            f"{RENDER_URL}/api/status/{task_id}",
-            timeout=10
+        REQUEST_TIMEOUT = 600 # 10分
+        
+        # Renderコンパイラサーバーにコードを転送
+        render_response = requests.post(
+            f"{RENDER_URL}/api/compile",
+            json={'code': rust_code},
+            timeout=REQUEST_TIMEOUT
         )
         
         # Renderからの応答をそのままクライアントに中継
