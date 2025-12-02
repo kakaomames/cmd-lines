@@ -2305,7 +2305,37 @@ def wasm():
 
 # Vercel Serverless Function: app.py の該当部分
 
+@app.route('/api/compile', methods=['POST'])
+def compile_endpoint():
+    # 1. クライアントからのデータを受信
+    data = request.json
+    rust_code = data.get('code', '')
+    cargo_toml = data.get('cargo_toml', '') 
+    
+    # 2. Render サーバーの URL を取得（環境変数から）
+    RENDER_COMPILER_URL = os.environ.get('RENDER_COMPILER_URL', 'YOUR_RENDER_URL/api/compile') 
+    
+    # 3. Render サーバーに転送するためのペイロードを作成
+    transfer_payload = {
+        'code': rust_code,
+        'cargo_toml': cargo_toml
+    }
 
+    # 4. Render サーバーへプロキシ転送
+    try:
+        render_response = requests.post(
+            RENDER_COMPILER_URL,
+            json=transfer_payload,
+            timeout=55 
+        )
+        
+        # 5. Render からの応答をそのままクライアントに返す
+        response_data = render_response.json()
+        return jsonify(response_data), render_response.status_code
+
+    except requests.exceptions.RequestException as e:
+        # 転送失敗時のエラー処理
+        return jsonify({'error': f'Renderサーバーへの接続またはタイムアウトエラー: {str(e)}'}), 503
 
 
 # /api/status の追加
