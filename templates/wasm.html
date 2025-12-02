@@ -37,22 +37,7 @@
         <p>Rustコードを入力し、「alert」関数を呼び出す Wasm モジュールを生成します。デフォルトのコードは `greet()` を実行します。</p>
 
         <textarea id="rust-code">// Rustコードは wasm-bindgen を利用します。
-use wasm_bindgen::prelude::*;
-
-#[wasm_bindgen]
-extern "C" {
-    // JavaScriptの 'alert' 関数をインポート
-    fn alert(s: &str);
-}
-
-// Rustの関数を JavaScript に公開
-#[wasm_bindgen]
-pub fn greet() {
-    alert("Hello from Rust/Wasm! (Generated ZIP file will contain this Wasm)");
-}
-
-// Cargo.tomlの依存関係:
-// wasm-bindgen = "0.2.92"</textarea>
+        </textarea>
         
         <button id="compile-button">コンパイル開始 & ZIP生成</button>
 
