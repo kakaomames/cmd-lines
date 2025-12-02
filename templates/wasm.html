@@ -54,164 +54,219 @@
     </div>
 
     <script>
-        // --- 設定と定数 ---
-        const COMPILER_URL = '/api/compile';
-        const STATUS_URL = '/api/status/';
-        const POLLING_INTERVAL = 5000; // 5秒ごとにポーリング
-        
-        // --- DOM要素 ---
-        const compileButton = document.getElementById('compile-button');
-        const rustCodeArea = document.getElementById('rust-code');
-        const compileStatus = document.getElementById('compile-status');
-        const compileProgress = document.getElementById('compile-progress');
-        const statusMessage = document.getElementById('status-message');
-        const executionMessage = document.getElementById('execution-message');
-        
-        // --- グローバル変数 ---
-        let isCompiling = false;
+// --- 設定と定数 ---
+const COMPILER_URL = '/api/compile';
+const STATUS_URL = '/api/status/';
+const POLLING_INTERVAL = 5000; // 5秒ごとにポーリング
 
-        // --- イベントリスナー ---
-        compileButton.addEventListener('click', () => {
-            if (!isCompiling) {
-                startCompilation(rustCodeArea.value);
-            }
+// --- DOM要素 ---
+const compileButton = document.getElementById('compile-button');
+const rustCodeArea = document.getElementById('rust-code');
+const compileStatus = document.getElementById('compile-status');
+const compileProgress = document.getElementById('compile-progress');
+const statusMessage = document.getElementById('status-message');
+const executionMessage = document.getElementById('execution-message');
+
+// --- グローバル変数 ---
+let isCompiling = false;
+
+// --- イベントリスナー ---
+compileButton.addEventListener('click', () => {
+    if (!isCompiling) {
+        startCompilation(rustCodeArea.value);
+    }
+});
+
+// --- ポーリングロジック ---
+
+async function startCompilation(rustCode) {
+    isCompiling = true;
+    compileButton.disabled = true;
+    updateStatus('リクエスト送信中...', 0, '初期リクエストをVercelに送信しています。');
+    executionMessage.textContent = '結果待ち...';
+
+    try {
+        // 1. Vercelにコンパイルタスクを依頼
+        let response = await fetch(COMPILER_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: rustCode })
         });
 
-        // --- ポーリングロジック ---
+        if (response.status === 202) {
+            const data = await response.json();
+            const taskId = data.task_id;
+            console.log(`Task submitted. ID: ${taskId}. Starting polling.`);
+            
+            // 2. ポーリングを開始
+            await pollForStatus(taskId);
 
-        async function startCompilation(rustCode) {
-            isCompiling = true;
-            compileButton.disabled = true;
-            updateStatus('リクエスト送信中...', 0, '初期リクエストをVercelに送信しています。');
-            executionMessage.textContent = '結果待ち...';
+        } else {
+            const errorData = await response.json().catch(() => ({ message: '不明なエラー' }));
+            throw new Error(`タスク開始失敗 (${response.status}): ${errorData.message}`);
+        }
 
+    } catch (error) {
+        updateStatus('コンパイル失敗', 0, `エラー: ${error.message}`, true);
+    } finally {
+        isCompiling = false;
+        compileButton.disabled = false;
+    }
+}
+
+async function pollForStatus(taskId) {
+    return new Promise((resolve, reject) => {
+        const intervalId = setInterval(async () => {
             try {
-                // 1. Vercelにコンパイルタスクを依頼
-                let response = await fetch(COMPILER_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ code: rustCode })
-                });
+                const statusResponse = await fetch(STATUS_URL + taskId);
+                const statusData = await statusResponse.json();
 
-                if (response.status === 202) {
-                    const data = await response.json();
-                    const taskId = data.task_id;
-                    console.log(`Task submitted. ID: ${taskId}. Starting polling.`);
-                    
-                    // 2. ポーリングを開始
-                    await pollForStatus(taskId);
+                updateStatus('コンパイル中', statusData.progress, statusData.message);
+
+                if (statusData.status === 'completed') {
+                    clearInterval(intervalId);
+                    updateStatus('完了', 100, 'Wasmのコンパイルに成功しました。ファイルを生成中です...');
+                    await handleSuccessfulCompilation(statusData); 
+                    resolve();
+
+                } else if (statusData.status === 'error') {
+                    clearInterval(intervalId);
+                    // ★ エラー発生時: ログ生成とダウンロードに移行 ★
+                    await handleCompilationError(statusData); 
+                    reject(new Error(statusData.message || "Renderサーバーで予期せぬエラーが発生しました。"));
 
                 } else {
-                    const errorData = await response.json().catch(() => ({ message: '不明なエラー' }));
-                    throw new Error(`タスク開始失敗 (${response.status}): ${errorData.message}`);
+                    // 処理中 (in_progress) のまま継続
                 }
-
             } catch (error) {
-                updateStatus('コンパイル失敗', 0, `エラー: ${error.message}`, true);
-            } finally {
-                isCompiling = false;
-                compileButton.disabled = false;
+                clearInterval(intervalId);
+                updateStatus('ポーリング失敗', 0, `サーバー接続エラー: ${error.message}`, true);
+                reject(error);
             }
+        }, POLLING_INTERVAL);
+    });
+}
+
+// --- ファイル生成とダウンロードロジック (成功時) ---
+
+/**
+ * 成功したコンパイルデータからファイルを生成し、ZIP化してダウンロードさせる
+ */
+async function handleSuccessfulCompilation(data) {
+    try {
+        if (typeof JSZip === 'undefined') {
+             throw new Error("JSZipライブラリがロードされていません。");
         }
 
-        async function pollForStatus(taskId) {
-            return new Promise((resolve, reject) => {
-                const intervalId = setInterval(async () => {
-                    try {
-                        const statusResponse = await fetch(STATUS_URL + taskId);
-                        const statusData = await statusResponse.json();
+        const wasmBinary = base64ToArrayBuffer(data.wasm_base64);
+        
+        // wasm-bindgenのJSコード内の Wasm ファイル名参照を 'wasm_project_bg.wasm' から 'wasm.wasm' に置換
+        let jsCode = data.js_code.replace(/wasm_project_bg\.wasm/g, 'wasm.wasm');
 
-                        updateStatus('コンパイル中', statusData.progress, statusData.message);
 
-                        if (statusData.status === 'completed') {
-                            clearInterval(intervalId);
-                            updateStatus('完了', 100, 'Wasmのコンパイルに成功しました。ファイルを生成中です...');
-                            await handleSuccessfulCompilation(statusData); // ★ファイル生成に処理を委譲★
-                            resolve();
+        // 1. ZIPオブジェクトの初期化
+        const zip = new JSZip();
+        
+        // 2. Wasmファイル (wasm.wasm) の追加 (ArrayBufferとして)
+        zip.file("wasm.wasm", wasmBinary, { binary: true });
+        
+        // 3. JSグルーコード (script.js) の追加
+        zip.file("script.js", jsCode);
+        
+        // 4. HTMLファイル (index.htm) の作成と追加
+        const indexHtmlContent = createIndexHtml();
+        zip.file("index.html", indexHtmlContent);
 
-                        } else if (statusData.status === 'error') {
-                            clearInterval(intervalId);
-                            const errMsg = statusData.message || "Renderサーバーで予期せぬエラーが発生しました。";
-                            updateStatus('コンパイル失敗', statusData.progress, errMsg, true);
-                            reject(new Error(errMsg));
+        // 5. ZIPファイルの生成
+        updateStatus('完了', 100, 'ZIPファイルを生成中...', false);
+        const zipBlob = await zip.generateAsync({ type: "blob" });
 
-                        } else {
-                            // 処理中 (in_progress) のまま継続
-                        }
-                    } catch (error) {
-                        clearInterval(intervalId);
-                        updateStatus('ポーリング失敗', 0, `サーバー接続エラー: ${error.message}`, true);
-                        reject(error);
-                    }
-                }, POLLING_INTERVAL);
-            });
+        // 6. ダウンロードの実行
+        const downloadUrl = URL.createObjectURL(zipBlob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = 'wasm_project.zip';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(downloadUrl); // URLを解放
+
+        updateStatus('完了', 100, 'ZIPファイルのダウンロードを開始しました。', false);
+        executionMessage.className = 'success';
+        executionMessage.textContent = '🎉 コンパイルされたファイル群 (index.htm, script.js, wasm.wasm) がZIPファイルとしてダウンロードされました。';
+
+    } catch (e) {
+        updateStatus('ファイル生成失敗', 100, `ファイル生成またはダウンロード中にエラーが発生しました: ${e.message}`, true);
+        executionMessage.className = 'error';
+        executionMessage.textContent = `エラー: ${e.message}`;
+        console.error("File generation error:", e);
+    }
+}
+
+// --- ファイル生成とダウンロードロジック (エラー時: デバッグ用ログ出力) ---
+
+/**
+ * コンパイルエラー時にログファイルを生成し、ZIP化してダウンロードさせる
+ * @param {object} data - エラー応答のJSONデータ
+ */
+async function handleCompilationError(data) {
+    try {
+        const errMsg = data.message || "Renderサーバーから詳細なエラーメッセージが返されませんでした。";
+        updateStatus('コンパイル失敗', data.progress || 0, `デバッグログを生成中です... エラー: ${errMsg}`, true);
+        executionMessage.textContent = `コンパイルに失敗しました。詳細なログをダウンロードしています。`;
+
+        // 1. JSONログファイルの内容を作成
+        const logContent = JSON.stringify({
+            timestamp: new Date().toISOString(),
+            status: data.status,
+            progress: data.progress,
+            error_message: errMsg,
+            // Renderから返ってきた生データをログに含める
+            raw_response: data 
+        }, null, 2); // 整形されたJSON
+
+        // 2. ZIPオブジェクトの初期化
+        if (typeof JSZip === 'undefined') {
+             throw new Error("JSZipライブラリがロードされていません。");
         }
+        const zip = new JSZip();
 
-        // --- ファイル生成とダウンロードロジック ---
+        // 3. log.json ファイルを追加
+        zip.file("compilation_log.json", logContent);
+        
+        // 4. ZIPファイルの生成とダウンロード
+        const zipBlob = await zip.generateAsync({ type: "blob" });
 
-        /**
-         * 成功したコンパイルデータからファイルを生成し、ZIP化してダウンロードさせる
-         */
-        async function handleSuccessfulCompilation(data) {
-            try {
-                // JSZipがロードされているか確認
-                if (typeof JSZip === 'undefined') {
-                    throw new Error("JSZipライブラリがロードされていません。インターネット接続を確認してください。");
-                }
+        const downloadUrl = URL.createObjectURL(zipBlob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = 'wasm_error_log.zip';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(downloadUrl);
 
-                const wasmBinary = base64ToArrayBuffer(data.wasm_base64);
-                
-                // wasm-bindgenのJSコード内の Wasm ファイル名参照を 'wasm_project_bg.wasm' から 'wasm.wasm' に置換
-                let jsCode = data.js_code.replace(/wasm_project_bg\.wasm/g, 'wasm.wasm');
+        updateStatus('ログダウンロード完了', 0, 'エラー詳細を含むZIPファイルをダウンロードしました。中身を確認してください。', true);
+        executionMessage.className = 'error';
+        executionMessage.textContent = `❌ コンパイル失敗。エラーログ (wasm_error_log.zip) をダウンロードしました。`;
 
+    } catch (e) {
+        // ZIP生成自体が失敗した場合の処理
+        updateStatus('致命的な失敗', 0, `ログファイルの生成中にエラーが発生しました: ${e.message}`, true);
+        console.error("Error during log file generation:", e);
+    }
+}
 
-                // 1. ZIPオブジェクトの初期化
-                const zip = new JSZip();
-                
-                // 2. Wasmファイル (wasm.wasm) の追加 (ArrayBufferとして)
-                zip.file("wasm.wasm", wasmBinary, { binary: true });
-                
-                // 3. JSグルーコード (script.js) の追加
-                zip.file("script.js", jsCode);
-                
-                // 4. HTMLファイル (index.htm) の作成と追加
-                const indexHtmlContent = createIndexHtml();
-                zip.file("index.htm", indexHtmlContent);
+// --- ユーティリティ関数 ---
 
-                // 5. ZIPファイルの生成
-                updateStatus('完了', 100, 'ZIPファイルを生成中...', false);
-                const zipBlob = await zip.generateAsync({ type: "blob" });
+/**
+ * Wasmをロードし、greet()を実行するシンプルな index.htm の内容を生成
+ */
+function createIndexHtml() {
+    // 閉じタグ「</ s c r i p t >」を「</scr' + 'ipt>」に分割して、HTMLパーサーに誤認識されないようにする
+    const SCRIPT_END = '</scr' + 'ipt>';
 
-                // 6. ダウンロードの実行
-                const downloadUrl = URL.createObjectURL(zipBlob);
-                const a = document.createElement('a');
-                a.href = downloadUrl;
-                a.download = 'wasm_project.zip';
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(downloadUrl); // URLを解放
-
-                updateStatus('完了', 100, 'ZIPファイルのダウンロードを開始しました。', false);
-                executionMessage.className = 'success';
-                executionMessage.textContent = '🎉 コンパイルされたファイル群 (index.htm, script.js, wasm.wasm) がZIPファイルとしてダウンロードされました。';
-
-            } catch (e) {
-                updateStatus('ファイル生成失敗', 100, `ファイル生成またはダウンロード中にエラーが発生しました: ${e.message}`, true);
-                executionMessage.className = 'error';
-                executionMessage.textContent = `エラー: ${e.message}`;
-                console.error("File generation error:", e);
-            }
-        }
-
-        /**
-         * Wasmをロードし、greet()を実行するシンプルな index.htm の内容を生成
-         */
-        function createIndexHtml() {
-            // 閉じタグ「</scri pt>」を「</scr' + 'ipt>」に分割して、HTMLパーサーに誤認識されないようにする
-            const SCRIPT_END = '</scr' + 'ipt>';
-
-            return `<!DOCTYPE html>
+    return `<!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
@@ -219,10 +274,11 @@
 </head>
 <body>
     <h1>Wasm 実行結果</h1>
-    <p>ブラウザのコンソールを開いてください。Wasmで定義された 'alert' が表示されます。</p>
+    <p>ブラウザのコンソールを開いてください。Wasmで定義された関数が実行されます。</p>
 
     <script type="module">
         // wasm-bindgenが生成したスクリプトをインポート
+        // Rustコードで定義した関数 (例: greet, log_message, add) が利用可能
         import init, { greet } from './script.js';
 
         async function run() {
@@ -230,8 +286,13 @@
                 // init() を引数なしで呼ぶと、script.js 内で参照されている 'wasm.wasm' をロード
                 await init(); 
                 
-                // Wasmで定義された関数を実行 (Rust側のalertが実行される)
-                greet();
+                // Wasmで定義された関数を実行 
+                // ★ここではデフォルトの greet() を実行。Rustコードを修正した場合、ここも修正が必要★
+                if (typeof greet === 'function') {
+                    greet(); 
+                } else {
+                    console.log("Wasmロード成功。しかしエクスポートされた関数 greet() が見つかりません。");
+                }
 
             } catch (e) {
                 console.error("Wasmのロードまたは実行に失敗しました:", e);
@@ -241,31 +302,29 @@
         run();
     ` + SCRIPT_END + `
 </body>
+
 </html>`;
-        }
+}
 
+function updateStatus(status, progress, message, isError = false) {
+    compileStatus.textContent = status;
+    compileProgress.textContent = `${progress}%`;
+    statusMessage.textContent = message;
+    statusMessage.className = isError ? 'error' : '';
+}
 
-        // --- ユーティリティ関数 ---
+function base64ToArrayBuffer(base64) {
+    const binaryString = atob(base64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes.buffer;
+}
 
-        function updateStatus(status, progress, message, isError = false) {
-            compileStatus.textContent = status;
-            compileProgress.textContent = `${progress}%`;
-            statusMessage.textContent = message;
-            statusMessage.className = isError ? 'error' : '';
-        }
-
-        function base64ToArrayBuffer(base64) {
-            const binaryString = atob(base64);
-            const len = binaryString.length;
-            const bytes = new Uint8Array(len);
-            for (let i = 0; i < len; i++) {
-                bytes[i] = binaryString.charCodeAt(i);
-            }
-            return bytes.buffer;
-        }
-
-        // 初期ロード時の状態設定
-        updateStatus('準備完了', 0, 'ボタンを押してコンパイルを開始してください。');
+// 初期ロード時の状態設定
+updateStatus('準備完了', 0, 'ボタンを押してコンパイルを開始してください。');
     </script>
 </body>
 </html>
