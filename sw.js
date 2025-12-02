@@ -18,6 +18,7 @@ const urlsToCache = [
     '/templates/url-dl.html',
     '/templates/url-dl2.html',
     '/templates/mqo.html',
+    '/templates/pokemonquest.html'
   '/templates/url-search.html',
   '/templates/wasm.html',
   '/templates/github1.html',
