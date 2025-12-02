@@ -12,6 +12,9 @@
     <meta property="og:url" content="https://xeroxapp032.vercel.app/wasm2">
     <link rel="icon" href="https://kakaomames.github.io/rei/logo.png" type="image/png">
     <title>Gemini programming隊 Wasm コンパイラ</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
     <style>
         body { font-family: 'Arial', sans-serif; margin: 20px; background-color: #f4f4f4; }
         .container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); }
@@ -38,20 +41,20 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 extern "C" {
-    // JavaScriptの alert 関数をインポート
+    // JavaScriptの 'alert' 関数をインポート
     fn alert(s: &str);
 }
 
 // Rustの関数を JavaScript に公開
 #[wasm_bindgen]
 pub fn greet() {
-    alert("Hello from Rust/Wasm!");
+    alert("Hello from Rust/Wasm! (Generated ZIP file will contain this Wasm)");
 }
 
 // Cargo.tomlの依存関係:
 // wasm-bindgen = "0.2.92"</textarea>
         
-        <button id="compile-button">コンパイル開始</button>
+        <button id="compile-button">コンパイル開始 & ZIP生成</button>
 
         <div id="status-area">
             <h3>ステータス: <span id="compile-status">準備完了</span></h3>
@@ -60,8 +63,8 @@ pub fn greet() {
         </div>
 
         <div id="output-area">
-            <h3>実行結果</h3>
-            <p id="execution-message">Wasmのロードと実行に成功すると、ここにメッセージが表示されます。</p>
+            <h3>結果</h3>
+            <p id="execution-message">コンパイル成功後、ZIPファイルがダウンロードされます。</p>
         </div>
     </div>
 
@@ -91,10 +94,6 @@ pub fn greet() {
 
         // --- ポーリングロジック ---
 
-        /**
-         * コンパイルタスクを開始し、タスクIDを取得後ポーリングを開始
-         * @param {string} rustCode - ユーザーが入力したRustコード
-         */
         async function startCompilation(rustCode) {
             isCompiling = true;
             compileButton.disabled = true;
@@ -130,10 +129,6 @@ pub fn greet() {
             }
         }
 
-        /**
-         * Renderからのステータスが完了またはエラーになるまで再帰的に問い合わせる
-         * @param {string} taskId - 問い合わせるタスクID
-         */
         async function pollForStatus(taskId) {
             return new Promise((resolve, reject) => {
                 const intervalId = setInterval(async () => {
@@ -145,8 +140,8 @@ pub fn greet() {
 
                         if (statusData.status === 'completed') {
                             clearInterval(intervalId);
-                            updateStatus('完了', 100, 'Wasmのコンパイルに成功しました。実行準備中...');
-                            await handleSuccessfulCompilation(statusData);
+                            updateStatus('完了', 100, 'Wasmのコンパイルに成功しました。ファイルを生成中です...');
+                            await handleSuccessfulCompilation(statusData); // ★ファイル生成に処理を委譲★
                             resolve();
 
                         } else if (statusData.status === 'error') {
@@ -167,43 +162,105 @@ pub fn greet() {
             });
         }
 
-        // --- 実行とユーティリティ ---
+        // --- ファイル生成とダウンロードロジック ---
 
         /**
-         * 成功したWasmバイナリとJSコードをロード・実行する
-         * @param {object} data - 成功応答のJSONデータ
+         * 成功したコンパイルデータからファイルを生成し、ZIP化してダウンロードさせる
          */
         async function handleSuccessfulCompilation(data) {
             try {
                 const wasmBinary = base64ToArrayBuffer(data.wasm_base64);
-                const jsCode = data.js_code;
-
-                // JSコードを実行し、Wasmをロード・インスタンス化
-                const initModule = await instantiateWasm(wasmBinary, jsCode);
                 
-                // wasm-bindgen によってエクスポートされた関数を実行
-                if (initModule && typeof initModule.greet === 'function') {
-                    initModule.greet(); // alertが呼ばれる
-                    executionMessage.className = 'success';
-                    executionMessage.textContent = 'Wasmのロードと実行に成功しました。alert()関数が呼ばれたことを確認してください。';
-                } else {
-                    executionMessage.className = 'error';
-                    executionMessage.textContent = 'Wasmのロードは成功しましたが、エクスポートされた `greet` 関数が見つかりませんでした。';
-                }
+                // wasm-bindgenのJSコードは 'wasm_project_bg.wasm' を参照するため、
+                // ダウンロードファイル名をこれに合わせるか、JSコードを書き換える必要があります。
+                // 隊員のリクエスト通り、wasmファイル名は 'wasm.wasm' とし、
+                // index.htmのJSコードでwasm.wasmを参照するように調整します。
+                
+                // wasm-bindgenの生成するJSコード内の Wasm ファイル名参照を 'wasm_project_bg.wasm' から 'wasm.wasm' に置換
+                let jsCode = data.js_code.replace(/wasm_project_bg\.wasm/g, 'wasm.wasm');
+
+
+                // 1. ZIPオブジェクトの初期化 (JSZipがグローバルで利用可能であることを前提)
+                const zip = new JSZip();
+                
+                // 2. Wasmファイル (wasm.wasm) の追加 (ArrayBufferとして)
+                zip.file("wasm.wasm", wasmBinary, { binary: true });
+                
+                // 3. JSグルーコード (script.js) の追加
+                zip.file("script.js", jsCode);
+                
+                // 4. HTMLファイル (index.htm) の作成と追加
+                const indexHtmlContent = createIndexHtml();
+                zip.file("index.htm", indexHtmlContent);
+
+                // 5. ZIPファイルの生成
+                updateStatus('完了', 100, 'ZIPファイルを生成中...', false);
+                const zipBlob = await zip.generateAsync({ type: "blob" });
+
+                // 6. ダウンロードの実行
+                const downloadUrl = URL.createObjectURL(zipBlob);
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                a.download = 'wasm_project.zip';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(downloadUrl); // URLを解放
+
+                updateStatus('完了', 100, 'ZIPファイルのダウンロードを開始しました。', false);
+                executionMessage.className = 'success';
+                executionMessage.textContent = '🎉 コンパイルされたファイル群 (index.htm, script.js, wasm.wasm) がZIPファイルとしてダウンロードされました。';
+
             } catch (e) {
+                updateStatus('ファイル生成失敗', 100, `ファイル生成またはダウンロード中にエラーが発生しました: ${e.message}`, true);
                 executionMessage.className = 'error';
-                executionMessage.textContent = `Wasm実行エラー: ${e.message}`;
-                console.error("Wasm execution error:", e);
+                executionMessage.textContent = `エラー: ${e.message}`;
+                console.error("File generation error:", e);
             }
         }
 
         /**
-         * ステータス表示を更新する
-         * @param {string} status - ステータスのテキスト
-         * @param {number} progress - 進捗率 (0-100)
-         * @param {string} message - 詳細メッセージ
-         * @param {boolean} isError - エラーフラグ
+         * Wasmをロードし、greet()を実行するシンプルな index.htm の内容を生成
          */
+        function createIndexHtml() {
+            // script.js (ES Module) から init と greet をインポートし、wasm.wasmをロードして実行するHTML
+            return `<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Wasm 実行結果</title>
+</head>
+<body>
+    <h1>Wasm 実行結果</h1>
+    <p>ブラウザのコンソールを開いてください。Wasmで定義された 'alert' が表示されます。</p>
+
+    <script type="module">
+        // wasm-bindgenが生成したスクリプトをインポート
+        import init, { greet } from './script.js';
+
+        async function run() {
+            try {
+                // init() に Wasm ファイルへのパス (ここでは './wasm.wasm') を渡すことでロードを開始
+                // script.js 内の参照を 'wasm.wasm' に置換済みなので、ここでパス指定は不要
+                await init(); 
+                
+                // Wasmで定義された関数を実行 (Rust側のalertが実行される)
+                greet();
+
+            } catch (e) {
+                console.error("Wasmのロードまたは実行に失敗しました:", e);
+                alert("Wasmのロードまたは実行に失敗しました: " + e.message);
+            }
+        }
+        run();
+    </script>
+</body>
+</html>`;
+        }
+
+
+        // --- ユーティリティ関数 ---
+
         function updateStatus(status, progress, message, isError = false) {
             compileStatus.textContent = status;
             compileProgress.textContent = `${progress}%`;
@@ -211,11 +268,6 @@ pub fn greet() {
             statusMessage.className = isError ? 'error' : '';
         }
 
-        /**
-         * Base64文字列をArrayBufferに変換する
-         * @param {string} base64 - Base64エンコードされたWasmデータ
-         * @returns {ArrayBuffer}
-         */
         function base64ToArrayBuffer(base64) {
             const binaryString = atob(base64);
             const len = binaryString.length;
@@ -226,26 +278,6 @@ pub fn greet() {
             return bytes.buffer;
         }
 
-        /**
-         * wasm-bindgenが生成したJSコードを使ってWasmをロードする (実行環境を作成)
-         * @param {ArrayBuffer} wasmBinary - Wasmバイナリデータ
-         * @param {string} jsCode - JSグルーコード
-         */
-        async function instantiateWasm(wasmBinary, jsCode) {
-            // wasm-bindgenが生成したJSコードを動的にロードするためにモジュールを作成
-            const blob = new Blob([jsCode], { type: 'application/javascript' });
-            const url = URL.createObjectURL(blob);
-            
-            // Wasmをインスタンス化するためのモジュールを取得
-            const initModule = await import(url);
-            
-            // initSync関数は、Wasmバイナリを直接受け取ってインスタンス化
-            // (init関数はファイルパスを扱うためここでは使わない)
-            return initModule.initSync(wasmBinary);
-        }
-
-        // 初期ロード時の状態設定
-        updateStatus('準備完了', 0, 'ボタンを押してコンパイルを開始してください。');
     </script>
 </body>
 </html>
