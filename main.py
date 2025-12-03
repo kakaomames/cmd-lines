@@ -2326,7 +2326,7 @@ RENDER_URL = os.environ.get("RENDER_URL", "https://rei-1.onrender.com")
 
 
 @app.route('/wasm3', methods=['GET'])
-  def wasm():
+def pokeque():
     """最初のURL入力フォームを表示"""
     return render_template('wasmv1.html')
 
