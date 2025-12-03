@@ -18,11 +18,13 @@
         .result-box { margin-top: 20px; padding: 15px; border: 1px solid #28a745; background-color: #d4edda; }
         .error-box { margin-top: 20px; padding: 15px; border: 1px solid #dc3545; background-color: #f8d7da; }
     </style>
-    <link rel="apple-touch-icon" sizes="180x180" href="/logo.png">
-<link rel="icon" type="image/png" sizes="32x32" href="/logo.png">
-<link rel="icon" type="image/png" sizes="16x16" href="/logo.png">
-<link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="https://kakaomames.github.io/Minecraft-flask-app/static/style.css">
+    <link rel="apple-touch-icon" sizes="180x180" href="https://kakaomames.github.io/rei/logo.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="https://kakaomames.github.io/rei/logo.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="https://kakaomames.github.io/rei/logo.png">
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="https://kakaomames.github.io/Minecraft-flask-app/static/style.css">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
     <header>
@@ -46,7 +48,7 @@
                 <br>
                 <li><a href="/wasm">wasm特定</a></li>
                 <li><a href="/wasm3">wasm作成v1</a></li>
-                <li><a href="/pokemonquest"><img src="/logo.png" alt="ロゴ" width="16" height="16">ﾎﾟｹﾓﾝｸｴｽﾄ</a></li>
+                <li><a href="/pokemonquest"><img src="https://kakaomames.github.io/rei/logo.png" alt="ロゴ" width="16" height="16">ﾎﾟｹﾓﾝｸｴｽﾄ</a></li>
                 <br>
                 <li><a href="/wasm2">wasm作成v2</a></li>
 
@@ -80,7 +82,9 @@ crate-type = ["cdylib"]
         <textarea id="jsCodeOutput" readonly style="height: 150px;"></textarea>
         <h4>WASM Base64 データ:</h4>
         <textarea id="wasmBase64Output" readonly style="height: 150px;"></textarea>
+        
         <button onclick="saveResultToLocal()">結果をローカルに保存</button>
+        <button id="downloadWasmZip" style="background-color: #dc3545; margin-left: 10px;">📦 WASM & JS ZIP ダウンロード</button>
     </div>
 
     <div id="localData" style="margin-top: 30px;">
@@ -245,51 +249,125 @@ crate-type = ["cdylib"]
             }
         }
 
-        document.addEventListener('DOMContentLoaded', loadLocalData);
-    </script>
-        <script>
-    // DOM要素を取得してステータスを表示する（オプション。なくても機能するが、確認のためにあると便利）
-    const statusElement = document.getElementById('status');
+        // ----------------------------------------------------
+        // 🌟 ZIPダウンロード機能 (新規追加) 🌟
+        // ----------------------------------------------------
 
-    /**
-     * Service Worker の登録処理を実行する関数
-     */
-    function registerServiceWorker() {
-        // 1. Service Worker APIがブラウザでサポートされているかを確認
-        if ('serviceWorker' in navigator) {
+        /**
+         * Base64でエンコードされたWASMとJSコードをZIPファイルとしてダウンロードします。
+         */
+        function downloadWasmAndJsAsZip() {
+            const jsCode = document.getElementById('jsCodeOutput').value;
+            const wasmBase64 = document.getElementById('wasmBase64Output').value;
+
+            if (!jsCode || !wasmBase64) {
+                alert('ダウンロードするビルド結果がありません。ビルドを完了するか、ローカル保存データをロードしてください。');
+                return;
+            }
+
+            if (typeof JSZip === 'undefined') {
+                // <head>でCDNを読み込んでいるので、基本的には発生しないはずですが、念のため
+                alert('JSZipライブラリがロードされていません。HTMLにCDNタグを追加してください。');
+                return;
+            }
+
+            const zip = new JSZip();
+            // クレート名が'user_code'なので、ファイル名もそれに合わせます。
+            // (Rustのコード内容から、'gemini_pokemon_basecamp'が正しいかもしれませんが、ここではクレート名'user_code'に合わせます)
+            const wasmFileName = "user_code_bg.wasm"; 
+            const jsFileName = "user_code.js";
+            const zipFileName = 'user_code_dist.zip';
             
-            // 2. ページ全体のロード完了を待ってから登録を開始 (推奨されるタイミング)
-            window.addEventListener('load', () => {
+            // 1. JSスタブコードをZIPに追加
+            zip.file(jsFileName, jsCode);
+
+            // 2. WASM Base64データをデコードしてZIPに追加
+            try {
+                // Base64文字列をバイナリ(Uint8Array)に変換
+                const binaryString = atob(wasmBase64);
+                const len = binaryString.length;
+                const bytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
                 
-                // /sw.js のパスで Service Worker を登録します。
-                // Service Worker のスコープは、このスクリプトがあるディレクトリ(/)となります。
-                navigator.serviceWorker.register('/sw.js')
-                    .then(registration => {
-                        // 登録成功時の処理
-                        console.log('Service Worker 登録成功:', registration.scope);
-                        if (statusElement) {
-                            statusElement.textContent = `Service Worker 登録成功 🎉 (Scope: ${registration.scope})`;
-                        }
-                    })
-                    .catch(error => {
-                        // 登録失敗時の処理
-                        console.error('Service Worker 登録失敗:', error);
-                        if (statusElement) {
-                            statusElement.textContent = `Service Worker 登録失敗 😢: ${error.message}`;
-                        }
-                    });
-            });
-        } else {
-            // Service Worker をサポートしていないブラウザの場合
-            console.warn('このブラウザは Service Worker をサポートしていません。');
-            if (statusElement) {
-                statusElement.textContent = 'このブラウザは Service Worker をサポートしていません。';
+                zip.file(wasmFileName, bytes);
+                console.log("WASM/JSデータをZIPに追加しました。");
+
+            } catch (e) {
+                console.error("WASM Base64デコードエラー:", e);
+                alert('WASMデータのデコードに失敗しました。データが破損している可能性があります。');
+                return;
+            }
+            
+            // 3. ZIPを生成してダウンロード
+            zip.generateAsync({ type: "blob" })
+                .then(content => {
+                    const url = URL.createObjectURL(content);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = zipFileName;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    console.log(`🎉 ${zipFileName}のダウンロードが開始されました。`);
+                })
+                .catch(error => {
+                    console.error("ZIP処理中にエラーが発生しました:", error);
+                    alert("ZIPファイルの生成に失敗しました。");
+                });
+        }
+
+        document.addEventListener('DOMContentLoaded', loadLocalData);
+        
+        // ----------------------------------------------------
+        // 🌟 ダウンロードボタンへのイベントリスナー追加
+        // ----------------------------------------------------
+        document.addEventListener('DOMContentLoaded', () => {
+            const downloadButton = document.getElementById('downloadWasmZip');
+            if (downloadButton) {
+                // クリック時に downloadWasmAndJsAsZip 関数を実行
+                downloadButton.addEventListener('click', downloadWasmAndJsAsZip);
+            }
+            
+            // 既存のService Workerの登録処理
+            registerServiceWorker();
+        });
+        
+        // ----------------------------------------------------
+        // 既存のService Workerの登録処理
+        // ----------------------------------------------------
+        // DOM要素を取得してステータスを表示する（オプション。なくても機能するが、確認のためにあると便利）
+        // const statusElement = document.getElementById('status'); // 上で定義済み
+
+        /**
+         * Service Worker の登録処理を実行する関数
+         */
+        function registerServiceWorker() {
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                    navigator.serviceWorker.register('/sw.js')
+                        .then(registration => {
+                            console.log('Service Worker 登録成功:', registration.scope);
+                            if (STATUS_DIV) {
+                                STATUS_DIV.innerHTML += ` <br>Service Worker 登録成功 🎉 (Scope: ${registration.scope})`;
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Service Worker 登録失敗:', error);
+                            if (STATUS_DIV) {
+                                STATUS_DIV.innerHTML += ` <br>Service Worker 登録失敗 😢: ${error.message}`;
+                            }
+                        });
+                });
+            } else {
+                console.warn('このブラウザは Service Worker をサポートしていません。');
             }
         }
-    }
-
-    // 登録関数を実行
-    registerServiceWorker();
-</script>
+        
+        // registerServiceWorker() はDOMContentLoaded内で実行するように変更しました。
+        // （元のコードの最後ではなく、DOMContentLoaded内がより管理しやすいです）
+    </script>
 </body>
 </html>
