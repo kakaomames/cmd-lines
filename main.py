@@ -2325,10 +2325,10 @@ RENDER_URL = os.environ.get("RENDER_URL", "https://rei-1.onrender.com")
 
 
 
-@app.route('/wasm2', methods=['GET'])
-def wasm():
+@app.route('/wasm3', methods=['GET'])
+  def wasm():
     """最初のURL入力フォームを表示"""
-    return render_template('wasm.html')
+    return render_template('wasmv1.html')
 
 ## =========================================================
 ## 2. Render コンパイラへのプロキシ API ルート
@@ -2470,6 +2470,88 @@ def download_proxy(task_id):
     except Exception as e:
         print(f"Internal Download Error: {e}")
         return flask.jsonify({'status': 'error', 'message': 'Internal Error'}), 500
+
+
+
+
+
+
+
+# 隊員のRender WASMサーバーURL
+RENDER_URL = 'https://wasm-8mc3.onrender.com'
+print(f"RENDER_URL:{RENDER_URL}") # 隊長の指示に従い、値の決定時にprintします
+
+# template_folder='templates' を指定し、Vercelの構成に対応
+
+@app.route('/wasm2')
+def serve_html():
+    """/wasm2: クライアントHTMLをレンダリングして返す"""
+    # templates/wasm.html をレンダリング
+    return render_template('wasm.html')
+
+@app.route('/api/rust', methods=['POST'])
+def proxy_rust_build():
+    """/api/rust: クライアントからのPOSTをRender /rust へ中継し、Task IDを返す"""
+    
+    # 1. クライアントからのデータを受け取る
+    try:
+        data = request.get_json(silent=True)
+    except:
+        return jsonify({"error": "Invalid JSON request."}), 400
+    
+    # 2. RenderサーバーへPOSTリクエストを中継
+    render_endpoint = f"{RENDER_URL}/rust"
+    print(f"Proxying POST to:{render_endpoint}") # 値の決定時にprint
+    
+    try:
+        # Vercel -> Render へのリクエスト
+        response = requests.post(
+            render_endpoint, 
+            json=data, 
+            headers={'Content-Type': 'application/json'}
+        )
+        
+        # 3. Renderからのレスポンスをそのままクライアントへ返す (JSONとHTTPステータス)
+        response_data = response.json()
+        print(f"Render response status:{response.status_code}") # 値の決定時にprint
+        
+        return jsonify(response_data), response.status_code
+        
+    except requests.exceptions.RequestException as e:
+        print(f"Error proxying request to Render:{e}") # 値の決定時にprint
+        return jsonify({"error": "Renderサーバーへの接続エラー。 Renderサーバーがダウンしている可能性があります。", "details": str(e)}), 503
+
+@app.route('/api/status', methods=['GET'])
+def proxy_status_check():
+    """/api/status: クライアントからのGETをRender /status へ中継し、進捗または結果を返す"""
+    
+    task_id = request.args.get('taskid')
+    print(f"Received Task ID:{task_id}") # 値の決定時にprint
+
+    if not task_id:
+        return jsonify({"error": "taskidが必要です。"}), 400
+
+    # 1. RenderサーバーへGETリクエストを中継
+    render_endpoint = f"{RENDER_URL}/status"
+    
+    try:
+        # Vercel -> Render へのリクエスト
+        response = requests.get(
+            render_endpoint, 
+            params={'taskid': task_id}
+        )
+        
+        # 2. Renderからのレスポンスをそのままクライアントへ返す (JSONとHTTPステータス)
+        # 進行中は202、完了は200がRenderから返されるため、それを維持する。
+        response_data = response.json()
+        print(f"Render status response status:{response.status_code}") # 値の決定時にprint
+        
+        return jsonify(response_data), response.status_code
+        
+    except requests.exceptions.RequestException as e:
+        print(f"Error proxying status request to Render:{e}") # 値の決定時にprint
+        return jsonify({"error": "Renderサーバーへのステータス接続エラー", "details": str(e)}), 503
+   
 
 
 @app.route('/pokemonquest', methods=['GET'])
