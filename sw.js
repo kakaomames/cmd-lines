@@ -21,6 +21,7 @@ const urlsToCache = [
     '/templates/pokemonquest.html'
   '/templates/url-search.html',
   '/templates/wasm.html',
+     '/templates/wasmv1.html',
   '/templates/github1.html',
   '/templates/license.html',
   '/manifest.json',
