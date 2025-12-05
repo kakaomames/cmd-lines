@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>GitHub API アップローダー</title>
+</head>
+<body>
+    <h2>GitHub API アップローダー サービス</h2>
+    <p>このエンドポイント <code>/github</code> は **POSTリクエスト** のみを受け付けます。</p>
+    
+    <h3>🚀 POST リクエストの送り方</h3>
+    <p>以下の情報をリクエストに含めてください:</p>
+    <ul>
+        <li><strong>HTTPメソッド:</strong> <code>POST</code></li>
+        <li><strong>リクエストヘッダー (必須):</strong> <code>REPOFILEPASS</code> (GitHubリポジトリ内の保存パス 例: <code>data/model.obj</code>)</li>
+        <li><strong>リクエストヘッダー (任意):</strong> <code>COMMITMESSAGE</code> (コミットメッセージ)</li>
+        <li><strong>リクエストボディ:</strong> アップロードしたいファイルの内容 (バイナリデータ)</li>
+    </ul>
+    
+    <hr>
+    
+    <h3>💡 テスト方法 (例: cURL)</h3>
+    <pre>
+curl -X POST \
+  -H "Content-Type: application/octet-stream" \
+  -H "REPOFILEPASS: data/test_model_001.obj" \
+  -H "COMMITMESSAGE: Flaskアップローダーのテスト" \
+  --data-binary @./[ファイル名.obj] \
+  https://xeroxapp032.vercel.app/github
+    </pre>
+    <p>※ <code>[ファイル名.obj]</code> は実際に存在するファイル名に置き換えてね。</p>
+</body>
+</html>
