@@ -2554,6 +2554,135 @@ def proxy_status_check():
    
 
 
+import os
+import requests
+import base64
+import time
+from flask import Flask, request, render_template, make_response
+
+# GitHubリポジトリ情報 (ここをカカオマメのリポジトリに合わせてね)
+OWNER = "kakaomames" 
+REPO = "rei" 
+BRANCH = "main" 
+
+# 環境変数からPATを読み込む
+PAT = os.environ.get('GITHUB_TOKEN')
+if not PAT:
+    # 実際にはここに終了処理やログが必要だが、ここでは警告のみ
+    print("⚠️ 警告：環境変数 'GITHUB_PAT' が設定されていません！")
+# ----------------------------------------------------
+
+
+# ----------------------------------------------------
+# 2. GitHub API アップロード関数
+# ----------------------------------------------------
+def github_api_upload(file_data_bytes, repo_file_path, commit_message):
+    """
+    ファイル内容のバイトデータを受け取り、GitHub API経由でアップロード/更新する。
+    """
+    if not PAT:
+        return False, "PATが設定されていません。"
+        
+    url = f"https://api.github.com/repos/{OWNER}/{REPO}/contents/{repo_file_path}"
+    headers = {
+        "Authorization": f"token {PAT}",
+        "Accept": "application/vnd.github.v3+json"
+    }
+
+    # ファイル内容をBase64文字列にエンコード
+    # APIではファイル内容はBase64で送る必要がある
+    content_base64 = base64.b64encode(file_data_bytes).decode('utf-8')
+    
+    # 既存ファイルがあるかチェックし、SHA値を取得（更新処理に必要）
+    sha = None
+    try:
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            # 既存ファイルがあれば、そのSHA値を取得する
+            sha = response.json().get("sha")
+            print(f"既存ファイルが見つかりました。SHA: {sha}")
+    except requests.exceptions.RequestException as e:
+        print(f"ファイルチェックエラー: {e}")
+        # チェックが失敗しても、新規作成を試行するために続行する場合もあるが、ここではエラーとする
+        return False, "GitHub接続エラーが発生しました。"
+        
+    # ペイロード作成
+    payload = {
+        "message": commit_message,
+        "content": content_base64,
+        "branch": BRANCH,
+        "sha": sha # 新規作成時はNone、更新時はSHA値
+    }
+
+    # PUTリクエストを送信 (ファイルの新規作成/更新)
+    response = requests.put(url, headers=headers, json=payload)
+
+    if response.status_code in (200, 201): # 201: 作成成功, 200: 更新成功
+        action = "更新" if sha else "作成"
+        return True, f"✅ ファイル({repo_file_path})の{action}に成功しました！"
+    else:
+        error_msg = response.json().get('message', '不明なAPIエラー')
+        return False, f"❌ アップロード失敗 (Code: {response.status_code}): {error_msg}"
+
+
+# ----------------------------------------------------
+# 3. Flask ルーティング
+# ----------------------------------------------------
+@app.route('/github', methods=['GET', 'POST'])
+def github_handler():
+    # GETリクエストの場合 (ブラウザからのアクセス)
+    if request.method == 'GET':
+        # 今回はPOST処理がメインなので、ブラウザに説明を表示するシンプルなHTMLを返す
+        return render_template('github.html')
+
+    # POSTリクエストの場合 (ファイル受信とGitHubアップロード実行)
+    if request.method == 'POST':
+        
+        # 1. リクエストヘッダーから保存パスを取得
+        repo_file_path = request.headers.get('REPOFILEPASS')
+        if not repo_file_path:
+            return make_response("エラー: リクエストヘッダーに 'REPOFILEPASS' が含まれていません。", 400)
+
+        # 2. ファイルデータ（バイナリ）をリクエストボディから直接取得
+        file_data_bytes = request.data
+        if not file_data_bytes:
+            return make_response("エラー: リクエストボディにファイルデータが含まれていません。", 400)
+        
+        # 3. コミットメッセージの設定
+        
+        # ファイル名を取得
+        filename = os.path.basename(repo_file_path)
+        # 現在時刻を「YYYY-MM-DD HH:MM:SS JST」形式のタイムスタンプにする
+        current_timestamp = time.strftime("%Y-%m-%d %H:%M:%S JST", time.localtime())
+
+        # デフォルトのコミットメッセージを生成 (カカオマメの希望形式)
+        default_msg = f"chore: {current_timestamp} に {filename} をアップロードしました。"
+        
+        # リクエストヘッダー 'COMMITMESSAGE' があれば、それを優先する。
+        commit_msg = request.headers.get('COMMITMESSAGE', default_msg)
+        
+        # 4. GitHub APIによるアップロードを実行
+        success, message = github_api_upload(
+            file_data_bytes=file_data_bytes,
+            repo_file_path=repo_file_path,
+            commit_message=commit_msg
+        )
+
+        # 5. 結果を返す
+        if success:
+            print(f"🚀 成功: {message}")
+            return make_response(message, 201) # 201 Created
+        else:
+            print(f"🛑 失敗: {message}")
+            return make_response(message, 500) # 500 Internal Server Error
+
+
+
+
+
+
+
+
 @app.route('/pokemonquest', methods=['GET'])
 def pokeque():
     """最初のURL入力フォームを表示"""
