@@ -2566,7 +2566,7 @@ REPO = "rei"
 BRANCH = "main" 
 
 # 環境変数からPATを読み込む
-PAT = os.environ.get('GITHUB_TOKEN')
+PAT = os.environ.get('GAK')
 if not PAT:
     # 実際にはここに終了処理やログが必要だが、ここでは警告のみ
     print("⚠️ 警告：環境変数 'GITHUB_PAT' が設定されていません！")
