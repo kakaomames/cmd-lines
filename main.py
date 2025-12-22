@@ -2677,6 +2677,75 @@ def github_handler():
             return make_response(message, 500) # 500 Internal Server Error
 
 
+import os
+import json
+import base64
+import uuid
+import requests
+from flask import Flask, request, jsonify
+
+
+
+# 隊員、VercelのSettings > Environment Variables でこれを設定してください！ 🫡
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+REPO_OWNER = "kakaomames"
+REPO_NAMES = "userdata"
+
+def push_to_github(path, message, content, sha=None):
+    url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAMES}/contents/{path}"
+    headers = {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github.v3+json"
+    }
+    data = {
+        "message": message,
+        "content": base64.b64encode(content.encode('utf-8')).decode('utf-8')
+    }
+    if sha:
+        data["sha"] = sha
+    
+    res = requests.put(url, headers=headers, data=json.dumps(data))
+    return res.json()
+
+@app.route('/api/register', methods=['POST'])
+def register():
+    # --- 受信データ確定 ---
+    reg_data = request.json
+    username = reg_data.get('username')
+    password = reg_data.get('password')
+    print(f"username:{username}")
+    print(f"password:{password}")
+
+    # --- UUID生成 ---
+    new_uuid = str(uuid.uuid4())
+    print(f"new_uuid:{new_uuid}")
+
+    # --- 1. manifest.json の更新 ---
+    # まずは現在の manifest.json を取得
+    manifest_url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAMES}/contents/manifest.json"
+    manifest_res = requests.get(manifest_url, headers={"Authorization": f"token {GITHUB_TOKEN}"}).json()
+    
+    current_manifest = json.loads(base64.b64decode(manifest_res['content']).decode('utf-8'))
+    print(f"current_manifest:{current_manifest}")
+
+    # 追記してプッシュ
+    current_manifest[username] = new_uuid
+    updated_manifest_str = json.dumps(current_manifest, ensure_ascii=False, indent=4)
+    push_to_github("manifest.json", f"Add user {username}", updated_manifest_str, manifest_res['sha'])
+    print(f"updated_manifest_str:{updated_manifest_str}")
+
+    # --- 2. uuid.json の新規作成 ---
+    user_data = {
+        "password": password,
+        "worlddata": [],
+        "created_at": "2025-12-23",
+        "system_path": f"userdata\\{new_uuid}\\" # バックスラッシュ死守！
+    }
+    user_json_str = json.dumps(user_data, ensure_ascii=False, indent=4)
+    push_to_github(f"{new_uuid}.json", f"Initialize user data for {username}", user_json_str)
+    print(f"user_json_str:{user_json_str}")
+
+    return jsonify({"status": "success", "uuid": new_uuid})
 
 
 
