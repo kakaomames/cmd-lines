@@ -2759,6 +2759,52 @@ def pokeque():
 
 
 
+# ========================================
+# 🎖 Gemini programming隊・静的ビルドセクション
+# ========================================
+import json
+
+def build_static_site():
+    print("🛠 ビルド作戦開始...")
+    
+    # ページリスト（作成したルートをここに追加していく）
+    # 例: HTMLが埋め込まれているルートやテンプレートを呼び出すルート
+    pages = {
+        "/": "index.html",
+        "/indexss": "indexss.html",
+        "/license": "license.html",
+        # ポケモンクエスト用データ
+        "/api/data": "data.json" 
+    }
+
+    with app.test_client() as client:
+        for path, target_file in pages.items():
+            print(f"Target determined: {path} -> {target_file}")
+            response = client.get(path)
+            
+            if response.status_code == 200:
+                # バイナリモードで保存（画像やHTML両方対応）
+                with open(target_file, "wb") as f:
+                    f.write(response.data)
+                print(f"a:{target_file} # ファイル確定しました")
+            else:
+                print(f"⚠️ Warning: {path} status code is {response.status_code}")
+
 if __name__ == '__main__':
-    print(" デバッグモードは開発用です。本番環境では絶対に有効にしないでください。")
-    socketio.run(app, debug=True, host='0.0.0.0', port=5000)
+    # GitHub Actions環境（環境変数）の確認
+    is_actions = os.environ.get("GITHUB_ACTIONS") == "true"
+    print(f"is_actions: {is_actions}")
+
+    if is_actions:
+        print("🤖 GitHub Actionsモードで起動。静的ファイルを生成します。")
+        build_static_site()
+        print("✅ 全てのレンダリングが完了しました。")
+    else:
+        # Vercelやローカル用の通常起動
+        print("🚀 サーバーモードで起動します。")
+        # 以前の指示通り、ポート番号を確定
+        port_val = int(os.environ.get("PORT", 5000))
+        print(f"port_val: {port_val}")
+        
+        # SocketIOで起動（allow_unsafe_werkzeug=Trueを忘れずに！）
+        socketio.run(app, debug=True, host='0.0.0.0', port=port_val, allow_unsafe_werkzeug=True)
