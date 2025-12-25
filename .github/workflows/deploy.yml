@@ -31,7 +31,7 @@ jobs:
         env:
           MY_API_KEY: ${{ secrets.MY_API_KEY }} # Secretを設定しておくこと
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python main.py
+        run: python app.py
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
