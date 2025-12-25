@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>オンラインダウンローダー</title>
+    {CUSTOM_CSS}
+</head>
+    <link rel="stylesheet" href="https://kakaomames.github.io/Minecraft-flask-app/static/style.css">
+<body>
+    <div class="container">
+     <h1>🔗 オンラインダウンローダー</h1>
+        <nav>
+            <ul>
+                <li><a href="/home">ホーム</a></li>
+                <li><a href="/h">GITHUBにセーブデータ保存</a></li>
+                <li><a href="/cmd">Webコマンド実行ツール</a></li>
+                <br>
+                <li><a href="/run?cmd=">直接コマンド実行したい方向け...</a></li>
+                <li><a href="/link">URL検索✨</a></li>
+                <li><a href="/url-dl">オンラインダウンローダー</a></li>
+                <br>
+                <li><a href="/ikkatu-url">🔗一括URLダウンローダー🔗</a></li>
+                <li><a href="/games">ゲーム👿</a></li>
+                
+            </ul>
+        </nav>
+    </header>
+        {f'<p class="warning">{warning}</p>' if warning else ''}
+        <p>ダウンロードしたいファイルのURLを入力してください。</p>
+        <form method="POST" action="/select_name">
+            <input type="text" name="url" placeholder="例: https://kakaomames.gothub.io/a/index.html" required>
+            <br>
+            <button type="submit">ファイル名選択へ進む</button>
+        </form>
+    </div>
+    <script>
+    // DOM要素を取得してステータスを表示する（オプション。なくても機能するが、確認のためにあると便利）
+    const statusElement = document.getElementById('status');
+
+    /**
+     * Service Worker の登録処理を実行する関数
+     */
+    function registerServiceWorker() {
+        // 1. Service Worker APIがブラウザでサポートされているかを確認
+        if ('serviceWorker' in navigator) {
+            
+            // 2. ページ全体のロード完了を待ってから登録を開始 (推奨されるタイミング)
+            window.addEventListener('load', () => {
+                
+                // /sw.js のパスで Service Worker を登録します。
+                // Service Worker のスコープは、このスクリプトがあるディレクトリ(/)となります。
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => {
+                        // 登録成功時の処理
+                        console.log('Service Worker 登録成功:', registration.scope);
+                        if (statusElement) {
+                            statusElement.textContent = `Service Worker 登録成功 🎉 (Scope: ${registration.scope})`;
+                        }
+                    })
+                    .catch(error => {
+                        // 登録失敗時の処理
+                        console.error('Service Worker 登録失敗:', error);
+                        if (statusElement) {
+                            statusElement.textContent = `Service Worker 登録失敗 😢: ${error.message}`;
+                        }
+                    });
+            });
+        } else {
+            // Service Worker をサポートしていないブラウザの場合
+            console.warn('このブラウザは Service Worker をサポートしていません。');
+            if (statusElement) {
+                statusElement.textContent = 'このブラウザは Service Worker をサポートしていません。';
+            }
+        }
+    }
+
+    // 登録関数を実行
+    registerServiceWorker();
+</script>
+</body>
+</html>

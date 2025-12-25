@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Scratchプロジェクトデータ取得</title>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        h1 { color: #333; }
+        input[type="text"] { width: 80%; padding: 10px; margin-right: 10px; }
+        button { padding: 10px 20px; cursor: pointer; }
+        pre { background-color: #f4f4f4; padding: 15px; border-radius: 5px; white-space: pre-wrap; word-break: break-all; }
+        .result-section { margin-top: 20px; border-top: 2px solid #ccc; padding-top: 15px; }
+        .download-link, .license-link { margin-top: 15px; display: block; }
+    </style>
+    <link rel="stylesheet" href="https://kakaomames.github.io/Minecraft-flask-app/static/style.css">
+</head>
+<body>
+        <header>
+        <h1>ぽけもぐプロジェクト</h1>
+        <nav>
+            <ul>
+                <li><a href="/home">ホーム</a></li>
+                <li><a href="/h">GITHUBにセーブデータ保存</a></li>
+                <li><a href="/cmd">Webコマンド実行ツール</a></li>
+                <br>
+                <li><a href="/run?cmd=">直接コマンド実行したい方向け...</a></li>
+                <li><a href="/link">URL検索✨</a></li>
+                <li><a href="/url-dl">オンラインダウンローダー</a></li>
+                <br>
+                <li><a href="/ikkatu-url">🔗一括URLダウンローダー🔗</a></li>
+                <li><a href="/mqo">📁mqoからobjに変換📁</a></li>
+                <li><a href="/games">ゲーム👿</a></li>
+                <br>
+                <li><a href="/scratch">💻スクラッチのデータ取得🐱</a></li>
+                <li><a href="/dl?data_url=">🔗スクラッチデータ(sb3)ダウンローダー🔗</a></li>
+                <li><a href="https://kakaomames.github.io/turbowarp/">🧑‍💻スクラッチ🐱</a></li>
+                <br>
+                <li><a href="/wasm">wasm特定</a></li>
+                <li><a href="/wasm2">wasm作成</a></li>
+            </ul>
+        </nav>
+    </header>
+    <h1>Scratchプロジェクトデータ解析</h1>
+    <p>プロジェクトのURLを入力してください（トークン付きも可）。</p>
+    
+    <input type="text" id="projectUrl" placeholder="例: https://projects.scratch.mit.edu/123456789?token=..." value="https://scratch.mit.edu/projects/846673644">
+    <button onclick="getData()">データ取得</button>
+    
+    <a href="/license" target="_blank" class="license-link">ライセンス（免責事項）を確認する</a>
+
+    <div id="result" class="result-section" style="display:none;">
+        <h2>📝 解析結果</h2>
+        <pre id="jsonOutput"></pre>
+        
+        <p>
+            ⚠️ **ダウンロードステップ:** トークンが切れる前に、以下のボタンをクリックしてプロジェクトデータを取得してください。
+        </p>
+        <button id="downloadButton" onclick="downloadFile()" style="padding: 15px; background-color: #4CAF50; color: white; border: none; border-radius: 5px;">
+            💾 プロジェクトファイル (.sb3) をダウンロード
+        </button>
+    </div>
+
+    <script>
+        // ボタンクリックでAPIを呼び出す関数
+        function getData() {
+            const fullUrl = document.getElementById('projectUrl').value;
+            // URLからプロジェクトIDを抽出 (正規表現でID部分のみを取得)
+            //例:https://scratch.mit.edu/projects/1059423894
+            const match = fullUrl.match(/scratch\.mit\.edu\/projects\/(\d+)/);
+            if (!match) {
+                alert("有効なScratchプロジェクトURLを入力してください。");
+                return;
+            }
+            const projectId = match[1];
+            
+            // Flask APIへGETリクエスト
+            fetch(`/projects/${projectId}`)
+                .then(response => response.json())
+                .then(data => {
+                    // 取得したJSONデータを整形して表示
+                    document.getElementById('jsonOutput').textContent = 
+                        JSON.stringify(data, null, 2);
+                    document.getElementById('result').style.display = 'block';
+                    
+                    // ダウンロードボタンに data_url を保持させる
+                    const downloadButton = document.getElementById('downloadButton');
+                    downloadButton.setAttribute('data-url', data.data_url);
+                    
+                    alert('データ取得完了！トークンを確認し、ダウンロードに進んでください。');
+                })
+                .catch(error => {
+                    console.error('API Error:', error);
+                    document.getElementById('jsonOutput').textContent = 
+                        'データの取得に失敗しました。プロジェクトIDを確認してください。';
+                    document.getElementById('result').style.display = 'block';
+                });
+        }
+        
+        // ダウンロード処理関数
+        function downloadFile() {
+            const downloadButton = document.getElementById('downloadButton');
+            const dataUrl = downloadButton.getAttribute('data-url');
+            
+            if (!dataUrl || dataUrl.includes("トークンが見つからなかった")) {
+                alert("トークンがないため、ダウンロードできません。トークン付きのURLで再試行してください。");
+                return;
+            }
+            
+            // data_urlをクエリパラメータとして /dl に渡し、ダウンロードを開始させる
+            window.location.href = `/dl?data_url=${encodeURIComponent(dataUrl)}`;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ホーム - pokemoguプロジェクト</title>
+    <link rel="apple-touch-icon" sizes="180x180" href="/logo.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/logo.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/logo.png">
+<link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="https://kakaomames.github.io/Minecraft-flask-app/static/style.css">
+</head>
+<body>
+    <header>
+        <h1>ぽけもぐプロジェクト</h1>
+        <nav>
+            <ul>
+                <li><a href="/home">ホーム</a></li>
+                <li><a href="/h">GITHUBにセーブデータ保存</a></li>
+                <li><a href="/cmd">Webコマンド実行ツール</a></li>
+                <br>
+                <li><a href="/run?cmd=">直接コマンド実行したい方向け...</a></li>
+                <li><a href="/link">URL検索✨</a></li>
+                <li><a href="/url-dl">オンラインダウンローダー</a></li>
+                <br>
+                <li><a href="/ikkatu-url">🔗一括URLダウンローダー🔗</a></li>
+                <li><a href="/mqo">📁mqoからobjに変換📁</a></li>
+                <li><a href="/games">ゲーム👿</a></li>
+                <br>
+                <li><a href="/scratch">💻スクラッチのデータ取得🐱</a></li>
+                <li><a href="/dl?data_url=">🔗スクラッチデータ(sb3)ダウンローダー🔗</a></li>
+                <li><a href="https://kakaomames.github.io/turbowarp/">🧑‍💻スクラッチ🐱</a></li>
+                <br>
+                <li><a href="/wasm">wasm特定</a></li>
+                <li><a href="/wasm3">wasm作成v1</a></li>
+                <li><a href="/pokemonquest"><img src="/logo.png" alt="ロゴ" width="16" height="16">ﾎﾟｹﾓﾝｸｴｽﾄ</a></li>
+                <br>
+                <li><a href="/wasm2">wasm作成v2</a></li>
+
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <p>ここはホーム画面です。各メニューから移動してください。</p>
+    </main>
+    <footer>
+        <p>&copy; 2025 pokemoguプロジェクト</p>
+    </footer>
+    <script>
+    // DOM要素を取得してステータスを表示する（オプション。なくても機能するが、確認のためにあると便利）
+    const statusElement = document.getElementById('status');
+
+    /**
+     * Service Worker の登録処理を実行する関数
+     */
+    function registerServiceWorker() {
+        // 1. Service Worker APIがブラウザでサポートされているかを確認
+        if ('serviceWorker' in navigator) {
+            
+            // 2. ページ全体のロード完了を待ってから登録を開始 (推奨されるタイミング)
+            window.addEventListener('load', () => {
+                
+                // /sw.js のパスで Service Worker を登録します。
+                // Service Worker のスコープは、このスクリプトがあるディレクトリ(/)となります。
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => {
+                        // 登録成功時の処理
+                        console.log('Service Worker 登録成功:', registration.scope);
+                        if (statusElement) {
+                            statusElement.textContent = `Service Worker 登録成功 🎉 (Scope: ${registration.scope})`;
+                        }
+                    })
+                    .catch(error => {
+                        // 登録失敗時の処理
+                        console.error('Service Worker 登録失敗:', error);
+                        if (statusElement) {
+                            statusElement.textContent = `Service Worker 登録失敗 😢: ${error.message}`;
+                        }
+                    });
+            });
+        } else {
+            // Service Worker をサポートしていないブラウザの場合
+            console.warn('このブラウザは Service Worker をサポートしていません。');
+            if (statusElement) {
+                statusElement.textContent = 'このブラウザは Service Worker をサポートしていません。';
+            }
+        }
+    }
+
+    // 登録関数を実行
+    registerServiceWorker();
+</script>
+</body>
+</html>

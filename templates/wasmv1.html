@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Gemini programming隊によるWebAssembly (Wasm) コンパイラ。Rustコードをブラウザで実行可能形式にコンパイルします。">
+    <meta name="keywords" content="Wasm, WebAssembly, Rust, コンパイラ, Vercel, Render, Gemini">
+    <meta name="author" content="カカオマメ">
+    <meta property="og:title" content="Gemini Wasm コンパイラ">
+    <meta property="og:description" content="RustコードをWebAssemblyにコンパイルし、Webで実行します。">
+    <meta property="og:image" content="/logo.png">
+    <meta property="og:url" content="https://xeroxapp032.vercel.app/wasm2">
+    <link rel="icon" href="/logo.png" type="image/png">
+     <link rel="stylesheet" href="https://kakaomames.github.io/Minecraft-flask-app/static/style.css">
+
+    <title>Gemini programming隊 Wasm コンパイラ</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <style>
+        body { font-family: 'Arial', sans-serif; margin: 20px; background-color: #f4f4f4; }
+        .container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); }
+        h1 { text-align: center; color: #333; }
+        textarea { width: 100%; height: 200px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; color: #555; }
+        button { padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; transition: background-color 0.3s; }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        #status-area { margin-top: 20px; padding: 15px; border-radius: 4px; background-color: #e9ecef; }
+        #output-area { margin-top: 20px; padding: 15px; border: 1px dashed #333; background-color: #fff; min-height: 50px; }
+        .logo { display: block; margin: 0 auto 10px; width: 50px; }
+        .error { color: #dc3545; font-weight: bold; }
+        .success { color: #28a745; font-weight: bold; }
+    </style>
+</head>
+<body>
+        <header>
+        <h1>ぽけもぐプロジェクト</h1>
+        <nav>
+            <ul>
+                <li><a href="/home">ホーム</a></li>
+                <li><a href="/h">GITHUBにセーブデータ保存</a></li>
+                <li><a href="/cmd">Webコマンド実行ツール</a></li>
+                <br>
+                <li><a href="/run?cmd=">直接コマンド実行したい方向け...</a></li>
+                <li><a href="/link">URL検索✨</a></li>
+                <li><a href="/url-dl">オンラインダウンローダー</a></li>
+                <br>
+                <li><a href="/ikkatu-url">🔗一括URLダウンローダー🔗</a></li>
+                <li><a href="/mqo">📁mqoからobjに変換📁</a></li>
+                <li><a href="/games">ゲーム👿</a></li>
+                <br>
+                <li><a href="/scratch">💻スクラッチのデータ取得🐱</a></li>
+                <li><a href="/dl?data_url=">🔗スクラッチデータ(sb3)ダウンローダー🔗</a></li>
+                <li><a href="https://kakaomames.github.io/turbowarp/">🧑‍💻スクラッチ🐱</a></li>
+                <br>
+                <li><a href="/wasm">wasm特定</a></li>
+                <li><a href="/wasm2">wasm作成</a></li>
+            </ul>
+        </nav>
+    </header>
+    <div class="container">
+        <img src="https://kakaomames.github.io/rei/logo.png" alt="Gemini Logo" class="logo">
+        <h1>Wasm コンパイラ 🦀⚙️</h1>
+        <p>Rustコードと、必要な依存関係を定義する Cargo.toml を入力してください。</p>
+        
+        <label for="cargo-toml">Cargo.toml (依存関係の定義)</label>
+        <textarea id="cargo-toml" rows="8"></textarea>
+
+        <label for="rust-code">Rust Code (src/lib.rs に相当)</label>
+        <textarea id="rust-code"></textarea>
+        
+        <button id="compile-button">コンパイル開始 & ZIP生成</button>
+
+        <div id="status-area">
+            <h3>ステータス: <span id="compile-status">準備完了</span></h3>
+            <p>進捗: <span id="compile-progress">0%</span></p>
+            <p id="status-message">ボタンを押してコンパイルを開始してください。</p>
+        </div>
+
+        <div id="output-area">
+            <h3>結果</h3>
+            <p id="execution-message">コンパイル成功後、ZIPファイルがダウンロードされます。</p>
+        </div>
+    </div>
+
+    <script>
+        // --- 設定と定数 ---
+        const COMPILER_URL = '/api/compile';
+        const STATUS_URL = '/api/status/';
+        const POLLING_INTERVAL = 5000; // 5秒ごとにポーリング
+        
+        // --- DOM要素 ---
+        const compileButton = document.getElementById('compile-button');
+        const rustCodeArea = document.getElementById('rust-code');
+        const cargoTomlArea = document.getElementById('cargo-toml'); // ★追加★
+        const compileStatus = document.getElementById('compile-status');
+        const compileProgress = document.getElementById('compile-progress');
+        const statusMessage = document.getElementById('status-message');
+        const executionMessage = document.getElementById('execution-message');
+        
+        // --- グローバル変数 ---
+        let isCompiling = false;
+
+        // --- イベントリスナー ---
+        compileButton.addEventListener('click', () => {
+            if (!isCompiling) {
+                startCompilation(rustCodeArea.value, cargoTomlArea.value); // ★ Cargo.toml を引数に追加 ★
+            }
+        });
+
+        // --- ポーリングロジック ---
+
+        async function startCompilation(rustCode, cargoTomlContent) { // ★ 引数に追加 ★
+            isCompiling = true;
+            compileButton.disabled = true;
+            updateStatus('リクエスト送信中...', 0, '初期リクエストをVercelに送信しています。');
+            executionMessage.textContent = '結果待ち...';
+
+            try {
+                // 1. Vercelにコンパイルタスクを依頼
+                let response = await fetch(COMPILER_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        code: rustCode,
+                        cargo_toml: cargoTomlContent // ★ペイロードに追加 ★
+                    })
+                });
+
+                if (response.status === 202) {
+                    const data = await response.json();
+                    const taskId = data.task_id;
+                    console.log(`Task submitted. ID: ${taskId}. Starting polling.`);
+                    
+                    // 2. ポーリングを開始
+                    await pollForStatus(taskId);
+
+                } else {
+                    const errorData = await response.json().catch(() => ({ message: '不明なエラー' }));
+                    throw new Error(`タスク開始失敗 (${response.status}): ${errorData.message}`);
+                }
+
+            } catch (error) {
+                updateStatus('コンパイル失敗', 0, `エラー: ${error.message}`, true);
+            } finally {
+                isCompiling = false;
+                compileButton.disabled = false;
+            }
+        }
+
+        async function pollForStatus(taskId) {
+            return new Promise((resolve, reject) => {
+                const intervalId = setInterval(async () => {
+                    try {
+                        const statusResponse = await fetch(STATUS_URL + taskId);
+                        const statusData = await statusResponse.json();
+
+                        updateStatus('コンパイル中', statusData.progress, statusData.message);
+
+                        if (statusData.status === 'completed') {
+                            clearInterval(intervalId);
+                            updateStatus('完了', 100, 'Wasmのコンパイルに成功しました。ファイルを生成中です...');
+                            await handleSuccessfulCompilation(statusData); 
+                            resolve();
+
+                        } else if (statusData.status === 'error') {
+                            clearInterval(intervalId);
+                            // エラー発生時: ログ生成とダウンロードに移行
+                            await handleCompilationError(statusData); 
+                            reject(new Error(statusData.message || "Renderサーバーで予期せぬエラーが発生しました。"));
+
+                        } else {
+                            // 処理中 (in_progress) のまま継続
+                        }
+                    } catch (error) {
+                        clearInterval(intervalId);
+                        updateStatus('ポーリング失敗', 0, `サーバー接続エラー: ${error.message}`, true);
+                        reject(error);
+                    }
+                }, POLLING_INTERVAL);
+            });
+        }
+
+        // --- ファイル生成とダウンロードロジック (成功時) ---
+
+        /**
+         * 成功したコンパイルデータからファイルを生成し、ZIP化してダウンロードさせる
+         */
+        async function handleSuccessfulCompilation(data) {
+            try {
+                if (typeof JSZip === 'undefined') {
+                     throw new Error("JSZipライブラリがロードされていません。");
+                }
+
+                const wasmBinary = base64ToArrayBuffer(data.wasm_base64);
+                
+                // wasm-bindgenのJSコード内の Wasm ファイル名参照を 'wasm_project_bg.wasm' から 'wasm.wasm' に置換
+                let jsCode = data.js_code.replace(/wasm_project_bg\.wasm/g, 'wasm.wasm');
+
+
+                // 1. ZIPオブジェクトの初期化
+                const zip = new JSZip();
+                
+                // 2. Wasmファイル (wasm.wasm) の追加 (ArrayBufferとして)
+                zip.file("wasm.wasm", wasmBinary, { binary: true });
+                
+                // 3. JSグルーコード (script.js) の追加
+                zip.file("script.js", jsCode);
+                
+                // 4. HTMLファイル (index.htm) の作成と追加
+                const indexHtmlContent = createIndexHtml();
+                zip.file("index.html", indexHtmlContent);
+
+                // 5. ZIPファイルの生成
+                updateStatus('完了', 100, 'ZIPファイルを生成中...', false);
+                const zipBlob = await zip.generateAsync({ type: "blob" });
+
+                // 6. ダウンロードの実行
+                const downloadUrl = URL.createObjectURL(zipBlob);
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                a.download = 'wasm_project.zip';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(downloadUrl); // URLを解放
+
+                updateStatus('完了', 100, 'ZIPファイルのダウンロードを開始しました。', false);
+                executionMessage.className = 'success';
+                executionMessage.textContent = '🎉 コンパイルされたファイル群 (index.htm, script.js, wasm.wasm) がZIPファイルとしてダウンロードされました。';
+
+            } catch (e) {
+                updateStatus('ファイル生成失敗', 100, `ファイル生成またはダウンロード中にエラーが発生しました: ${e.message}`, true);
+                executionMessage.className = 'error';
+                executionMessage.textContent = `エラー: ${e.message}`;
+                console.error("File generation error:", e);
+            }
+        }
+
+        // --- ファイル生成とダウンロードロジック (エラー時: デバッグ用ログ出力) ---
+
+        /**
+         * コンパイルエラー時にログファイルを生成し、ZIP化してダウンロードさせる
+         * @param {object} data - エラー応答のJSONデータ
+         */
+        async function handleCompilationError(data) {
+            try {
+                const errMsg = data.message || "Renderサーバーから詳細なエラーメッセージが返されませんでした。";
+                updateStatus('コンパイル失敗', data.progress || 0, `デバッグログを生成中です... エラー: ${errMsg}`, true);
+                executionMessage.textContent = `コンパイルに失敗しました。詳細なログをダウンロードしています。`;
+
+                // 1. JSONログファイルの内容を作成
+                const logContent = JSON.stringify({
+                    timestamp: new Date().toISOString(),
+                    status: data.status,
+                    progress: data.progress,
+                    error_message: errMsg,
+                    raw_response: data 
+                }, null, 2); // 整形されたJSON
+
+                // 2. ZIPオブジェクトの初期化
+                if (typeof JSZip === 'undefined') {
+                     throw new Error("JSZipライブラリがロードされていません。");
+                }
+                const zip = new JSZip();
+
+                // 3. log.json ファイルを追加
+                zip.file("compilation_log.json", logContent);
+                
+                // 4. ZIPファイルの生成とダウンロード
+                const zipBlob = await zip.generateAsync({ type: "blob" });
+
+                const downloadUrl = URL.createObjectURL(zipBlob);
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                a.download = 'wasm_error_log.zip';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(downloadUrl);
+
+                updateStatus('ログダウンロード完了', 0, 'エラー詳細を含むZIPファイルをダウンロードしました。中身を確認してください。', true);
+                executionMessage.className = 'error';
+                executionMessage.textContent = `❌ コンパイル失敗。エラーログ (wasm_error_log.zip) をダウンロードしました。`;
+
+            } catch (e) {
+                // ZIP生成自体が失敗した場合の処理
+                updateStatus('致命的な失敗', 0, `ログファイルの生成中にエラーが発生しました: ${e.message}`, true);
+                console.error("Error during log file generation:", e);
+            }
+        }
+
+        // --- ユーティリティ関数 ---
+
+        /**
+         * Wasmをロードし、関数を実行するシンプルな index.htm の内容を生成
+         */
+        function createIndexHtml() {
+            // 閉じタグ「</s>」を「</scr' + 'ipt>」に分割して、HTMLパーサーに誤認識されないようにする
+            const SCRIPT_END = '</scr' + 'ipt>';
+
+            return `<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Wasm 実行結果</title>
+</head>
+<body>
+    <h1>Wasm 実行結果</h1>
+    <p>ブラウザのコンソールを開いてください。Wasmで定義された関数が実行されます。</p>
+    
+    <script>
+        window.consoleLog = function(s) {
+            console.log("From Wasm: " + s);
+        };
+    ` + SCRIPT_END + `
+    
+    <script type="module">
+        // wasm-bindgenが生成したスクリプトをインポート
+        import init, { Game2048 } from './script.js';
+
+        async function run() {
+            try {
+                // Wasmファイルのパスを明示的に渡すことで、GitHub Pagesでのパス解決問題を回避
+                const wasm_module = await init('./wasm.wasm'); 
+                
+                // Wasmでエクスポートされた関数を取得
+                const { Game2048, ping } = wasm_module;
+                
+                console.log("Wasmロード成功！モジュールを取得しました。");
+
+                // --- 2048の実行ロジック例 ---
+                if (typeof Game2048 !== 'undefined') {
+                    const game = Game2048.new();
+                    console.log("ゲームインスタンス生成成功！ 初期スコア:", game.score);
+                    game.place_tile(3, 2);
+                    game.move_tiles(3);
+                    console.log("移動後のスコア:", game.score);
+                } else if (typeof ping === 'function') {
+                    console.log("Pingテスト実行結果:", ping());
+                }
+
+            } catch (e) {
+                console.error("Wasmのロードまたは実行に失敗しました:", e);
+                alert("Wasmのロードまたは実行に失敗しました: " + e.message);
+            }
+        }
+        run();
+    ` + SCRIPT_END + `
+</body>
+
+</html>`;
+        }
+
+        function updateStatus(status, progress, message, isError = false) {
+            compileStatus.textContent = status;
+            compileProgress.textContent = `${progress}%`;
+            statusMessage.textContent = message;
+            statusMessage.className = isError ? 'error' : '';
+        }
+
+        function base64ToArrayBuffer(base64) {
+            const binaryString = atob(base64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+
+        // 初期ロード時の状態設定
+        updateStatus('準備完了', 0, 'ボタンを押してコンパイルを開始してください。');
+    </script>
+    <script>
+    // DOM要素を取得してステータスを表示する（オプション。なくても機能するが、確認のためにあると便利）
+    const statusElement = document.getElementById('status');
+
+    /**
+     * Service Worker の登録処理を実行する関数
+     */
+    function registerServiceWorker() {
+        // 1. Service Worker APIがブラウザでサポートされているかを確認
+        if ('serviceWorker' in navigator) {
+            
+            // 2. ページ全体のロード完了を待ってから登録を開始 (推奨されるタイミング)
+            window.addEventListener('load', () => {
+                
+                // /sw.js のパスで Service Worker を登録します。
+                // Service Worker のスコープは、このスクリプトがあるディレクトリ(/)となります。
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => {
+                        // 登録成功時の処理
+                        console.log('Service Worker 登録成功:', registration.scope);
+                        if (statusElement) {
+                            statusElement.textContent = `Service Worker 登録成功 🎉 (Scope: ${registration.scope})`;
+                        }
+                    })
+                    .catch(error => {
+                        // 登録失敗時の処理
+                        console.error('Service Worker 登録失敗:', error);
+                        if (statusElement) {
+                            statusElement.textContent = `Service Worker 登録失敗 😢: ${error.message}`;
+                        }
+                    });
+            });
+        } else {
+            // Service Worker をサポートしていないブラウザの場合
+            console.warn('このブラウザは Service Worker をサポートしていません。');
+            if (statusElement) {
+                statusElement.textContent = 'このブラウザは Service Worker をサポートしていません。';
+            }
+        }
+    }
+
+    // 登録関数を実行
+    registerServiceWorker();
+</script>
+</body>
+</html>

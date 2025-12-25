@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="VercelとRenderを活用した、ブラウザ上のRust-to-Wasmオンラインコンパイラ。">
+    <meta name="keywords" content="WebAssembly, Wasm, Rust, Vercel, Render, Flask, オンラインコンパイラ">
+    <meta name="author" content="カカオマメ / Gemini programming隊">
+    <meta property="og:title" content="Wasm コンパイラ プロキシシステム">
+    <meta property="og:description" content="あなたのRustコードをVercel経由でRenderサーバーにコンパイルさせます。">
+    <meta property="og:image" content="https://kakaomames.github.io/rei/logo.png">
+    <title>Wasm コンパイラ プロキシ</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        textarea { width: 100%; max-width: 800px; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <h1>🚀 Wasm オンラインコンパイラ (Vercel Proxy)</h1>
+    
+    <textarea id="code-input" rows="20" placeholder="// Rustコードをここに入力してください (例: use wasm_bindgen::prelude::*; ... )"></textarea>
+    <br>
+    
+    <button id="compile-button" onclick="startCompilation()">Wasmにする！ボタン</button>
+    <br>
+    
+    <hr>
+    
+    <h2>📊 変換進捗</h2>
+    <p>ステータス: <span id="status-message">待機中...</span></p>
+    <p>進捗: <span id="progress-percent">0%</span></p>
+    <progress id="progress-bar" value="0" max="100"></progress>
+    <br>
+    
+    <button id="download-button" style="display: none;" onclick="downloadWasm()">Wasmをダウンロード (ZIP)</button>
+    
+    <script>
+        // 🚨 Vercelのルートにデプロイされるため、APIルートは相対パスを使用
+        const API_BASE_URL = "/api"; 
+        let currentTaskId = null;
+        let pollingInterval = null;
+
+        function updateUI(status, message, progress) {
+            progress = Math.max(0, progress); // 負の数を0に戻す（エラー表示は-1）
+            
+            document.getElementById('status-message').textContent = message;
+            document.getElementById('progress-percent').textContent = progress + '%';
+            document.getElementById('progress-bar').value = progress;
+
+            if (progress === 100) {
+                document.getElementById('download-button').style.display = 'block';
+                document.getElementById('compile-button').disabled = false;
+                clearInterval(pollingInterval);
+            } else if (progress < 100 && progress >= 0) {
+                document.getElementById('download-button').style.display = 'none';
+                document.getElementById('compile-button').disabled = true;
+            } else if (status === 'error' || progress < 0) { // エラー状態
+                document.getElementById('download-button').style.display = 'none';
+                document.getElementById('compile-button').disabled = false;
+                clearInterval(pollingInterval);
+                alert(`コンパイルエラー: ${message}`);
+            }
+        }
+
+        async function checkStatus() {
+            if (!currentTaskId) return;
+
+            try {
+                // Vercelプロキシのステータスエンドポイントにポーリング
+                const response = await fetch(`${API_BASE_URL}/status?id=${currentTaskId}`);
+                
+                const statusData = await response.json();
+
+                if (response.status === 404 && statusData.message) {
+                    // タスクが見つからない、または削除済み
+                    updateUI('error', statusData.message, -1);
+                    return;
+                }
+                
+                if (statusData.status === 'error') {
+                    updateUI('error', statusData.message, -1);
+                    return;
+                }
+                
+                updateUI(statusData.status, statusData.message, statusData.progress);
+
+            } catch (error) {
+                console.error("Polling error:", error);
+                updateUI('error', 'Vercelプロキシとの通信エラーが発生しました。', -1);
+                clearInterval(pollingInterval);
+            }
+        }
+
+        async function startCompilation() {
+            const code = document.getElementById('code-input').value;
+            
+            // 既存のポーリングがあれば停止
+            if (pollingInterval) clearInterval(pollingInterval);
+            
+            updateUI('processing', 'コンパイル開始...', 10);
+            document.getElementById('compile-button').disabled = true;
+
+            try {
+                // VercelプロキシのエンドポイントにコードをPOST
+                const response = await fetch(`${API_BASE_URL}/compile`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: code })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.status === 'success') {
+                    currentTaskId = result.task_id;
+                    
+                    // 2秒ごとにステータスをポーリング
+                    pollingInterval = setInterval(checkStatus, 2000); 
+
+                } else {
+                    // コンパイルエラーの場合
+                    updateUI('error', result.message || 'コンパイルに失敗しました。', -1);
+                }
+
+            } catch (error) {
+                console.error("Fetch error:", error);
+                updateUI('error', 'Vercelプロキシへの接続に失敗しました。', -1);
+            }
+        }
+
+        function downloadWasm() {
+            if (currentTaskId) {
+                // Vercelプロキシのダウンロードエンドポイントにリダイレクト
+                window.location.href = `${API_BASE_URL}/download/${currentTaskId}`;
+                
+                // ダウンロード開始後、UIをリセット
+                updateUI('waiting', 'ダウンロード完了。新しいタスクを待機中...', 0);
+                document.getElementById('download-button').style.display = 'none';
+            }
+        }
+
+        // 初期テスト用コード (テスト時はコメントアウトを解除)
+        /*
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('code-input').value = `
+                use wasm_bindgen::prelude::*;
+                #[wasm_bindgen]
+                extern "C" {
+                    #[wasm_bindgen(js_namespace = console)]
+                    fn log(s: &str);
+                }
+                #[wasm_bindgen]
+                pub fn greet() {
+                    log("Hello from Wasm via Vercel Proxy!");
+                }
+            `;
+        });
+        */
+    </script>
+</body>
+</html>

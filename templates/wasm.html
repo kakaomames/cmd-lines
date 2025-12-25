@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="Vercel Proxy for WASM Build Server">
+    <meta name="author" content="Gemini programming隊 隊員">
+    <meta property="og:title" content="WASM Compiler Client (Vercel Proxy)">
+    <meta property="og:description" content="Renderサーバーへの非同期ビルド依頼ページ (Vercel経由)">
+    <meta property="og:image" content="https://kakaomames.github.io/rei/logo.png">
+    <link rel="icon" type="image/png" href="https://kakaomames.github.io/rei/logo.png">
+    <title>WASM Builder Client (Vercel)</title>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        textarea { width: 100%; height: 200px; margin-bottom: 10px; padding: 10px; border: 1px solid #ccc; }
+        button { padding: 10px 20px; background-color: #007bff; color: white; border: none; cursor: pointer; }
+        #status { margin-top: 20px; padding: 15px; border: 1px solid #ffc107; background-color: #fff3cd; }
+        .result-box { margin-top: 20px; padding: 15px; border: 1px solid #28a745; background-color: #d4edda; }
+        .error-box { margin-top: 20px; padding: 15px; border: 1px solid #dc3545; background-color: #f8d7da; }
+    </style>
+    <link rel="apple-touch-icon" sizes="180x180" href="https://kakaomames.github.io/rei/logo.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="https://kakaomames.github.io/rei/logo.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="https://kakaomames.github.io/rei/logo.png">
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="https://kakaomames.github.io/Minecraft-flask-app/static/style.css">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body>
+    <header>
+        <nav>
+            <ul>
+                <li><a href="/home">ホーム</a></li>
+                <li><a href="/h">GITHUBにセーブデータ保存</a></li>
+                <li><a href="/cmd">Webコマンド実行ツール</a></li>
+                <br>
+                <li><a href="/run?cmd=">直接コマンド実行したい方向け...</a></li>
+                <li><a href="/link">URL検索✨</a></li>
+                <li><a href="/url-dl">オンラインダウンローダー</a></li>
+                <br>
+                <li><a href="/ikkatu-url">🔗一括URLダウンローダー🔗</a></li>
+                <li><a href="/mqo">📁mqoからobjに変換📁</a></li>
+                <li><a href="/games">ゲーム👿</a></li>
+                <br>
+                <li><a href="/scratch">💻スクラッチのデータ取得🐱</a></li>
+                <li><a href="/dl?data_url=">🔗スクラッチデータ(sb3)ダウンローダー🔗</a></li>
+                <li><a href="https://kakaomames.github.io/turbowarp/">🧑‍💻スクラッチ🐱</a></li>
+                <br>
+                <li><a href="/wasm">wasm特定</a></li>
+                <li><a href="/wasm3">wasm作成v1</a></li>
+                <li><a href="/pokemonquest"><img src="https://kakaomames.github.io/rei/logo.png" alt="ロゴ" width="16" height="16">ﾎﾟｹﾓﾝｸｴｽﾄ</a></li>
+                <br>
+                <li><a href="/wasm2">wasm作成v2</a></li>
+
+            </ul>
+        </nav>
+    </header>
+    <h1>🚀 Vercel Proxy Client (Gemini programming隊)</h1>
+    <p>Vercelサーバー経由で Render WASMサーバーへタスクを送信します。</p>
+
+    <h2>Rust ソースコード (`lib.rs`)</h2>
+    <textarea id="rustCode" placeholder="ここにRustのコードを入力してください (例: #[no_mangle] pub extern 'C' fn add(a: i32, b: i32) -> i32 { a + b })"></textarea>
+
+    <h2>Cargo.toml (オプション)</h2>
+    <textarea id="cargoToml" placeholder="[lib] crate-type = ['cdylib'] などの設定" style="height: 100px;">[package]
+name = "user_code"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+</textarea>
+    
+    <button onclick="submitBuild('rust')">Rust ビルド開始 (POST /api/rust)</button>
+
+    <img src="https://kakaomames.github.io/rei/db/loading_ajax-loader.gif"><div id="status">ステータス: タスク待機中...</div>
+
+    <div id="result" class="result-box" style="display:none;">
+        <h3>✅ ビルド完了！</h3>
+        <p>タスクID: <span id="resultTaskId"></span></p>
+        <h4>JavaScript コード:</h4>
+        <textarea id="jsCodeOutput" readonly style="height: 150px;"></textarea>
+        <h4>WASM Base64 データ:</h4>
+        <textarea id="wasmBase64Output" readonly style="height: 150px;"></textarea>
+        
+        <button onclick="saveResultToLocal()">結果をローカルに保存</button>
+        <button id="downloadWasmZip" style="background-color: #dc3545; margin-left: 10px;">📦 WASM & JS ZIP ダウンロード</button>
+    </div>
+
+    <div id="localData" style="margin-top: 30px;">
+        <h3>💾 ローカル保存データ</h3>
+        <ul id="localList"></ul>
+    </div>
+
+    <script>
+        // Vercel ProxyのAPIエンドポイントを使用
+        const PROXY_RUST_ENDPOINT = '/api/rust';
+        const PROXY_STATUS_ENDPOINT = '/api/status';
+
+        const STATUS_DIV = document.getElementById('status');
+        const RESULT_DIV = document.getElementById('result');
+        let pollingInterval = null;
+
+        // ポケモンクエストの指示に基づくページ遷移関数 (定義のみ)
+        function navigateTo(page) {
+            document.addEventListener('click', function() { 
+                window.location.href = page; 
+            });
+        }
+        
+        // ----------------------------------------------------
+        // 1. ビルドタスク送信 (Vercel Proxy経由)
+        // ----------------------------------------------------
+        async function submitBuild(lang) {
+            STATUS_DIV.innerHTML = 'ステータス: Vercel経由でRenderへタスク送信中...';
+            RESULT_DIV.style.display = 'none';
+
+            const code = document.getElementById('rustCode').value;
+            const toml = document.getElementById('cargoToml').value;
+
+            if (!code.trim()) {
+                STATUS_DIV.innerHTML = '<span class="error-box">エラー: ソースコードを入力してください。</span>';
+                return;
+            }
+
+            const payload = {
+                rs: code,
+                toml: toml
+            };
+
+            try {
+                const response = await fetch(PROXY_RUST_ENDPOINT, { // Vercel APIをターゲット
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    const taskId = data.taskid;
+                    STATUS_DIV.innerHTML = `ステータス: タスクID <b>${taskId}</b> をVercelが受理し、ポーリング開始...`;
+                    startPolling(taskId);
+                } else {
+                    STATUS_DIV.innerHTML = `<span class="error-box">エラー: タスク送信失敗。 ${data.error || data.message}</span>`;
+                }
+
+            } catch (error) {
+                STATUS_DIV.innerHTML = `<span class="error-box">通信エラー: Vercelサーバーへの接続に失敗しました。 ${error.message}</span>`;
+            }
+        }
+
+        // ----------------------------------------------------
+        // 2. ステータスポーリング (Vercel Proxy経由)
+        // ----------------------------------------------------
+        function startPolling(taskId) {
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+            }
+
+            // 3秒ごとにステータスをチェック
+            pollingInterval = setInterval(async () => {
+                const url = `${PROXY_STATUS_ENDPOINT}?taskid=${taskId}`; // Vercel APIをターゲット
+                
+                try {
+                    const response = await fetch(url);
+                    const data = await response.json();
+                    
+                    if (data.status === 'completed') {
+                        clearInterval(pollingInterval);
+                        displayResult(taskId, data);
+                    } else if (data.status === 'failed' || data.status === 'error') {
+                        clearInterval(pollingInterval);
+                        STATUS_DIV.innerHTML = `<div class="error-box">🚨 ビルド失敗: ${data.message}</div>`;
+                    } else if (response.status === 202) {
+                        // 進行中
+                        STATUS_DIV.innerHTML = `ステータス: 進行中 (<b>${data.status}</b>)... ${data.message}`;
+                    } else {
+                        // その他不明なステータス
+                        STATUS_DIV.innerHTML = `ステータス: 不明な応答... ${data.message}`;
+                    }
+
+                } catch (error) {
+                    clearInterval(pollingInterval);
+                    STATUS_DIV.innerHTML = `<div class="error-box">ポーリングエラー: Vercelサーバーとの接続が切れました。</div>`;
+                }
+            }, 3000); // 3秒間隔
+        }
+
+        // ----------------------------------------------------
+        // 3. 結果表示とローカル保存機能 
+        // ----------------------------------------------------
+        function displayResult(taskId, data) {
+            STATUS_DIV.innerHTML = '✅ ビルド成功！';
+            
+            document.getElementById('resultTaskId').textContent = taskId;
+            document.getElementById('jsCodeOutput').value = data.js_code;
+            document.getElementById('wasmBase64Output').value = data.wasm_base64;
+            
+            RESULT_DIV.style.display = 'block';
+        }
+
+        function saveResultToLocal() {
+            const taskId = document.getElementById('resultTaskId').textContent;
+            const jsCode = document.getElementById('jsCodeOutput').value;
+            const wasmBase64 = document.getElementById('wasmBase64Output').value;
+
+            const savedData = {
+                taskId: taskId,
+                timestamp: new Date().toISOString(),
+                js_code: jsCode,
+                wasm_base64: wasmBase64
+            };
+
+            try {
+                // 隊員の指示に基づきJSON形式でローカルストレージに保存
+                const existingData = JSON.parse(localStorage.getItem('wasm_build_results') || '[]');
+                existingData.push(savedData);
+                localStorage.setItem('wasm_build_results', JSON.stringify(existingData));
+                
+                alert(`ビルド結果 (タスクID: ${taskId}) をローカルストレージに保存しました。`);
+                loadLocalData();
+            } catch (e) {
+                alert('ローカルストレージへの保存に失敗しました。');
+                console.error(e);
+            }
+        }
+
+        function loadLocalData() {
+            const list = document.getElementById('localList');
+            list.innerHTML = '';
+            
+            try {
+                const existingData = JSON.parse(localStorage.getItem('wasm_build_results') || '[]');
+                
+                if (existingData.length === 0) {
+                    list.innerHTML = '<li>保存されたビルド結果はありません。</li>';
+                    return;
+                }
+
+                existingData.forEach((item, index) => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `[${index + 1}] ID: <b>${item.taskId}</b> (${new Date(item.timestamp).toLocaleString()}) <br> <small>WASMデータ ${item.wasm_base64.length} バイト</small>`;
+                    list.appendChild(li);
+                });
+
+            } catch (e) {
+                list.innerHTML = '<li>ローカル保存データの読み込みに失敗しました。形式を確認してください。</li>';
+            }
+        }
+
+        // ----------------------------------------------------
+        // 🌟 ZIPダウンロード機能 (新規追加) 🌟
+        // ----------------------------------------------------
+
+        /**
+         * Base64でエンコードされたWASMとJSコードをZIPファイルとしてダウンロードします。
+         */
+        function downloadWasmAndJsAsZip() {
+            const jsCode = document.getElementById('jsCodeOutput').value;
+            const wasmBase64 = document.getElementById('wasmBase64Output').value;
+
+            if (!jsCode || !wasmBase64) {
+                alert('ダウンロードするビルド結果がありません。ビルドを完了するか、ローカル保存データをロードしてください。');
+                return;
+            }
+
+            if (typeof JSZip === 'undefined') {
+                // <head>でCDNを読み込んでいるので、基本的には発生しないはずですが、念のため
+                alert('JSZipライブラリがロードされていません。HTMLにCDNタグを追加してください。');
+                return;
+            }
+
+            const zip = new JSZip();
+            // クレート名が'user_code'なので、ファイル名もそれに合わせます。
+            // (Rustのコード内容から、'gemini_pokemon_basecamp'が正しいかもしれませんが、ここではクレート名'user_code'に合わせます)
+            const wasmFileName = "user_code_bg.wasm"; 
+            const jsFileName = "user_code.js";
+            const zipFileName = 'user_code_dist.zip';
+            
+            // 1. JSスタブコードをZIPに追加
+            zip.file(jsFileName, jsCode);
+
+            // 2. WASM Base64データをデコードしてZIPに追加
+            try {
+                // Base64文字列をバイナリ(Uint8Array)に変換
+                const binaryString = atob(wasmBase64);
+                const len = binaryString.length;
+                const bytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                
+                zip.file(wasmFileName, bytes);
+                console.log("WASM/JSデータをZIPに追加しました。");
+
+            } catch (e) {
+                console.error("WASM Base64デコードエラー:", e);
+                alert('WASMデータのデコードに失敗しました。データが破損している可能性があります。');
+                return;
+            }
+            
+            // 3. ZIPを生成してダウンロード
+            zip.generateAsync({ type: "blob" })
+                .then(content => {
+                    const url = URL.createObjectURL(content);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = zipFileName;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    console.log(`🎉 ${zipFileName}のダウンロードが開始されました。`);
+                })
+                .catch(error => {
+                    console.error("ZIP処理中にエラーが発生しました:", error);
+                    alert("ZIPファイルの生成に失敗しました。");
+                });
+        }
+
+        document.addEventListener('DOMContentLoaded', loadLocalData);
+        
+        // ----------------------------------------------------
+        // 🌟 ダウンロードボタンへのイベントリスナー追加
+        // ----------------------------------------------------
+        document.addEventListener('DOMContentLoaded', () => {
+            const downloadButton = document.getElementById('downloadWasmZip');
+            if (downloadButton) {
+                // クリック時に downloadWasmAndJsAsZip 関数を実行
+                downloadButton.addEventListener('click', downloadWasmAndJsAsZip);
+            }
+            
+            // 既存のService Workerの登録処理
+            registerServiceWorker();
+        });
+        
+        // ----------------------------------------------------
+        // 既存のService Workerの登録処理
+        // ----------------------------------------------------
+        // DOM要素を取得してステータスを表示する（オプション。なくても機能するが、確認のためにあると便利）
+        // const statusElement = document.getElementById('status'); // 上で定義済み
+
+        /**
+         * Service Worker の登録処理を実行する関数
+         */
+        function registerServiceWorker() {
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                    navigator.serviceWorker.register('/sw.js')
+                        .then(registration => {
+                            console.log('Service Worker 登録成功:', registration.scope);
+                            if (STATUS_DIV) {
+                                STATUS_DIV.innerHTML += ` <br>Service Worker 登録成功 🎉 (Scope: ${registration.scope})`;
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Service Worker 登録失敗:', error);
+                            if (STATUS_DIV) {
+                                STATUS_DIV.innerHTML += ` <br>Service Worker 登録失敗 😢: ${error.message}`;
+                            }
+                        });
+                });
+            } else {
+                console.warn('このブラウザは Service Worker をサポートしていません。');
+            }
+        }
+        
+        // registerServiceWorker() はDOMContentLoaded内で実行するように変更しました。
+        // （元のコードの最後ではなく、DOMContentLoaded内がより管理しやすいです）
+    </script>
+</body>
+</html>
