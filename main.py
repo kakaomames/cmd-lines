@@ -2749,52 +2749,45 @@ def register():
 
 
 
-from flask import Flask, request, jsonify
-import subprocess
+from flask import Flask, request, Response
+import requests # curlの代わりにrequestsを使うとヘッダー処理が楽です
 
 
 
-@app.route('/proxys')
-def proxys():
+@app.route('/proxy')
+def proxy():
     # 1. クエリパラメータ 'u' からURLを取得
     target_url = request.args.get('u')
     print(f"target_url: {target_url}")
     
     if not target_url:
-        error_msg = "URL parameter 'u' is missing"
-        print(f"error_msg: {error_msg}")
-        return jsonify({"error": error_msg}), 400
+        return "URL parameter 'u' is missing", 400
 
     try:
-        # 2. curlコマンドを構築
-        # -s: 進捗表示を非表示, -L: リダイレクトに追従
-        command = ["curl", "-s", "-L", target_url]
-        print(f"command: {command}")
+        # 2. ターゲットURLにリクエストを送信
+        # stream=True にすることで巨大なファイルも効率的に扱えます
+        print("Sending request to target...")
+        resp = requests.get(target_url, stream=True, timeout=15)
+        print(f"status_code: {resp.status_code}")
         
-        # 3. subprocessで実行
-        result = subprocess.run(
-            command, 
-            capture_output=True, 
-            timeout=20 # タイムアウト設定
-        )
-        
-        # 4. 実行結果の確認
-        stdout_content = result.stdout
-        # print(f"stdout_content: {stdout_content[:100]}...") # 長すぎる場合は先頭のみ
-        print(f"returncode: {result.returncode}")
-        
-        if result.returncode != 0:
-            stderr_content = result.stderr
-            print(f"stderr_content: {stderr_content}")
-            return jsonify({"error": "curl execution failed", "details": stderr_content}), 500
+        # 3. 相手のサーバーが返してきた Content-Type を取得
+        content_type = resp.headers.get('Content-Type')
+        print(f"content_type: {content_type}")
 
-        # 5. 結果をレスポンスとして返す
-        return stdout_content
+        # 4. 取得したバイナリデータをそのままブラウザに流し込む
+        # 相手のヘッダー（Content-Type）をそのまま引き継ぐのがポイント！
+        return Response(
+            resp.content, 
+            status=resp.status_code, 
+            content_type=content_type
+        )
 
     except Exception as e:
         error_info = str(e)
         print(f"exception: {error_info}")
-        return jsonify({"error": "Internal Server Error", "details": error_info}), 500
+        return f"Internal Server Error: {error_info}", 500
+
+
 
 
 
