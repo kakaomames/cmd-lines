@@ -2775,8 +2775,7 @@ def proxys():
         result = subprocess.run(
             command, 
             capture_output=True, 
-            text=True, 
-            timeout=10 # タイムアウト設定
+            timeout=20 # タイムアウト設定
         )
         
         # 4. 実行結果の確認
