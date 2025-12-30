@@ -2749,6 +2749,59 @@ def register():
 
 
 
+from flask import Flask, request, jsonify
+import subprocess
+
+
+
+@app.route('/proxys')
+def proxys():
+    # 1. クエリパラメータ 'u' からURLを取得
+    target_url = request.args.get('u')
+    print(f"target_url: {target_url}")
+    
+    if not target_url:
+        error_msg = "URL parameter 'u' is missing"
+        print(f"error_msg: {error_msg}")
+        return jsonify({"error": error_msg}), 400
+
+    try:
+        # 2. curlコマンドを構築
+        # -s: 進捗表示を非表示, -L: リダイレクトに追従
+        command = ["curl", "-s", "-L", target_url]
+        print(f"command: {command}")
+        
+        # 3. subprocessで実行
+        result = subprocess.run(
+            command, 
+            capture_output=True, 
+            text=True, 
+            timeout=10 # タイムアウト設定
+        )
+        
+        # 4. 実行結果の確認
+        stdout_content = result.stdout
+        # print(f"stdout_content: {stdout_content[:100]}...") # 長すぎる場合は先頭のみ
+        print(f"returncode: {result.returncode}")
+        
+        if result.returncode != 0:
+            stderr_content = result.stderr
+            print(f"stderr_content: {stderr_content}")
+            return jsonify({"error": "curl execution failed", "details": stderr_content}), 500
+
+        # 5. 結果をレスポンスとして返す
+        return stdout_content
+
+    except Exception as e:
+        error_info = str(e)
+        print(f"exception: {error_info}")
+        return jsonify({"error": "Internal Server Error", "details": error_info}), 500
+
+
+
+
+
+
 
 
 
