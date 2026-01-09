@@ -2791,6 +2791,50 @@ def proxy():
 
 
 
+from flask import Flask, request, jsonify
+import json
+
+
+
+@app.route('/format', methods=['GET', 'POST'])
+def format_json():
+    # 1. データの取得
+    raw_input = None
+    print(f"request_method: {request.method}")
+
+    if request.method == 'POST':
+        # POSTの場合: bodyの {"json": (data)} から取得
+        payload = request.get_json()
+        print(f"payload: {payload}")
+        raw_input = payload.get('json')
+    else:
+        # GETの場合: クエリパラメータ ?json= から取得
+        raw_input = request.args.get('json')
+    
+    print(f"raw_input: {raw_input}")
+
+    if not raw_input:
+        return jsonify({"error": "No JSON data provided"}), 400
+
+    try:
+        # 2. 文字列ならパース、辞書ならそのまま
+        if isinstance(raw_input, str):
+            data = json.loads(raw_input)
+        else:
+            data = raw_input
+        print(f"parsed_data: {data}")
+
+        # 3. 整形（インデント付き文字列にする）
+        pretty_output = json.dumps(data, indent=4, ensure_ascii=False)
+        print(f"pretty_output_length: {len(pretty_output)}")
+
+        # 4. レスポンス（そのままテキストとして返すかJSONで返すか選択可能）
+        return pretty_output
+        
+    except Exception as e:
+        print(f"error: {str(e)}")
+        return jsonify({"error": "Invalid JSON format"}), 400
+
 
 
 
