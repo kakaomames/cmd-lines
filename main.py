@@ -2911,7 +2911,55 @@ def deep_spy(path):
 
 
 
+# --- WASM工場セクション ---
 
+@app.route('/c-wasm')
+def c_wasm_page():
+    # 隊員の操縦席（フロントエンド）を表示
+    return render_template('c-wasm.html')
+
+@app.route('/c-post', methods=['POST'])
+def c_post():
+    data = request.json
+    c_code = data.get('code')
+    
+    if not c_code:
+        return jsonify({"error": "コードが空だぞ、隊員！"}), 400
+
+    # 1. GitHub上の既存ファイルの情報を取得（更新にはSHAが必要なんだな）
+    file_path = f"{GAME_FOLDER}/c/engine.cpp" # pokeque/c/engine.cpp になるぞ
+    api_url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{file_path}"
+    headers = {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github.v3+json"
+    }
+
+    # SHA（ファイルの指紋）を取得して、上書きできるようにする
+    res = requests.get(api_url, headers=headers)
+    sha = res.json().get('sha') if res.status_code == 200 else None
+    print(f"target_sha: {sha}") # 隊員ルール：値をプリント！
+
+    # 2. C++コードをBase64エンコード（GitHub APIの決まりだ！）
+    encoded_code = base64.b64encode(c_code.encode('utf-8')).decode('utf-8')
+    
+    # 3. GitHubへPush！
+    payload = {
+        "message": "WASM factory: New C++ source push",
+        "content": encoded_code,
+        "branch": "main"
+    }
+    if sha:
+        payload["sha"] = sha # 既存ファイルがある場合はSHAをセット
+
+    push_res = requests.put(api_url, headers=headers, json=payload)
+    print(f"push_status: {push_res.status_code}") # 隊員ルール：ステータスをプリント！
+
+    if push_res.status_code in [200, 201]:
+        return jsonify({"success": True, "message": "GitHub工場に材料（C++）を届けたぞ！Actionsの起動を待て！🚀"})
+    else:
+        return jsonify({"error": "Push失敗！", "details": push_res.json()}), 500
+
+# --- セクション終了 ---
 
 
 
