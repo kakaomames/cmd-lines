@@ -1,0 +1,36 @@
+name: WASM Factory Build
+
+on:
+  push:
+    paths:
+      - 'pokeque/c/**'  # /c/ フォルダへの書き込みを監視
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install Emscripten
+        run: |
+          git clone https://github.com/emscripten-core/emsdk.git
+          cd emsdk
+          ./emsdk install latest
+          ./emsdk activate latest
+          source ./emsdk_env.sh
+
+      - name: Compile C++ to WASM
+        run: |
+          source emsdk/emsdk_env.sh
+          # /c/ 内の cpp を /wasm/ の engine.wasm に焼くぞ！
+          emcc pokeque/c/engine.cpp -o pokeque/wasm/engine.wasm -s EXPORTED_FUNCTIONS='["_square"]' -s ERROR_ON_UNDEFINED_SYMBOLS=0 --no-entry
+
+      - name: Cleanup and Commit
+        run: |
+          git config user.name "Gemini-Bot"
+          git config user.email "bot@example.com"
+          rm pokeque/c/engine.cpp        # /c/ の中身を消去！
+          git add pokeque/wasm/engine.wasm pokeque/c/
+          git commit -m "Build completed: engine.wasm generated and /c/ cleaned ✨"
+          git push
