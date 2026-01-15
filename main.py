@@ -2841,8 +2841,14 @@ import json
 import pprint
 
 
-@app.route('/oooooo', methods=['GET', 'POST', 'PUT', 'DELETE'])
+
+# どんなパスで来ても「path」変数として受け取る魔法の設定だ！
+
+@app.route('/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
 def deep_spy(path):
+    # パスが確定したぞ！
+    print(f"\npath: {path}")
+    
     print("\n" + "="*50)
     print("🚀 ターゲット接近！全データを抽出中...")
     print("="*50)
@@ -2861,22 +2867,21 @@ def deep_spy(path):
     all_headers = dict(request.headers)
     print(f"all_headers: {all_headers}")
 
-    # 4. 【深淵】WSGI環境変数（サーバーの裏側すべて）
-    # ここにはOSのパスや、低レイヤーのネットワーク設定が詰まっている
+    # 4. 【深淵】WSGI環境変数
     environ_data = {}
     for key, value in request.environ.items():
-        # JSON化できないオブジェクトは文字列にする
         if isinstance(value, (str, int, float, bool, list, dict)):
             environ_data[key] = value
         else:
             environ_data[key] = str(value)
-    print(f"environ_data: {environ_data}")
+    # 膨大なのでここでは決定通知のみ
+    print(f"environ_data: (Collected {len(environ_data)} items)")
 
     # 5. ボディ（生データ）
     raw_data = request.get_data().decode('utf-8', errors='replace')
     print(f"raw_data: {raw_data}")
 
-    # 6. すべてを統合した「究極の報告書」
+    # 6. 究極の報告書作成
     full_report = {
         "summary": {
             "msg": "カカオマメ隊員、ターゲットを完全に補足したぞ！",
@@ -2896,11 +2901,14 @@ def deep_spy(path):
             "raw_body": raw_data,
             "json": request.get_json(silent=True)
         },
-        "system_deep_environ": environ_data # ここが情報の宝庫だ
+        "system_deep_environ": environ_data 
     }
+    # reportの完成を出力
+    print(f"full_report: generated")
 
-    # JSONで返却（エスケープなし！）
     return json.dumps(full_report, indent=4, ensure_ascii=False), 200, {'Content-Type': 'application/json'}
+
+
 
 
 
