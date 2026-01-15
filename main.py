@@ -2753,7 +2753,6 @@ from flask import Flask, request, Response
 import requests # curlの代わりにrequestsを使うとヘッダー処理が楽です
 
 
-
 @app.route('/proxy')
 def proxy():
     # 1. クエリパラメータ 'u' からURLを取得
@@ -2764,18 +2763,73 @@ def proxy():
         return "URL parameter 'u' is missing", 400
 
     try:
-        # 2. ターゲットURLにリクエストを送信
-        # stream=True にすることで巨大なファイルも効率的に扱えます
+        # 2. 【ここが重要！】まずリクエストを飛ばして resp を作る
         print("Sending request to target...")
         resp = requests.get(target_url, stream=True, timeout=15)
         print(f"status_code: {resp.status_code}")
         
-        # 3. 相手のサーバーが返してきた Content-Type を取得
-        content_type = resp.headers.get('Content-Type')
+        # 3. Content-Type を取得
+        content_type = resp.headers.get('Content-Type', '')
         print(f"content_type: {content_type}")
 
-        # 4. 取得したバイナリデータをそのままブラウザに流し込む
-        # 相手のヘッダー（Content-Type）をそのまま引き継ぐのがポイント！
+        # --- 4. 「加工工場」スタート！ ---
+        if 'text/html' in content_type:
+            print("Target is HTML! Starting Modification...")
+            
+            # HTMLをテキストとして取得
+            html_str = resp.text 
+            
+            # マメ隊員こだわりの設定
+            from urllib.parse import urljoin
+            base_url = urljoin(target_url, '.') 
+            print(f"base_url: {base_url}")
+            
+            # 【最強のインジェクションコード】
+            # baseタグで相対パスを解決し、JSで通信をプロキシ経由に強制する
+            injection = f"""
+            <base href="{base_url}">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <meta name="proxy-agent" content="Gemini-Programming-Team">
+            <link rel="icon" href="https://kakaomames.github.io/rei/logo.png">
+            <script>
+                (function() {{
+                    const PROXY_URL = window.location.origin + window.location.pathname + '?u=';
+                    
+                    // fetchをもぎ取る
+                    const orgFetch = window.fetch;
+                    window.fetch = function(resource, init) {{
+                        if (typeof resource === 'string' && !resource.startsWith(window.location.origin)) {{
+                            resource = PROXY_URL + encodeURIComponent(new URL(resource, document.baseURI).href);
+                        }}
+                        return orgFetch(resource, init);
+                    }};
+
+                    // XMLHttpRequestをもぎ取る
+                    const orgOpen = XMLHttpRequest.prototype.open;
+                    XMLHttpRequest.prototype.open = function(method, url) {{
+                        if (typeof url === 'string' && !url.startsWith(window.location.origin)) {{
+                            url = PROXY_URL + encodeURIComponent(new URL(url, document.baseURI).href);
+                        }}
+                        return orgOpen.apply(this, arguments);
+                    }};
+                    console.log("🚀 Gemini Proxy Engine: Active (Intercepting Network)");
+                }})();
+            </script>
+            """
+            
+            # <head> タグを探して、その直後に注入
+            if '<head>' in html_str:
+                modified_html = html_str.replace('<head>', '<head>' + injection, 1)
+            else:
+                # headがない場合は先頭に入れる
+                modified_html = injection + html_str
+                
+            print("HTML Modification Complete! 🛠️")
+            return Response(modified_html, status=resp.status_code, content_type=content_type)
+        # --- ここまでが加工工場 ---
+
+        # 5. HTML以外（画像、CSSなど）はそのまま流し込む
+        print("Passing through non-HTML content...")
         return Response(
             resp.content, 
             status=resp.status_code, 
