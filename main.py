@@ -2836,6 +2836,77 @@ def format_json():
         return jsonify({"error": "Invalid JSON format"}), 400
 
 
+from flask import Flask, request, jsonify
+import json
+import pprint
+
+
+@app.route('/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
+def deep_spy(path):
+    print("\n" + "="*50)
+    print("🚀 ターゲット接近！全データを抽出中...")
+    print("="*50)
+
+    # 1. 物理的な接続情報
+    remote_addr = request.remote_addr
+    print(f"remote_addr: {remote_addr}")
+    
+    # 2. 通信プロトコルとメソッド
+    protocol = request.environ.get('SERVER_PROTOCOL')
+    print(f"protocol: {protocol}")
+    method = request.method
+    print(f"method: {method}")
+
+    # 3. HTTPヘッダー（生の状態に近い辞書）
+    all_headers = dict(request.headers)
+    print(f"all_headers: {all_headers}")
+
+    # 4. 【深淵】WSGI環境変数（サーバーの裏側すべて）
+    # ここにはOSのパスや、低レイヤーのネットワーク設定が詰まっている
+    environ_data = {}
+    for key, value in request.environ.items():
+        # JSON化できないオブジェクトは文字列にする
+        if isinstance(value, (str, int, float, bool, list, dict)):
+            environ_data[key] = value
+        else:
+            environ_data[key] = str(value)
+    print(f"environ_data: {environ_data}")
+
+    # 5. ボディ（生データ）
+    raw_data = request.get_data().decode('utf-8', errors='replace')
+    print(f"raw_data: {raw_data}")
+
+    # 6. すべてを統合した「究極の報告書」
+    full_report = {
+        "summary": {
+            "msg": "カカオマメ隊員、ターゲットを完全に補足したぞ！",
+            "path": path,
+            "method": method
+        },
+        "network": {
+            "remote_ip": remote_addr,
+            "host": request.host,
+            "is_https": request.is_secure,
+            "protocol": protocol
+        },
+        "headers": all_headers,
+        "content": {
+            "query": dict(request.args),
+            "cookies": dict(request.cookies),
+            "raw_body": raw_data,
+            "json": request.get_json(silent=True)
+        },
+        "system_deep_environ": environ_data # ここが情報の宝庫だ
+    }
+
+    # JSONで返却（エスケープなし！）
+    return json.dumps(full_report, indent=4, ensure_ascii=False), 200, {'Content-Type': 'application/json'}
+
+
+
+
+
+
 
 
 
