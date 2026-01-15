@@ -2910,7 +2910,8 @@ def deep_spy(path):
 
 
 
-
+GITHUB_OWNER = "kakaomames"
+GITHUB_REPO = "cmd-lines"
 # --- WASM工場セクション ---
 
 @app.route('/c-wasm')
@@ -2927,7 +2928,7 @@ def c_post():
         return jsonify({"error": "コードが空だぞ、隊員！"}), 400
 
     # 1. GitHub上の既存ファイルの情報を取得（更新にはSHAが必要なんだな）
-    file_path = f"{GAME_FOLDER}/c/engine.cpp" # pokeque/c/engine.cpp になるぞ
+    file_path = f"/c/engine.cpp" # pokeque/c/engine.cpp になるぞ
     api_url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{file_path}"
     headers = {
         "Authorization": f"token {GITHUB_TOKEN}",
