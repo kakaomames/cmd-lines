@@ -3,7 +3,8 @@ name: WASM Factory Build
 on:
   push:
     paths:
-      - 'pokeque/c/**'  # /c/ フォルダへの書き込みを監視
+      - 'c/**'  # /c/ フォルダへの書き込みを監視
+    workflow_dispatch: # 手動実行用
 
 jobs:
   build:
