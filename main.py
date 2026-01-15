@@ -2841,7 +2841,7 @@ import json
 import pprint
 
 
-@app.route('/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
+@app.route('/oooooo', methods=['GET', 'POST', 'PUT', 'DELETE'])
 def deep_spy(path):
     print("\n" + "="*50)
     print("🚀 ターゲット接近！全データを抽出中...")
