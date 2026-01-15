@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Gemini Programming Team WASM Factory">
+    <meta name="keywords" content="Pokemon Quest, Scratch, TurboWarp, WASM, C++">
+    <meta name="author" content="kakaomames">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="WASM Factory - Gemini Programming Team">
+    <meta property="og:image" content="https://kakaomames.github.io/rei/logo.png">
+    <title>WASM Factory 🛠️</title>
+    <style>
+        body { background: #1a1a1a; color: #fff; font-family: sans-serif; text-align: center; }
+        textarea { width: 80%; height: 300px; background: #333; color: #0f0; font-family: monospace; padding: 10px; }
+        button { padding: 10px 20px; font-size: 18px; cursor: pointer; background: #4CAF50; color: white; border: none; margin: 10px; }
+        .logo { width: 100px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <img src="https://kakaomames.github.io/rei/logo.png" alt="logo" class="logo">
+    <h1>WASM Factory 🏭</h1>
+    <p>C++コードをここに入力して、GitHub工場へPushせよ！</p>
+    
+    <textarea id="codeEditor">extern "C" {
+    int square(int x) {
+        return x * x;
+    }
+}</textarea><br>
+
+    <button id="postBtn">GitHub工場へ送信！🚀</button>
+    <button id="backBtn">戻る 🔙</button>
+
+    <script>
+        // ポスト処理
+        document.getElementById('postBtn').addEventListener('click', async () => {
+            const code = document.getElementById('codeEditor').value;
+            const res = await fetch('/c-post', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code: code })
+            });
+            const data = await res.json();
+            alert(data.message || data.error);
+        });
+    </script>
+</body>
+</html>
