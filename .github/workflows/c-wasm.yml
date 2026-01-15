@@ -4,7 +4,7 @@ on:
   push:
     paths:
       - 'c/**'  # /c/ フォルダへの書き込みを監視
-    workflow_dispatch: # 手動実行用
+  workflow_dispatch: # 手動実行用
 
 jobs:
   build:
@@ -25,13 +25,13 @@ jobs:
         run: |
           source emsdk/emsdk_env.sh
           # /c/ 内の cpp を /wasm/ の engine.wasm に焼くぞ！
-          emcc pokeque/c/engine.cpp -o pokeque/wasm/engine.wasm -s EXPORTED_FUNCTIONS='["_square"]' -s ERROR_ON_UNDEFINED_SYMBOLS=0 --no-entry
+          emcc c/engine.cpp -o wasm/engine.wasm -s EXPORTED_FUNCTIONS='["_square"]' -s ERROR_ON_UNDEFINED_SYMBOLS=0 --no-entry
 
       - name: Cleanup and Commit
         run: |
           git config user.name "Gemini-Bot"
           git config user.email "bot@example.com"
-          rm pokeque/c/engine.cpp        # /c/ の中身を消去！
-          git add pokeque/wasm/engine.wasm pokeque/c/
+          rm c/engine.cpp        # /c/ の中身を消去！
+          git add wasm/engine.wasm c/
           git commit -m "Build completed: engine.wasm generated and /c/ cleaned ✨"
           git push
