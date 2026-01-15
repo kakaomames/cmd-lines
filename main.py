@@ -2844,7 +2844,7 @@ import pprint
 
 # どんなパスで来ても「path」変数として受け取る魔法の設定だ！
 
-@app.route('/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
+@app.route('/oooo/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
 def deep_spy(path):
     # パスが確定したぞ！
     print(f"\npath: {path}")
