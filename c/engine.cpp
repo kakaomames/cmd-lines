@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <emscripten/emscripten.h>
 
-// これが「_square」として書き出される関数だ！
+// これが JavaScript から呼べるようになる関数だ！
 EMSCRIPTEN_KEEPALIVE
 int square(int x) {
     return x * x;
