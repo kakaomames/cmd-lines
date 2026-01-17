@@ -28,9 +28,15 @@ jobs:
           # /c/ 内の cpp を /wasm/ の engine.wasm に焼くぞ！
           # .wasm だけでなく、それを動かすための .js ファイルも一緒に吐き出す
           # これ1回で engine.js と engine.wasm が両方作られるぞ！
+          #emcc c/engine.cpp -o wasm/engine.js \
+          #  -s EXPORTED_FUNCTIONS='["_square"]' \
+          #  -s EXPORTED_RUNTIME_METHODS='["cwrap"]' \
+          #  -s ERROR_ON_UNDEFINED_SYMBOLS=0 \
+          #  --no-entry
           emcc c/engine.cpp -o wasm/engine.js \
-            -s EXPORTED_FUNCTIONS='["_square"]' \
-            -s EXPORTED_RUNTIME_METHODS='["cwrap"]' \
+            -s EXPORTED_RUNTIME_METHODS='["cwrap", "ccall"]' \
+            -s EXPORT_ALL=1 \
+            -s LINKABLE=1 \
             -s ERROR_ON_UNDEFINED_SYMBOLS=0 \
             --no-entry
             
