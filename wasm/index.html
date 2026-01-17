@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>WASM Stealth Engine</title>
+    <style>
+        body { background: #000; color: #0f0; font-family: monospace; margin: 0; overflow: hidden; }
+        #console { padding: 20px; font-size: 1.2rem; }
+    </style>
+</head>
+<body>
+    <div id="console">
+        👿 WASM_ENGINE_READY...<br>
+        > <span id="output">Loading binary...</span>
+    </div>
+
+    <script src="engine.js"></script>
+    
+    <script>
+        // WASMの準備ができるまで待機
+        Module.onRuntimeInitialized = () => {
+            const output = document.getElementById('output');
+            
+            // C++側で定義した 'square' 関数をJSに召喚！
+            // 引数と戻り値が数値（number）であることを指定
+            const wasmSquare = Module.cwrap('square', 'number', ['number']);
+            
+            const result = wasmSquare(12); // 12の二乗を計算させてみる
+            output.innerHTML = "WASM says: 12 squared is " + result;
+            
+            console.log("😈：WASMとの通信に成功。次は何を演算させる？");
+        };
+    </script>
+</body>
+</html>
