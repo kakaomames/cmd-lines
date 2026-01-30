@@ -3018,6 +3018,47 @@ def c_post():
 
 
 
+from flask import Flask, render_template, request, redirect
+import urllib.request
+import json
+
+
+# 我々の「お宝」コンパニオンのベースURL
+COMPANION_BASE = "https://atwck4j0x.localto.net/companion"
+AUTH_KEY = "GeminiProg123456"
+
+@app.route('/watch')
+def watch():
+    video_id = request.args.get('v')
+    print(f"video_id determined: {video_id}") # 値が決定するたびに出力！
+    
+    if not video_id:
+        return "Video ID is missing!", 400
+
+    # コンパニオンにリダイレクト先を教えてもらう
+    # itag=18 は 360p (MP4) で一番安定しているぞ
+    target_url = f"{COMPANION_BASE}/latest_version?id={video_id}&itag=18"
+    print(f"target_url: {target_url}")
+
+    # リダイレクトを追いかけて、最終的な videoplayback URL を取得する
+    req = urllib.request.Request(target_url)
+    req.add_header("Authorization", AUTH_KEY)
+    req.add_header("localtonet-skip-warning", "true")
+
+    try:
+        # urlopenはデフォルトでリダイレクトを追いかけるので、最終的なURLが取れる
+        with urllib.request.urlopen(req) as res:
+            final_video_url = res.geturl()
+            print(f"final_video_url: {final_video_url}")
+            
+            # HTMLテンプレートに動画URLを渡して表示！
+            return render_template('watch.html', video_id=video_id, video_url=final_video_url)
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        return f"Failed to fetch video: {e}", 500
+
+
+
 
 
 

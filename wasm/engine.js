@@ -529,11 +529,6 @@ TTY.init();
   // End ATPOSTCTORS hooks
 }
 
-function preMain() {
-  checkStackCookie();
-  // No ATMAINS hooks
-}
-
 function postRun() {
   checkStackCookie();
    // PThreads reuse the runtime from the main thread.
@@ -4238,8 +4233,6 @@ async function createWasm() {
   }
 
 
-
-
   var getCFunc = (ident) => {
       var func = Module['_' + ident]; // closure exported function
       assert(func, 'Cannot call unknown function ' + ident + ', make sure it is exported');
@@ -4499,9 +4492,7 @@ function checkIncomingModuleAPI() {
 }
 
 // Imports from the Wasm binary.
-var __Z6squarei = Module['__Z6squarei'] = makeInvalidEarlyAccess('__Z6squarei');
-var ___original_main = Module['___original_main'] = makeInvalidEarlyAccess('___original_main');
-var _main = Module['_main'] = makeInvalidEarlyAccess('_main');
+var _square = Module['_square'] = makeInvalidEarlyAccess('_square');
 var _malloc = Module['_malloc'] = makeInvalidEarlyAccess('_malloc');
 var _free = Module['_free'] = makeInvalidEarlyAccess('_free');
 var _emscripten_stack_get_end = Module['_emscripten_stack_get_end'] = makeInvalidEarlyAccess('_emscripten_stack_get_end');
@@ -4881,9 +4872,7 @@ var wasmMemory = Module['wasmMemory'] = makeInvalidEarlyAccess('wasmMemory');
 var wasmTable = Module['wasmTable'] = makeInvalidEarlyAccess('wasmTable');
 
 function assignWasmExports(wasmExports) {
-  assert(typeof wasmExports['_Z6squarei'] != 'undefined', 'missing Wasm export: _Z6squarei');
-  assert(typeof wasmExports['__original_main'] != 'undefined', 'missing Wasm export: __original_main');
-  assert(typeof wasmExports['main'] != 'undefined', 'missing Wasm export: main');
+  assert(typeof wasmExports['square'] != 'undefined', 'missing Wasm export: square');
   assert(typeof wasmExports['malloc'] != 'undefined', 'missing Wasm export: malloc');
   assert(typeof wasmExports['free'] != 'undefined', 'missing Wasm export: free');
   assert(typeof wasmExports['emscripten_stack_get_end'] != 'undefined', 'missing Wasm export: emscripten_stack_get_end');
@@ -5259,9 +5248,7 @@ function assignWasmExports(wasmExports) {
   assert(typeof wasmExports['_ZTSSt9type_info'] != 'undefined', 'missing Wasm export: _ZTSSt9type_info');
   assert(typeof wasmExports['_ZTSSt8bad_cast'] != 'undefined', 'missing Wasm export: _ZTSSt8bad_cast');
   assert(typeof wasmExports['_ZTSSt10bad_typeid'] != 'undefined', 'missing Wasm export: _ZTSSt10bad_typeid');
-  __Z6squarei = Module['__Z6squarei'] = createExportWrapper('_Z6squarei', 1);
-  ___original_main = Module['___original_main'] = createExportWrapper('__original_main', 0);
-  _main = Module['_main'] = createExportWrapper('main', 2);
+  _square = Module['_square'] = createExportWrapper('square', 1);
   _malloc = Module['_malloc'] = createExportWrapper('malloc', 1);
   _free = Module['_free'] = createExportWrapper('free', 1);
   _emscripten_stack_get_end = Module['_emscripten_stack_get_end'] = wasmExports['emscripten_stack_get_end'];
@@ -5690,27 +5677,6 @@ var wasmImports = {
 
 var calledRun;
 
-function callMain() {
-  assert(runDependencies == 0, 'cannot call main when async dependencies remain! (listen on Module["onRuntimeInitialized"])');
-  assert(typeof onPreRuns === 'undefined' || onPreRuns.length == 0, 'cannot call main when preRun functions remain to be called');
-
-  var entryFunction = _main;
-
-  var argc = 0;
-  var argv = 0;
-
-  try {
-
-    var ret = entryFunction(argc, argv);
-
-    // if we're not running an evented main loop, it's time to exit
-    exitJS(ret, /* implicit = */ true);
-    return ret;
-  } catch (e) {
-    return handleException(e);
-  }
-}
-
 function stackCheckInit() {
   // This is normally called automatically during __wasm_call_ctors but need to
   // get these values before even running any of the ctors so we call it redundantly
@@ -5748,13 +5714,10 @@ function run() {
 
     initRuntime();
 
-    preMain();
-
     Module['onRuntimeInitialized']?.();
     consumedModuleProp('onRuntimeInitialized');
 
-    var noInitialRun = Module['noInitialRun'] || false;
-    if (!noInitialRun) callMain();
+    assert(!Module['_main'], 'compiled without a main, but one is present. if you added it from JS, use Module["onRuntimeInitialized"]');
 
     postRun();
   }
