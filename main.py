@@ -3022,13 +3022,8 @@ from flask import Flask, render_template, request
 import urllib.request
 import ssl
 
-
-# 我々の「お宝」コンパニオンのベースURL
 COMPANION_BASE = "https://atwck4j0x.localto.net/companion"
 AUTH_KEY = "GeminiProg123456"
-
-COMPANION_BASE = "https://atwck4j0x.localto.net/companion"
-AUTH_KEY = "GeminiProg123456" # ← これが config.json の secret_key と一致しているか再確認だ！
 context = ssl._create_unverified_context()
 
 @app.route('/watch')
@@ -3037,40 +3032,40 @@ def watch():
     print(f"video_id determined: {video_id}")
     
     if not video_id:
-        return "IDが空だぞ、隊員！", 400
+        return "IDを入れてくれ！", 400
 
     target_url = f"{COMPANION_BASE}/latest_version?id={video_id}&itag=18"
     print(f"Targeting Companion: {target_url}")
 
-    # 🚨 リダイレクトを自動追跡させない特殊なハンドラ 🚨
-    class SmartRedirectHandler(urllib.request.HTTPRedirectHandler):
+    # リダイレクトを自動で追わないハンドラ
+    class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
         def http_error_302(self, req, fp, code, msg, headers):
-            # リダイレクト先のURLだけを抜き取って、そこで止める！
-            infourl = headers.get('Location')
-            return infourl 
+            return fp  # 302エラーを投げずにそのままレスポンスを返す
 
-    opener = urllib.request.build_opener(SmartRedirectHandler)
+    opener = urllib.request.build_opener(NoRedirectHandler)
     req = urllib.request.Request(target_url)
     req.add_header("Authorization", AUTH_KEY)
     req.add_header("localtonet-skip-warning", "true")
     req.add_header("User-Agent", "Mozilla/5.0")
 
     try:
-        # 1回目の通信：最新動画URL（リダイレクト先）を奪取する
-        print("Fetching video URL from companion...")
-        with opener.open(req) as response:
-            # responseにはリダイレクト先のURLが文字列で入ってくる（上のハンドラのおかげだ）
-            final_video_url = str(response)
-            print(f"final_video_url determined: {final_video_url}")
+        print("コンパニオンからリダイレクト先を奪取中...")
+        with opener.open(req) as res:
+            # 302リダイレクトの「Location」ヘッダーに真の動画URLが入っている
+            final_video_url = res.headers.get('Location')
             
-            # HTML（ブラウザ）に動画URLを渡す！
-            # ブラウザが動画を読みに行く時は Authヘッダーは不要なはずだ（URL自体に署名が入っているからな）
+            if not final_video_url:
+                # リダイレクトされなかった場合（403など）
+                body = res.read().decode('utf-8')
+                print(f"❌ 失敗。応答ボディ: {body}")
+                return f"コンパニオンがURLをくれませんでした: {body}", 403
+
+            print(f"final_video_url determined: {final_video_url}")
             return render_template('watch.html', video_id=video_id, video_url=final_video_url)
 
     except Exception as e:
-        print(f"❌ 403エラー発生！鍵を確認してくれ: {e}")
-        return f"コンパニオンに拒絶されたぞ！鍵が合っているか？: {e}", 403
-
+        print(f"❌ 通信エラー: {e}")
+        return f"エラーが発生したぞ！: {e}", 500
 
 
 
