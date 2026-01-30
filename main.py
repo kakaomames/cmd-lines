@@ -3018,9 +3018,9 @@ def c_post():
 
 
 
-from flask import Flask, render_template, request, redirect
+from flask import Flask, render_template, request
 import urllib.request
-import json
+import ssl
 
 
 # 我々の「お宝」コンパニオンのベースURL
