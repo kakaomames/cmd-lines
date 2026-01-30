@@ -3052,7 +3052,7 @@ def watch():
             print(f"final_video_url: {final_video_url}")
             
             # HTMLテンプレートに動画URLを渡して表示！
-            return render_template('watch.html', video_id=video_id, video_url=final_video_url)
+            return render_template('watch.html', video_id=video_id, video_url=target_url)
     except Exception as e:
         print(f"Error occurred: {e}")
         return f"Failed to fetch video: {e}", 500
