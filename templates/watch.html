@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Gemini programming隊 特製プレーヤー">
+    <meta name="keywords" content="Pokemon, Quest, YouTube, Companion">
+    <meta name="author" content="カカオマメ">
+    <meta property="og:title" content="YouTube Player - {{ video_id }}">
+    <meta property="og:image" content="https://kakaomames.github.io/rei/logo.png">
+    <title>Watch {{ video_id }} - Gemini programming隊</title>
+    <style>
+        body { background: #1a1a1a; color: white; text-align: center; font-family: sans-serif; }
+        .logo { width: 200px; margin-top: 20px; }
+        .video-container { margin: 30px auto; max-width: 800px; }
+        video { width: 100%; border: 5px solid #ffcc00; border-radius: 10px; }
+    </style>
+</head>
+<body>
+    <img src="https://kakaomames.github.io/rei/logo.png" alt="Logo" class="logo">
+    <h1>Now Playing: {{ video_id }}</h1>
+
+    <div class="video-container">
+        <video controls autoplay>
+            <source src="{{ video_url }}" type="video/mp4">
+            お使いのブラウザは動画再生に対応していません。
+        </video>
+    </div>
+
+    <button onclick="goBack()">戻る</button>
+
+    <script>
+        function goBack() {
+            // カカオマメ隊員指定の遷移方法！
+            document.addEventListener('click', function() { 
+                window.location.href = 'index.html'; 
+            });
+        }
+    </script>
+</body>
+</html>
