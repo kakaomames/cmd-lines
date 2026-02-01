@@ -3023,7 +3023,7 @@ import urllib.request
 import ssl
 
 COMPANION_BASE = "https://atwck4j0x.localto.net/companion"
-AUTH_KEY = "GeminiProg123456"
+AUTH_KEY = "ABCdef1234567890"
 context = ssl._create_unverified_context()
 
 @app.route('/watch')
