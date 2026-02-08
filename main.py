@@ -3110,46 +3110,47 @@ def deno_proxy(path):
 VIDEO_PRIORITY = [313, 271, 137, 248, 22, 18] 
 AUDIO_PRIORITY = [251, 140, 139]
 
-def fetch_smart_json(video_id, itag_list, index=0):
-    print(f"index:{index} # 探索開始")
-    
+def fetch_smart_recon(video_id, itag_list, index=0):
     if index >= len(itag_list):
-        print(f"status:FAILED # 全てのitagが全滅しました")
-        return jsonify({"error": "No valid itag found after full search"}), 404
+        return jsonify({"error": "全itag全滅。全軍撤退！"}), 404
 
     current_itag = itag_list[index]
-    print(f"current_itag:{current_itag} # ターゲット確定")
-    
     HOME_BASE = "https://evaluated-genome-ips-commission.trycloudflare.com"
-    # Deno側のエンドポイント。JSONを返すようにDeno側も調整が必要だ！
-    target_url = f"{HOME_BASE}/get_url?id={video_id}&itag={current_itag}"
-    print(f"target_url:{target_url} # リクエスト送信中")
+    # Deno側の既存エンドポイントへ突撃！
+    target_url = f"{HOME_BASE}/latest_version?id={video_id}&itag={current_itag}"
+    
+    print(f"📡 偵察中 (itag:{current_itag}): {target_url}")
 
     try:
-        # verify=False はオレオレ証明書対策
-        resp = requests.get(target_url, timeout=10, verify=False)
-        print(f"resp_status:{resp.status_code}")
+        # リダイレクトをあえて「止める」のがミソ
+        resp = requests.get(target_url, timeout=15, verify=False, allow_redirects=False)
         
-        report = resp.json() 
-        print(f"report:{json.dumps(report)} # 偵察結果受理")
+        # 1. 302（リダイレクト）が返ってきたら「成功」とみなす
+        if resp.status_code == 302:
+            redirect_url = resp.headers.get('Location')
+            print(f"✅ 成功！リダイレクト先を確保: {redirect_url}")
+            return redirect(redirect_url)
 
-        # 構造を解析 (Denoが {"data": [{"url": "..."}]} を返す想定)
-        if "data" in report and len(report["data"]) > 0:
-            item = report["data"][0]
-            video_url = item.get("url", "")
-
-            if video_url.startswith("http"):
-                print(f"✅ success:FOUND # 有効なURLを発見しました: {video_url}")
-                return redirect(video_url) 
+        # 2. 200が返ってきた場合、中身がエラーメッセージか確認
+        elif resp.status_code == 200:
+            content_text = resp.text
+            error_keywords = ["No itag found", "Invalid video ID", "Please specify"]
+            
+            if any(kw in content_text for kw in error_keywords):
+                print(f"⚠️ Denoからエラーメッセージを受信: {content_text}")
             else:
-                print(f"video_url:{video_url} # メッセージがURLではありません")
-        
-        print(f"retry:TRUE # 次のitagへ移行します")
-        return fetch_smart_json(video_id, itag_list, index + 1)
+                # エラーじゃないテキスト（直リンクなど）が返ってるなら、それをリダイレクト
+                print(f"ℹ️ テキスト応答をURLとして処理します")
+                return redirect(content_text.strip())
+
+        # 3. 404やそれ以外は失敗とみなす
+        print(f"❌ itag:{current_itag} は使えません。次へ転進！")
+        return fetch_smart_recon(video_id, itag_list, index + 1)
 
     except Exception as e:
-        print(f"error:{e} # 通信中に障害発生、回避して次を試します")
-        return fetch_smart_json(video_id, itag_list, index + 1)
+        print(f"💥 通信エラー: {e}")
+        return fetch_smart_recon(video_id, itag_list, index + 1)
+
 
 # 新しいエンドポイント。iPadからは /v/動画ID でアクセス！
 @app.route('/v/<video_id>')
