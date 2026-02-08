@@ -3157,7 +3157,7 @@ def fetch_smart_recon(video_id, itag_list, index=0):
 def smart_stream(video_id):
     print(f"mission:START # 動画ID {video_id} の最高画質探索を開始")
     # VIDEO_PRIORITYを使って再帰スタート！
-    return fetch_smart_json(video_id, VIDEO_PRIORITY)
+    return fetch_smart_recon(video_id, VIDEO_PRIORITY)
 
 
 
