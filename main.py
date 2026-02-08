@@ -3176,6 +3176,55 @@ def api_video(video_id):
 
 
 
+def fetch_all_valid_itags(video_id, itag_list):
+    """ 指定されたリストの全itagを調査し、有効なものをすべてリストで返す """
+    valid_results = []
+    HOME_BASE = "https://evaluated-genome-ips-commission.trycloudflare.com"
+
+    for itag in itag_list:
+        target_url = f"{HOME_BASE}/latest_version?id={video_id}&itag={itag}"
+        print(f"🔍 索敵中 (itag:{itag})...")
+
+        try:
+            # タイムアウトを短め(3秒)にしてサクサク回すのがコツ
+            resp = requests.get(target_url, timeout=3, verify=False, allow_redirects=False)
+            
+            if resp.status_code == 302:
+                url = resp.headers.get('Location')
+                valid_results.append({"itag": itag, "url": url})
+                print(f"✅ 発見: itag:{itag}")
+            elif resp.status_code == 200 and urlparse(resp.text).scheme in ["http", "https"]:
+                valid_results.append({"itag": itag, "url": resp.text.strip()})
+                print(f"✅ 発見: itag:{itag}")
+                
+        except Exception as e:
+            print(f"⚠️ itag:{itag} 通信失敗: {e}")
+            continue # 失敗しても次へ
+
+    return valid_results
+
+@app.route('/api/v1/<video_id>')
+def api_get_all_streams(video_id):
+    print(f"🚀 動画 {video_id} の全ストリーム情報を収集中...")
+    
+    # 映像と音声を別々にフルスキャン
+    video_data = fetch_all_valid_itags(video_id, VIDEO_PRIORITY)
+    audio_data = fetch_all_valid_itags(video_id, AUDIO_PRIORITY)
+    
+    return jsonify({
+        "status": "success",
+        "video_id": video_id,
+        "streams": {
+            "video": video_data, # itag: 399 等がここに入る
+            "audio": audio_data, # itag: 251 等がここに入る
+            "legacy": fetch_all_valid_itags(video_id, [18, 22]) # 音声映像合体版
+        },
+        "count": {
+            "video": len(video_data),
+            "audio": len(audio_data)
+        }
+    })
+
 
 
 
