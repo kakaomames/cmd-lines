@@ -3187,7 +3187,7 @@ def fetch_all_valid_itags(video_id, itag_list):
 
         try:
             # タイムアウトを短め(3秒)にしてサクサク回すのがコツ
-            resp = requests.get(target_url, timeout=3, verify=False, allow_redirects=False)
+            resp = requests.get(target_url, timeout=10, verify=False, allow_redirects=False)
             
             if resp.status_code == 302:
                 url = resp.headers.get('Location')
