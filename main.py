@@ -3106,7 +3106,50 @@ def deno_proxy(path):
 
 
 
+# 画質・音質の優先順位リスト（上から順に試す）
+VIDEO_PRIORITY = [313, 271, 137, 248, 22, 18] 
+AUDIO_PRIORITY = [251, 140, 139]
 
+def fetch_with_retry(video_id, itag_list, index=0):
+    if index >= len(itag_list):
+        return Response("全てのitagで取得に失敗しました", status=404)
+
+    current_itag = itag_list[index]
+    # 家のDeno基地へのURL（latest_version?id=... の形式に合わせる）
+    HOME_BASE = "https://evaluated-genome-ips-commission.trycloudflare.com"
+    target_url = f"{HOME_BASE}/latest_version?id={video_id}&itag={current_itag}"
+    
+    print(f"📡 試行中 (itag:{current_itag}): {target_url}")
+
+    try:
+        # verify=False は自己署名証明書のため
+        resp = requests.get(target_url, timeout=10, verify=False)
+        
+        # エラーメッセージが含まれていないか、バイナリが小さすぎないかチェック
+        error_keywords = [b"No itag found", b"Invalid video ID", b"Please specify"]
+        is_error = any(kw in resp.content for kw in error_keywords)
+        
+        # 404やエラーメッセージが出た場合は、次のitagで再帰呼び出し
+        if resp.status_code != 200 or is_error or len(resp.content) < 1000:
+            print(f"⚠️ itag:{current_itag} は無効でした。次を試します...")
+            return fetch_with_retry(video_id, itag_list, index + 1)
+
+        # 成功したらそのまま返す！
+        print(f"✅ 成功！ itag:{current_itag} を採用します。")
+        excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
+        headers = [(name, value) for (name, value) in resp.raw.headers.items()
+                   if name.lower() not in excluded_headers]
+        return Response(resp.content, resp.status_code, headers)
+
+    except Exception as e:
+        print(f"❌ 通信エラー: {e}")
+        return fetch_with_retry(video_id, itag_list, index + 1)
+
+# 新しいエンドポイント
+@app.route('/v/<video_id>')
+def smart_stream(video_id):
+    # まずは最高画質リストで挑戦！
+    return fetch_with_retry(video_id, VIDEO_PRIORITY)
 
 
 
