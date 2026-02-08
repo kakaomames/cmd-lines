@@ -3106,51 +3106,57 @@ def deno_proxy(path):
 
 
 
-# 画質・音質の優先順位リスト（上から順に試す）
+# --- 最高品質・再帰JSON偵察システム ---
 VIDEO_PRIORITY = [313, 271, 137, 248, 22, 18] 
 AUDIO_PRIORITY = [251, 140, 139]
 
-def fetch_with_retry(video_id, itag_list, index=0):
+def fetch_smart_json(video_id, itag_list, index=0):
+    print(f"index:{index} # 探索開始")
+    
     if index >= len(itag_list):
-        return Response("全てのitagで取得に失敗しました", status=404)
+        print(f"status:FAILED # 全てのitagが全滅しました")
+        return jsonify({"error": "No valid itag found after full search"}), 404
 
     current_itag = itag_list[index]
-    # 家のDeno基地へのURL（latest_version?id=... の形式に合わせる）
-    HOME_BASE = "https://evaluated-genome-ips-commission.trycloudflare.com"
-    target_url = f"{HOME_BASE}/latest_version?id={video_id}&itag={current_itag}"
+    print(f"current_itag:{current_itag} # ターゲット確定")
     
-    print(f"📡 試行中 (itag:{current_itag}): {target_url}")
+    HOME_BASE = "https://evaluated-genome-ips-commission.trycloudflare.com"
+    # Deno側のエンドポイント。JSONを返すようにDeno側も調整が必要だ！
+    target_url = f"{HOME_BASE}/get_url?id={video_id}&itag={current_itag}"
+    print(f"target_url:{target_url} # リクエスト送信中")
 
     try:
-        # verify=False は自己署名証明書のため
+        # verify=False はオレオレ証明書対策
         resp = requests.get(target_url, timeout=10, verify=False)
+        print(f"resp_status:{resp.status_code}")
         
-        # エラーメッセージが含まれていないか、バイナリが小さすぎないかチェック
-        error_keywords = [b"No itag found", b"Invalid video ID", b"Please specify"]
-        is_error = any(kw in resp.content for kw in error_keywords)
-        
-        # 404やエラーメッセージが出た場合は、次のitagで再帰呼び出し
-        if resp.status_code != 200 or is_error or len(resp.content) < 1000:
-            print(f"⚠️ itag:{current_itag} は無効でした。次を試します...")
-            return fetch_with_retry(video_id, itag_list, index + 1)
+        report = resp.json() 
+        print(f"report:{json.dumps(report)} # 偵察結果受理")
 
-        # 成功したらそのまま返す！
-        print(f"✅ 成功！ itag:{current_itag} を採用します。")
-        excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
-        headers = [(name, value) for (name, value) in resp.raw.headers.items()
-                   if name.lower() not in excluded_headers]
-        return Response(resp.content, resp.status_code, headers)
+        # 構造を解析 (Denoが {"data": [{"url": "..."}]} を返す想定)
+        if "data" in report and len(report["data"]) > 0:
+            item = report["data"][0]
+            video_url = item.get("url", "")
+
+            if video_url.startswith("http"):
+                print(f"✅ success:FOUND # 有効なURLを発見しました: {video_url}")
+                return redirect(video_url) 
+            else:
+                print(f"video_url:{video_url} # メッセージがURLではありません")
+        
+        print(f"retry:TRUE # 次のitagへ移行します")
+        return fetch_smart_json(video_id, itag_list, index + 1)
 
     except Exception as e:
-        print(f"❌ 通信エラー: {e}")
-        return fetch_with_retry(video_id, itag_list, index + 1)
+        print(f"error:{e} # 通信中に障害発生、回避して次を試します")
+        return fetch_smart_json(video_id, itag_list, index + 1)
 
-# 新しいエンドポイント
+# 新しいエンドポイント。iPadからは /v/動画ID でアクセス！
 @app.route('/v/<video_id>')
 def smart_stream(video_id):
-    # まずは最高画質リストで挑戦！
-    return fetch_with_retry(video_id, VIDEO_PRIORITY)
-
+    print(f"mission:START # 動画ID {video_id} の最高画質探索を開始")
+    # VIDEO_PRIORITYを使って再帰スタート！
+    return fetch_smart_json(video_id, VIDEO_PRIORITY)
 
 
 
