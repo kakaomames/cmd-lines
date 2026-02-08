@@ -3106,58 +3106,73 @@ def deno_proxy(path):
 
 
 
-# --- 最高品質・再帰JSON偵察システム ---
-VIDEO_PRIORITY = [313, 271, 137, 248, 22, 18] 
-AUDIO_PRIORITY = [251, 140, 139]
+# --- 最高品質・API偵察システム (強化版) ---
+# YouTubeの主要なitagを網羅。313(4K)から順に、AV1/VP9/H.264を網羅！
+VIDEO_PRIORITY = [
+    313, 401, 305, # 4K (VP9/AV1)
+    271, 400, 304, # 2K
+    137, 248, 399, 303, 299, # 1080p
+    136, 247, 398, 302, 298, # 720p
+    135, 244, 397, # 480p
+    134, 243, 396, # 360p
+    18, 22 # 混合(MP4)
+]
+AUDIO_PRIORITY = [251, 141, 140, 139]
 
-def fetch_smart_recon(video_id, itag_list, index=0):
+def fetch_smart_api(video_id, itag_list, index=0):
     if index >= len(itag_list):
-        return jsonify({"error": "全itag全滅。全軍撤退！"}), 404
+        print("status:FAILURE # 全てのitagが沈黙")
+        return jsonify({
+            "status": "error",
+            "message": "No valid itag found after full search",
+            "video_id": video_id
+        }), 404
 
     current_itag = itag_list[index]
     HOME_BASE = "https://evaluated-genome-ips-commission.trycloudflare.com"
-    # Deno側の既存エンドポイントへ突撃！
     target_url = f"{HOME_BASE}/latest_version?id={video_id}&itag={current_itag}"
     
     print(f"📡 偵察中 (itag:{current_itag}): {target_url}")
 
     try:
-        # リダイレクトをあえて「止める」のがミソ
-        resp = requests.get(target_url, timeout=15, verify=False, allow_redirects=False)
+        # 302を追いかけずにヘッダーだけ見る
+        resp = requests.get(target_url, timeout=10, verify=False, allow_redirects=False)
         
-        # 1. 302（リダイレクト）が返ってきたら「成功」とみなす
+        # 1. 成功（リダイレクト先がある場合）
         if resp.status_code == 302:
-            redirect_url = resp.headers.get('Location')
-            print(f"✅ 成功！リダイレクト先を確保: {redirect_url}")
-            return redirect(redirect_url)
+            final_url = resp.headers.get('Location')
+            print(f"✅ FOUND itag:{current_itag}")
+            return jsonify({
+                "status": "success",
+                "video_id": video_id,
+                "itag": current_itag,
+                "url": final_url
+            })
 
-        # 2. 200が返ってきた場合、中身がエラーメッセージか確認
+        # 2. テキストでエラーが返った場合
         elif resp.status_code == 200:
-            content_text = resp.text
-            error_keywords = ["No itag found", "Invalid video ID", "Please specify"]
-            
-            if any(kw in content_text for kw in error_keywords):
-                print(f"⚠️ Denoからエラーメッセージを受信: {content_text}")
+            msg = resp.text
+            if any(kw in msg for kw in ["No itag found", "Invalid", "Please"]):
+                print(f"⚠️ itag:{current_itag} は拒否されました: {msg.strip()}")
             else:
-                # エラーじゃないテキスト（直リンクなど）が返ってるなら、それをリダイレクト
-                print(f"ℹ️ テキスト応答をURLとして処理します")
-                return redirect(content_text.strip())
+                # テキスト自体がURLの可能性
+                return jsonify({
+                    "status": "success",
+                    "video_id": video_id,
+                    "itag": current_itag,
+                    "url": msg.strip()
+                })
 
-        # 3. 404やそれ以外は失敗とみなす
-        print(f"❌ itag:{current_itag} は使えません。次へ転進！")
-        return fetch_smart_recon(video_id, itag_list, index + 1)
+        return fetch_smart_api(video_id, itag_list, index + 1)
 
     except Exception as e:
-        print(f"💥 通信エラー: {e}")
-        return fetch_smart_recon(video_id, itag_list, index + 1)
+        print(f"💥 通信エラー (itag:{current_itag}): {e}")
+        return fetch_smart_api(video_id, itag_list, index + 1)
 
-
-# 新しいエンドポイント。iPadからは /v/動画ID でアクセス！
-@app.route('/v/<video_id>')
-def smart_stream(video_id):
-    print(f"mission:START # 動画ID {video_id} の最高画質探索を開始")
-    # VIDEO_PRIORITYを使って再帰スタート！
-    return fetch_smart_recon(video_id, VIDEO_PRIORITY)
+# APIエンドポイント
+@app.route('/api/v/<video_id>')
+def api_video(video_id):
+    return fetch_smart_api(video_id, VIDEO_PRIORITY)
 
 
 
