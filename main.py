@@ -3070,6 +3070,49 @@ def watch():
 
 
 
+import requests
+from flask import request, Response
+
+# ... 既存の 2040 行 ...
+
+@app.route('/deno/', defaults={'path': ''})
+@app.route('/deno/<path:path>')
+def deno_proxy(path):
+    # 家の Cloudflare Tunnel URL
+    HOME_URL = "https://evaluated-genome-ips-commission.trycloudflare.com"
+    
+    # 1. iPadからのリクエストを家のPCへ転送
+    # ※ /deno/abc -> https://.../abc へ変換
+    target_url = f"{HOME_URL}/{path}"
+    
+    # クエリパラメータ（?v=...など）も引き継ぐ
+    res = requests.request(
+        method=request.method,
+        url=target_url,
+        headers={k: v for k, v in request.headers if k.lower() != 'host'},
+        data=request.get_data(),
+        cookies=request.cookies,
+        allow_redirects=False,
+        params=request.args,
+        verify=False # 自己署名証明書なので検証スキップ
+    )
+
+    # 2. 家からのレスポンスをiPadにそのまま返す
+    excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
+    headers = [(name, value) for (name, value) in res.raw.headers.items()
+               if name.lower() not in excluded_headers]
+
+    return Response(res.content, res.status_code, headers)
+
+
+
+
+
+
+
+
+
+
 
 
 
