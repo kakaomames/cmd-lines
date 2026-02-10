@@ -91,7 +91,6 @@ def get_auth_token():
     now_jst = datetime.utcnow() + timedelta(hours=9)
     day = now_jst.day
     
-    # 偶数・奇数のロジック（ここまでは本物っぽく見せる）
     if day % 2 == 0:
         key = now_jst.strftime("%Y/%m/%d/%H")
     else:
