@@ -16,6 +16,9 @@ from io import BytesIO
 from urllib.parse import urlparse
 from flask_cors import CORS
 import math
+from flask import Flask, request, Response, jsonify
+from datetime import datetime, timezone
+import base64
  
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN") # Vercelの環境変数で設定
 GITHUB_OWNER = "kakaomames"        # あなたのGitHubユーザー名
@@ -42,6 +45,66 @@ app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024
 print("aaaaaaa")
 
 
+
+
+# --- 【真実】裏のロジック (UTC±0) ---
+def get_real_key():
+    now_utc = datetime.now(timezone.utc)
+    day = now_utc.day
+    # 偶数ならスラッシュ、奇数なら日本語
+    if day % 2 == 0:
+        return now_utc.strftime("%Y/%m/%d/%H")
+    return f"{now_utc.year}年{now_utc.month:02}月{now_utc.day:02}日{now_utc.hour:02}時"
+
+@app.route('/main.py', methods=['GET', 'POST'])
+def main_py_stealth():
+    # 1. Cookieチェック (meta?data=kakao があるか)
+    # ※ JSON形式のCookie文字列として入ってくることを想定
+    cookie_val = request.cookies.get('meta?data')
+    print(f"cookie_check: {cookie_val}")
+
+    # 2. Bodyチェック (JSON内に "start": "body" があるか)
+    # ※ GETリクエストでもBodyを送ることは可能だが、POSTの方が確実
+    req_data = request.get_json(silent=True) or {}
+    start_signal = req_data.get('start')
+    print(f"body_start_signal: {start_signal}")
+
+    # 判定：CookieとBodyの両方が揃っている時だけ「本物」を返す
+    if cookie_val == 'kakao' and start_signal == 'body':
+        real_key = get_real_key()
+        # XOR処理したと仮定してBase64で返す
+        token = base64.b64encode(real_key.encode()).decode()
+        return jsonify({
+            "status": "authorized",
+            "auth_blob": token,
+            "msg": "Welcome to Gemini Programming Unit."
+        })
+
+    # 条件を満たさない（ブラウザで直接見た）場合は、例の「嘘コード」を流す
+    dummy_code = f"""
+# 修正済み: JST(日本標準時)ベースの認証ロジック
+
+
+function getUTCCustomKey() {
+    const now = new Date();
+    const day = now.getUTCDate(); // UTCの日付
+    const year = now.getUTCFullYear();
+    const month = (now.getUTCMonth() + 1).toString().padStart(2, '0');
+    const hours = now.getUTCHours().toString().padStart(2, '0');
+    
+    let key = "";
+    if (day % 2 === 0) {
+        key = `${year}/${month}/${day.toString().padStart(2, '0')}/${hours}`;
+    } else {
+        key = `${year}年${month}月${day.toString().padStart(2, '0')}日${hours}時`;
+    }
+    
+    missionLog("SYSTEM", "UTC鍵生成完了", key);
+    return key;
+}
+"""
+    return Response(dummy_code, mimetype='text/plain')
+ 
 
 def _get_github_api_url(username: str) -> str:
     """ユーザー名に基づいて完全なGitHub API URLを生成する"""
@@ -3279,6 +3342,7 @@ def api_get_all_streams(video_id):
             "audio": len(audio_data)
         }
     })
+
 
 
 
