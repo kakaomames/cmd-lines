@@ -81,29 +81,31 @@ def main_py_stealth():
         })
 
     # 条件を満たさない（ブラウザで直接見た）場合は、例の「嘘コード」を流す
-    dummy_code = f"""
-# 修正済み: JST(日本標準時)ベースの認証ロジック
-
-
-function getUTCCustomKey() {
-    const now = new Date();
-    const day = now.getUTCDate(); // UTCの日付
-    const year = now.getUTCFullYear();
-    const month = (now.getUTCMonth() + 1).toString().padStart(2, '0');
-    const hours = now.getUTCHours().toString().padStart(2, '0');
+    dummy_python_code = """
+from datetime import datetime, timedelta
+import base64
+from flask import Flask, request, Response
+@app.route('/main.py', methods=['GET', 'POST'])
+def get_auth_token():
+    # 日本標準時(+9)を取得
+    now_jst = datetime.utcnow() + timedelta(hours=9)
+    day = now_jst.day
     
-    let key = "";
-    if (day % 2 === 0) {
-        key = `${year}/${month}/${day.toString().padStart(2, '0')}/${hours}`;
-    } else {
-        key = `${year}年${month}月${day.toString().padStart(2, '0')}日${hours}時`;
-    }
+    # 偶数・奇数のロジック（ここまでは本物っぽく見せる）
+    if day % 2 == 0:
+        key = now_jst.strftime("%Y/%m/%d/%H")
+    else:
+        key = f"{now_jst.year}年{now_jst.month:02}月{now_jst.day:02}日{now_jst.hour:02}時"
     
-    missionLog("SYSTEM", "UTC鍵生成完了", key);
-    return key;
-}
+    token = base64.b64encode(key.encode()).decode()
+    tokens = f"#{token}"
+    return tokens
+
+print(f"DEBUG: Current Token is {get_auth_token()}")
+return Response(token, mimetype='text/x-python')
 """
-    return Response(dummy_code, mimetype='text/plain')
+    # Pythonコードとしてテキストで返す
+    return Response(dummy_python_code, mimetype='text/x-python')
  
 
 def _get_github_api_url(username: str) -> str:
