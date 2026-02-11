@@ -3086,7 +3086,7 @@ from flask import Flask, render_template, request
 import urllib.request
 import ssl
 
-COMPANION_BASE = "https://atwck4j0x.localto.net/companion"
+COMPANION_BASE = "https://atwck4j0x.localto.net/"
 AUTH_KEY = "ABCdef1234567890"
 context = ssl._create_unverified_context()
 
@@ -3281,12 +3281,12 @@ def api_get_oisogi_streams(video_id):
         "video_id": video_id,
         "streams": {
             "video": video_data, # itag: 399 等がここに入る
-            "audio": audio_data, # itag: 251 等がここに入る
-            "legacy": fetch_all_valid_itags(video_id, [18, 22]) # 音声映像合体版
+            "audio": video_data, # itag: 251 等がここに入る
+            "legacy": fetch_all_oisogi_itags(video_id, [18]) # 音声映像合体版
         },
         "count": {
             "video": len(video_data),
-            "audio": len(audio_data)
+            "audio": len(video_data)
         }
     })
 
