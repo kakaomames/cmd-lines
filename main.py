@@ -3290,8 +3290,25 @@ def api_get_oisogi_streams(video_id):
         }
     })
 
+@app.route('/api/v1/kobetu/<video_id>/<itag>')
+def api_get_kobetu_streams(video_id, itag):
 
-
+    print(f"🚀 動画 {video_id} の全ストリーム情報を収集中...")
+    
+    # 映像と音声を別々にフルスキャン
+    video_data = fetch_all_oisogi_itags(video_id, itag)
+    
+    return jsonify({
+        "status": "success",
+        "video_id": video_id,
+        "streams": {
+            "video": video_data, # itag: 399 等がここに入る
+            "legacy": fetch_all_oisogi_itags(video_id, [18]) # 音声映像合体版
+        },
+        "count": {
+            "video": len(video_data)
+        }
+    })
 
 
 
