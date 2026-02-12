@@ -3274,7 +3274,6 @@ def api_get_oisogi_streams(video_id):
     
     # 映像と音声を別々にフルスキャン
     video_data = fetch_all_oisogi_itags(video_id, VIDEO_oisogiPRIORITY)
-    audio_data = fetch_all_oisogi_itags(video_id, AUDIO_oisogiPRIORITY)
     
     return jsonify({
         "status": "success",
@@ -3290,23 +3289,33 @@ def api_get_oisogi_streams(video_id):
         }
     })
 
+
 @app.route('/api/v1/kobetu/<video_id>/<itag>')
 def api_get_kobetu_streams(video_id, itag):
-
-    print(f"🚀 動画 {video_id} の全ストリーム情報を収集中...")
+    print(f"🚀 個別スキャン開始: ID={video_id}, itag={itag}")
     
-    # 映像と音声を別々にフルスキャン
-    video_data = fetch_all_oisogi_itags(video_id, itag)
+    # 1. itagを数値のリストに変換
+    # URLからは文字列で来るので int() にして [ ] で囲む
+    try:
+        target_itag_list = [int(itag)]
+        print(f"target_itag_list:{target_itag_list}") # ログ出力
+    except ValueError:
+        return jsonify({"status": "error", "message": "itagが数値じゃないぞ！"}), 400
+
+    # 2. 指定されたitagだけを狙い撃ち！
+    # ここで [18] と書かずに、target_itag_list を渡すのがポイントだ！
+    specific_data = fetch_all_oisogi_itags(video_id, target_itag_list)
     
     return jsonify({
         "status": "success",
         "video_id": video_id,
         "streams": {
-            "video": video_data, # itag: 399 等がここに入る
-            "legacy": fetch_all_oisogi_itags(video_id, [18]) # 音声映像合体版
+            "video": specific_data,
+            "audio": specific_data,
+            "legacy": specific_data  # 全て指定のitag(例えば140)の結果にする
         },
         "count": {
-            "video": len(video_data)
+            "total": len(specific_data)
         }
     })
 
