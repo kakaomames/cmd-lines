@@ -437,7 +437,7 @@ def mqo_to_obj_and_mtl(mqo_content, base_name):
 
  
 
-# --- テンプレート (3): 複数URL入力フォーム ---
+# --- テンプレート (3): 複数URL入力フォーム ---'''"""
 HTML_IKKATU_FORM = lambda warning="": f"""
 <!DOCTYPE html>
 <html lang="ja">
@@ -602,7 +602,7 @@ HTML_SELECT_TEMPLATE = lambda name1, name2, original_url: f"""
 """
 
 
-# --- URLからファイル名候補を抽出するヘルパー関数 (改良版) ---
+# --- URLからファイル名候補を抽出するヘルパー関数 (改良版) ---"""'''
 def get_filename_options(url):
     """
     例: https://watchdocumentaries.com/wp-content/uploads/games/drift-boss/game.js 
@@ -983,7 +983,7 @@ kakaomamesと、pokemogukunnsと、pokemogukunnと、kakaomameと、pokemogukunn
 app.secret_key = os.environ.get('FSK', 'my_insecure_development_key')
 
 
-# ルートURL ("/")
+# ルートURL ("/")'''
 @app.route('/h', methods=['GET'])
 # print("/h")
 def indexhhh():
@@ -1221,7 +1221,7 @@ def generate_url_and_fetch(number_param):
             "html_content": ""
         }
 
-    # ランダムな数字を生成し、ゼロパディング
+    # ランダムな数字を生成し、ゼロパディング"'''
     random_num = random.randint(0, max_val)
     random_part = str(random_num).zfill(padding) 
     
@@ -1497,7 +1497,7 @@ def download():
     except Exception as e:
         return render_template_string(f'<div class="container"><h1 class="warning">予期せぬエラー</h1><pre>{str(e)}</pre><p><a href="/">戻る</a></p></div>'), 500
 
-# HTMLテンプレートをPythonコード内に直接記述
+# HTMLテンプレートをPythonコード内に直接記述'''
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="ja">
@@ -1676,7 +1676,7 @@ import io # ダウンロードのためにバイトデータを扱う
 
 
 
-# 外部APIのベースURL
+# 外部APIのベースURL'''
 TURBOWARP_API_BASE = "https://trampoline.turbowarp.org/api/projects/"
 # プロジェクト本体を取得するためのCURLコマンドのベースURL (ユーザー指定)
 BASE_URL = "https://xeroxapp032.vercel.app/dl?data_url="
@@ -1778,7 +1778,7 @@ INDEXSS_HTML = """
 </html>
 """
 
-# license.html
+# license.html'''
 LICENSE_HTML = """
 <!DOCTYPE html>
 <html lang="ja">
@@ -1917,7 +1917,7 @@ def download_project():
         dl_response = requests.get(curl_command_url, stream=True)
         dl_response.raise_for_status()
         
-        # 取得したデータをバイトストリームとして扱う
+        # 取得したデータをバイトストリームとして扱う'''
         file_data = io.BytesIO(dl_response.content)
         
         # プロジェクトIDと拡張子を付けてファイル名を決定
@@ -2489,7 +2489,7 @@ def get_status_proxy(task_id):
         return jsonify({'status': 'error', 'message': f'Internal Vercel error: {e}'}), 500
     
 ## =========================================================
-## 3. ダウンロードプロキシ (ZIPファイルを中継)
+## 3. ダウンロードプロキシ (ZIPファイルを中継)'''
 ## =========================================================
 
 @app.route('/api/download/<task_id>', methods=['GET'])
@@ -2880,7 +2880,7 @@ def proxy():
                 }})();
             </script>
             """
-            
+            # '''
             # <head> タグを探して、その直後に注入
             if '<head>' in html_str:
                 modified_html = html_str.replace('<head>', '<head>' + injection, 1)
@@ -3235,7 +3235,7 @@ def fetch_smart_api(video_id, itag_list, index=0):
         print(f"💥 通信エラー (itag:{current_itag}): {e}")
         return fetch_smart_api(video_id, itag_list, index + 1)
 
-# APIエンドポイント
+# APIエンドポイント'''
 @app.route('/api/v/<video_id>')
 def api_video(video_id):
     return fetch_smart_api(video_id, VIDEO_PRIORITY)
@@ -3369,6 +3369,64 @@ def api_get_all_streams(video_id):
             "audio": len(audio_data)
         }
     })
+
+
+from flask import Flask, request, redirect, jsonify
+from github import Github
+import json
+import os
+
+
+
+# --- 隊員の設定エリア ---
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
+REPO_NAME = "kakaomames/repository-A"  # リポジトリAの名前
+FILE_PATH = "pending.json"                # URLを溜めるファイル
+# -----------------------
+
+g = Github(GITHUB_TOKEN)
+
+@app.route('/yt-dlp')
+def index():
+    # シンプルなHTMLフォーム'''
+    return '''
+        <form action="/add_url" method="post">
+            <input type="url" name="url" placeholder="YouTube URLを入力" required>
+            <button type="submit">ミッション開始！</button>
+        </form>
+    '''
+
+@app.route('/add_url', method=['POST'])
+def add_url():
+    target_url = request.form.get('url')
+    if not target_url:
+        return "URLがありません", 400
+
+    try:
+        repo = g.get_repo(REPO_NAME)
+        
+        # 1. 既存の pending.json を取得
+        contents = repo.get_contents(FILE_PATH)
+        current_data = json.loads(contents.decoded_content.decode())
+
+        # 2. 新しいURLを追加 (JSON形式)
+        # 隊員の案通り、複数対応のためにリストで管理
+        current_data.append({"url": target_url, "status": "pending"})
+
+        # 3. GitHub上のファイルを更新
+        repo.update_file(
+            contents.path,
+            f"Add new mission: {target_url}",
+            json.dumps(current_data, indent=2),
+            contents.sha
+        )
+
+        # 4. 完了したらリダイレクトページへ飛ばす
+        # (ここでGitHub Pages等の経過観察ページへ)
+        return redirect("/redirect_page.html")
+
+    except Exception as e:
+        return f"通信エラーが発生しました: {str(e)}", 500
 
 
 
