@@ -5,3 +5,5 @@ gunicorn
 flask-cors
 wasmtime
 Flask-SocketIO
+PyGithub
+
