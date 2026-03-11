@@ -3386,7 +3386,7 @@ FILE_PATH = "pending.json"                # URLを溜めるファイル
 
 g = Github(GITHUB_TOKEN)
 
-@app.route('/yt-dlp')
+@app.route('/yt-dlp', methods=['POST','GET'])
 def index():
     # シンプルなHTMLフォーム'''
     return '''
@@ -3396,7 +3396,7 @@ def index():
         </form>
     '''
 
-@app.route('/add_url', method=['POST'])
+@app.route('/add_url', methods=['POST'])
 def add_url():
     target_url = request.form.get('url')
     if not target_url:
