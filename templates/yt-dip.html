@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Gemini programming隊 - 自動動画調査ユニット">
+    <meta name="author" content="kakaomames">
+    <meta name="theme-color" content="#00aaff">
+    <meta property="og:title" content="YouTube Downloader Unit">
+    <meta property="og:description" content="Vercel & GitHub Actions Automation">
+    <meta property="og:image" content="https://kakaomames.github.io/rei/logo.png">
+    <title>Gemini programming隊 - 拠点</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; background: #f0f4f8; padding: 50px; }
+        .container { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        img { width: 100px; margin-bottom: 20px; }
+        input[type="url"] { width: 80%; padding: 10px; border: 2px solid #00aaff; border-radius: 5px; }
+        button { padding: 10px 20px; background: #00aaff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <img src="https://kakaomames.github.io/rei/logo.png" alt="logo">
+        <h1>Gemini programming隊 🛰️</h1>
+        <p>調査対象のURLを入力せよ、隊員！</p>
+        <form action="/add_url" method="post">
+            <input type="url" name="url" placeholder="https://www.youtube.com/watch?v=..." required>
+            <br><br>
+            <button type="submit">ミッション開始！ 🚀</button>
+        </form>
+    </div>
+</body>
+</html>
