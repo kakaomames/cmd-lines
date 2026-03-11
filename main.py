@@ -3371,7 +3371,7 @@ def api_get_all_streams(video_id):
     })
 
 
-from flask import Flask, request, redirect
+from flask import Flask, request, redirect, render_template
 from github import Github, GithubException
 import json
 import os
@@ -3380,7 +3380,7 @@ import os
 
 # --- 隊員の設定エリア ---
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
-USER_NAME = "kakaomames" # 隊員のGitHubユーザー名
+USER_NAME = "kakaomames" # 隊員の名前！
 REPO_A = f"{USER_NAME}/mission-control"
 REPO_B = f"{USER_NAME}/mission-storage"
 # -----------------------
@@ -3388,19 +3388,18 @@ REPO_B = f"{USER_NAME}/mission-storage"
 g = Github(GITHUB_TOKEN)
 
 def get_or_create_repo(full_repo_name, init_file, init_content):
-    """リポジトリがなければ作成し、初期ファイルを配置する"""
     try:
         repo = g.get_repo(full_repo_name)
     except GithubException:
-        # リポジトリが存在しない場合は新規作成
-        print(f"📡 報告：{full_repo_name} が未発見。新規開拓を開始します。")
         user = g.get_user()
         repo_short_name = full_repo_name.split('/')[-1]
-        repo = user.create_repo(repo_short_name, private=False) # Pagesで見るならPublic推奨
-        
-        # 初期ファイルの作成
+        repo = user.create_repo(repo_short_name, private=False)
         repo.create_file(init_file, "Initial mission file", init_content)
     return repo
+
+@app.route('/yt-dlp')
+def index():
+    return render_template('index.html')
 
 @app.route('/add_url', methods=['POST'])
 def add_url():
@@ -3408,29 +3407,23 @@ def add_url():
     if not target_url: return "URL error", 400
 
     try:
-        # リポジトリAの確保と初期化
         repo_a = get_or_create_repo(REPO_A, "pending.json", "[]")
-        
-        # pending.json の更新
         contents = repo_a.get_contents("pending.json")
         data = json.loads(contents.decoded_content.decode())
+        
+        # 値が変わったのでログ（コミットメッセージ）に出す！
         data.append({"url": target_url, "status": "pending"})
 
         repo_a.update_file(
             contents.path,
-            f"🚀 New Mission: {target_url}",
+            f"ACTION: {target_url} を pending.json に追加！",
             json.dumps(data, indent=2),
             contents.sha
         )
 
-        # リポジトリBもついでに存在確認（なければ作成）
-        get_or_create_repo(REPO_B, "keika.json", "[]")
-
-        # リダイレクト先（リポジトリBのGitHub Pages）へ
-        return redirect(f"/redirect_page.html")
-
+        return redirect("/redirect_page.html")
     except Exception as e:
-        return f"通信障害発生：{str(e)}", 500
+        return f"エラー発生！隊長に報告を：{str(e)}", 500
 
 
 
