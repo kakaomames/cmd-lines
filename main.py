@@ -3371,8 +3371,8 @@ def api_get_all_streams(video_id):
     })
 
 
-from flask import Flask, request, redirect, jsonify
-from github import Github
+from flask import Flask, request, redirect
+from github import Github, GithubException
 import json
 import os
 
@@ -3380,53 +3380,57 @@ import os
 
 # --- 隊員の設定エリア ---
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
-REPO_NAME = "kakaomames/repository-A"  # リポジトリAの名前
-FILE_PATH = "pending.json"                # URLを溜めるファイル
+USER_NAME = "kakaomames" # 隊員のGitHubユーザー名
+REPO_A = f"{USER_NAME}/mission-control"
+REPO_B = f"{USER_NAME}/mission-storage"
 # -----------------------
 
 g = Github(GITHUB_TOKEN)
 
-@app.route('/yt-dlp', methods=['POST','GET'])
-def index():
-    # シンプルなHTMLフォーム'''
-    return '''
-        <form action="/add_url" method="post">
-            <input type="url" name="url" placeholder="YouTube URLを入力" required>
-            <button type="submit">ミッション開始！</button>
-        </form>
-    '''
+def get_or_create_repo(full_repo_name, init_file, init_content):
+    """リポジトリがなければ作成し、初期ファイルを配置する"""
+    try:
+        repo = g.get_repo(full_repo_name)
+    except GithubException:
+        # リポジトリが存在しない場合は新規作成
+        print(f"📡 報告：{full_repo_name} が未発見。新規開拓を開始します。")
+        user = g.get_user()
+        repo_short_name = full_repo_name.split('/')[-1]
+        repo = user.create_repo(repo_short_name, private=False) # Pagesで見るならPublic推奨
+        
+        # 初期ファイルの作成
+        repo.create_file(init_file, "Initial mission file", init_content)
+    return repo
 
 @app.route('/add_url', methods=['POST'])
 def add_url():
     target_url = request.form.get('url')
-    if not target_url:
-        return "URLがありません", 400
+    if not target_url: return "URL error", 400
 
     try:
-        repo = g.get_repo(REPO_NAME)
+        # リポジトリAの確保と初期化
+        repo_a = get_or_create_repo(REPO_A, "pending.json", "[]")
         
-        # 1. 既存の pending.json を取得
-        contents = repo.get_contents(FILE_PATH)
-        current_data = json.loads(contents.decoded_content.decode())
+        # pending.json の更新
+        contents = repo_a.get_contents("pending.json")
+        data = json.loads(contents.decoded_content.decode())
+        data.append({"url": target_url, "status": "pending"})
 
-        # 2. 新しいURLを追加 (JSON形式)
-        # 隊員の案通り、複数対応のためにリストで管理
-        current_data.append({"url": target_url, "status": "pending"})
-
-        # 3. GitHub上のファイルを更新
-        repo.update_file(
+        repo_a.update_file(
             contents.path,
-            f"Add new mission: {target_url}",
-            json.dumps(current_data, indent=2),
+            f"🚀 New Mission: {target_url}",
+            json.dumps(data, indent=2),
             contents.sha
         )
 
-        # 4. 完了したらリダイレクトページへ飛ばす
-        # (ここでGitHub Pages等の経過観察ページへ)
-        return redirect("/redirect_page.html")
+        # リポジトリBもついでに存在確認（なければ作成）
+        get_or_create_repo(REPO_B, "keika.json", "[]")
+
+        # リダイレクト先（リポジトリBのGitHub Pages）へ
+        return redirect(f"/redirect_page.html")
 
     except Exception as e:
-        return f"通信エラーが発生しました: {str(e)}", 500
+        return f"通信障害発生：{str(e)}", 500
 
 
 
