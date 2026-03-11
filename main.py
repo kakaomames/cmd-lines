@@ -3399,7 +3399,7 @@ def get_or_create_repo(full_repo_name, init_file, init_content):
 
 @app.route('/yt-dlp')
 def index():
-    return render_template('index.html')
+    return render_template('yt-dlp.html')
 
 @app.route('/add_url', methods=['POST'])
 def add_url():
