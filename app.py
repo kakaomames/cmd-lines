@@ -42,7 +42,7 @@ app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024
 print("aaaaaaa")
 
 
- import os
+import os
 import requests
 import json
 from flask import Flask, request, jsonify
