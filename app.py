@@ -2747,6 +2747,70 @@ def register():
 
     return jsonify({"status": "success", "uuid": new_uuid})
 
+ import os
+import requests
+import json
+from flask import Flask, request, jsonify
+
+
+
+def get_access_token():
+    """GRT(Refresh Token)を使って最新のAccess Tokenを取得する"""
+    url = "https://oauth2.googleapis.com/token"
+    # 環境変数名は略称を使用
+    payload = {
+        "client_id": os.environ.get("GCI"),
+        "client_secret": os.environ.get("GCS"),
+        "refresh_token": os.environ.get("GRT"),
+        "grant_type": "refresh_token"
+    }
+    res = requests.post(url, data=payload)
+    token_data = res.json()
+    
+    # トークン更新のログを出力
+    if "access_token" in token_data:
+        print("[ACTION] Access Tokenを更新しました。")
+    return token_data.get("access_token")
+
+@app.route('/api/yt', methods=['GET'])
+def get_youtube_html():
+    target_url = request.args.get('url')
+    if not target_url:
+        return jsonify({"status": "error", "message": "URLがないぞ、隊員！"}), 400
+
+    access_token = get_access_token()
+    script_id = os.environ.get("GSI")
+    
+    # Scripts API エンドポイント
+    api_url = f"https://script.googleapis.com/v1/scripts/{script_id}:run"
+    
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json"
+    }
+    
+    # 隊長指定のJSON構造
+    payload = {
+        "function": "YTHTML",
+        "parameters": [target_url],
+        "devMode": True
+    }
+    
+    try:
+        response = requests.post(api_url, headers=headers, json=payload)
+        # 値の変化を報告
+        print(f"[MISSION_LOG] GAS APIレスポンスステータス: {response.status_code}")
+        
+        # GASの実行結果をそのまま返す
+        # 1行で返ってくる巨大HTML(kekka)も、jsonifyが適切に処理します
+        return jsonify(response.json())
+        
+    except Exception as e:
+        print(f"[ERROR] {str(e)}")
+        return jsonify({"status": "fatal_error", "details": str(e)}), 500
+
+
+
 
 
 
