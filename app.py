@@ -1523,6 +1523,7 @@ HTML_TEMPLATE = """
         <nav>
             <ul>
                 <li><a href="/home">ホーム</a></li>
+                
                 <li><a href="/h">GITHUBにセーブデータ保存</a></li>
                 <li><a href="/cmd">Webコマンド実行ツール</a></li>
                 <br>
