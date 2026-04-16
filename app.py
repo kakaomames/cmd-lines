@@ -2324,34 +2324,7 @@ def proxy_listget():
 
 
 
-from flask import Flask, send_from_directory
-import os
 
-
-# プロジェクトのルートディレクトリを静的ファイルのベースとする
-# Vercel Lambdaの実行環境では、この app.py が存在するディレクトリがルートになります。
-ROOT_DIR = "."
-
-@app.route('/<path:filename>')
-def serve_file(filename):
-    """
-    ワイルドカードパス（例: /script.js, /css/style.css）でアクセスされたリクエストに対して、
-    プロジェクトのルートディレクトリから対応するファイルを検索し、安全に返します。
-    """
-    print(f"Request received for file: {filename}")
-    
-    try:
-        # send_from_directoryを使って、安全にファイルを提供する
-        # filenameには 'css/style.css' のようなサブディレクトリパスが含まれます
-        return send_from_directory(
-            ROOT_DIR, # 検索するディレクトリ
-            filename, # ファイル名（サブディレクトリを含む）
-            as_attachment=False # ファイルをダウンロードさせず、ブラウザに表示させる
-        )
-    except FileNotFoundError:
-        print(f"File not found: {filename}")
-        # ファイルが見つからない場合は 404 を返す
-        return "File Not Found", 404
 
 
 
@@ -2845,6 +2818,41 @@ def pokeque():
 
 
 
+
+
+
+
+
+
+
+from flask import Flask, send_from_directory
+import os
+
+
+# プロジェクトのルートディレクトリを静的ファイルのベースとする
+# Vercel Lambdaの実行環境では、この app.py が存在するディレクトリがルートになります。
+ROOT_DIR = "."
+
+@app.route('/<path:filename>')
+def serve_file(filename):
+    """
+    ワイルドカードパス（例: /script.js, /css/style.css）でアクセスされたリクエストに対して、
+    プロジェクトのルートディレクトリから対応するファイルを検索し、安全に返します。
+    """
+    print(f"Request received for file: {filename}")
+    
+    try:
+        # send_from_directoryを使って、安全にファイルを提供する
+        # filenameには 'css/style.css' のようなサブディレクトリパスが含まれます
+        return send_from_directory(
+            ROOT_DIR, # 検索するディレクトリ
+            filename, # ファイル名（サブディレクトリを含む）
+            as_attachment=False # ファイルをダウンロードさせず、ブラウザに表示させる
+        )
+    except FileNotFoundError:
+        print(f"File not found: {filename}")
+        # ファイルが見つからない場合は 404 を返す
+        return "File Not Found", 404
 # ========================================
 # 🎖 Gemini programming隊・静的ビルドセクション
 # ========================================
