@@ -2836,57 +2836,32 @@ import os
 # Vercel Lambdaの実行環境では、この app.py が存在するディレクトリがルートになります。
 ROOT_DIR = "."
 
+
 @app.route('/<path:filename>')
 def serve_file(filename):
     """
-    ワイルドカードパス（例: /script.js, /css/style.css）でアクセスされたリクエストに対して、
-    プロジェクトのルートディレクトリから対応するファイルを検索し、安全に返します。
+    ワイルドカードパス。/yt が来たら関数を呼び、それ以外はファイルを探す。
     """
-    print(f"Request received for file: {filename}")
+    print(f"ファイルのリクエストが受領されました: {filename}")
+    
+    # 【重要】比較は == を使い、末尾にスラッシュがあってもいいように strip('/') すると安全
+    if filename.strip('/') == "yt":
+        # yt_proxy() をそのまま実行して、その返り値（response）を返す
+        return get_youtube_html() 
     
     try:
-        # send_from_directoryを使って、安全にファイルを提供する
-        # filenameには 'css/style.css' のようなサブディレクトリパスが含まれます
+        # 既存のファイル提供ロジック
         return send_from_directory(
-            ROOT_DIR, # 検索するディレクトリ
-            filename, # ファイル名（サブディレクトリを含む）
-            as_attachment=False # ファイルをダウンロードさせず、ブラウザに表示させる
+            ROOT_DIR,
+            filename,
+            as_attachment=False
         )
-    except FileNotFoundError:
-        print(f"File not found: {filename}")
-        # ファイルが見つからない場合は 404 を返す
-        return "File Not Found", 404
-# ========================================
-# 🎖 Gemini programming隊・静的ビルドセクション
-# ========================================
-import json
+    except Exception as e: # FileNotFoundError以外も考慮して広めに
+        print(f"File not found or Error: {filename} -> {str(e)}")
+        # 隊長の方針：ファイルがない場合も 200 を返す設定（？）
+        return "File Not Found", 200
 
-def build_static_site():
-    print("🛠 ビルド作戦開始...")
-    
-    # ページリスト（作成したルートをここに追加していく）
-    # 例: HTMLが埋め込まれているルートやテンプレートを呼び出すルート
-    pages = {
-        "/": "index.html",
-        "/indexss": "indexss.html",
-        "/license": "license.html",
-        # ポケモンクエスト用データ
-        "/api/data": "data.json" 
-    }
-
-    with app.test_client() as client:
-        for path, target_file in pages.items():
-            print(f"Target determined: {path} -> {target_file}")
-            response = client.get(path)
-            
-            if response.status_code == 200:
-                # バイナリモードで保存（画像やHTML両方対応）
-                with open(target_file, "wb") as f:
-                    f.write(response.data)
-                print(f"a:{target_file} # ファイル確定しました")
-            else:
-                print(f"⚠️ Warning: {path} status code is {response.status_code}")
-
+# --- この上に get_youtube_html() 関数がある前提 ---
 if __name__ == '__main__':
     # GitHub Actions環境（環境変数）の確認
     is_actions = os.environ.get("GITHUB_ACTIONS") == "true"
