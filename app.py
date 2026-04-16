@@ -48,7 +48,8 @@ print("aaaaaaa")
 
 
 
-
+# ルートの順番に関わらず、これに一致すれば最優先で通す
+@app.route('/yt', methods=['GET'], endpoint='yt_proxy')
 def get_access_token():
     """GRT(Refresh Token)を使って最新のAccess Tokenを取得する"""
     url = "https://oauth2.googleapis.com/token"
