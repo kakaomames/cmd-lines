@@ -86,32 +86,36 @@ jobs:
 
           
 
-      - name: 📐 内部パーツでスライス実行（GPU完全封印モード）
+      - name: 📐 内部パーツでスライス実行（v2.6 CLI 最終適合仕様）
+       id: ls
+       run: |
+         ls -F
+         
+      - name: 📐 内部パーツでスライス実行（v2.6 CLI 最終適合仕様）
         id: run_slice
         run: |
           # 1. ライブラリパス設定
           export LD_LIBRARY_PATH=$PWD/squashfs-root/usr/lib:$LD_LIBRARY_PATH
           
-          # 🚀 【新兵器】ソフトウェア描画を強制し、GPUエラーを回避する
+          # 2. 【生命線】ソフトウェア描画強制
           export GALLIUM_DRIVER=swrast
           export LIBGL_ALWAYS_SOFTWARE=1
           
-          # 2. ターゲットの決定
+          # 3. ターゲット決定
           FULL_PATH=$(ls モデル/*.obj | head -n 1)
           FILE_NAME=$(basename "$FULL_PATH" .obj)
           OUTPUT_PATH="モデル/${FILE_NAME}.3mf"
           
           echo "FILE_NAME=${FILE_NAME}" >> $GITHUB_ENV
 
-          # 3. 実行（--no-gui フラグを復活させつつ、xvfbで包む）
-          # v2.6でGUI周りが原因なら、これで黙らせる！
+          # 4. 実行（ヘルプに忠実な、最もシンプルな構成）
+          # --slice 0 は「すべてのプレートをスライス」という意味で必須だ
           xvfb-run -a -s "-screen 0 1280x1024x24" ./squashfs-root/AppRun \
-            --no-gui \
             --slice 0 \
             --export-3mf "$OUTPUT_PATH" \
             "$FULL_PATH"
           
-          echo "[missionLog] ACTION: ソフトウェアレンダリングで岩盤突破を試みるぞ！"
+          echo "[missionLog] ACTION: 邪魔なフラグを排除し、純粋なスライス命令を送信したぞ！"
 
 
 
