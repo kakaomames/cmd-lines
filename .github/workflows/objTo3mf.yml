@@ -86,7 +86,7 @@ jobs:
 
           
 
-      - name: 📐 内部パーツでスライス実行（最終・Project適合モード）
+      - name: 📐 内部パーツでスライス実行（仮想ディスプレイ安定化モード）
         id: run_slice
         run: |
           # 1. ライブラリパス設定
@@ -99,14 +99,15 @@ jobs:
           
           echo "FILE_NAME=${FILE_NAME}" >> $GITHUB_ENV
 
-          # 3. 実行（--slice 0 を最後の方に持っていき、--load-settings を外して「直」で叩く！）
-          # もし final_config.json がダメなら、一度「素」の状態で 3mf を作れるか試すんだ！
-          xvfb-run ./squashfs-root/AppRun \
+          # 3. 実行（xvfb-run のオプションを強化！）
+          # -a: 自動で番号割り当て
+          # -s: 画面サイズと色深度を指定（Bambu Studioが安定する設定）
+          xvfb-run -a -s "-screen 0 1280x1024x24" ./squashfs-root/AppRun \
             "$FULL_PATH" \
             --export-3mf "$OUTPUT_PATH" \
             --slice 0
           
-          echo "[missionLog] ACTION: 裸のOBJから直接3MFへの変換・スライスを試行した！"
+          echo "[missionLog] ACTION: 仮想ディスプレイを安定化させてスライスを再試行したぞ！"
 
 
 
