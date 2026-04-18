@@ -17,12 +17,17 @@ jobs:
       - name: 📥 コードをチェックアウト
         uses: actions/checkout@v4
 
-      - name: 🔧 依存パーツ装備
+      - name: 🔧 依存パーツをフル装備（GStreamer追加）
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwayland-client0 libwayland-cursor0 libwayland-egl1 \
-          libxkbcommon0 libdbus-1-3 libegl1-mesa libgl1-mesa-dri libgl1-mesa-glx \
-          libglu1-mesa libxcursor1 libxinerama1 libxi6 libxrandr2 libxtst6 fuse
+          sudo apt-get install -y \
+            libwayland-client0 libwayland-cursor0 libwayland-egl1 \
+            libxkbcommon0 libdbus-1-3 libegl1-mesa libgl1-mesa-dri libgl1-mesa-glx \
+            libglu1-mesa libxcursor1 libxinerama1 libxi6 libxrandr2 libxtst6 fuse \
+            libgstvideo-1.0-0 libgstapp-1.0-0 libgstrtspserver-1.0-0 libpwquality-dev \
+            libwebkit2gtk-4.0-37 # これらが足りなかった可能性が高い
+          
+          echo "[missionLog] ACTION: 依存ライブラリの補強が完了したぞ！"
 
       - name: 🛸 Bambu Studio v2.6.0 召喚
         run: |
