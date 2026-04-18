@@ -16,6 +16,18 @@ jobs:
       - name: 📥 コードをチェックアウト
         uses: actions/checkout@v4
 
+      - name: 🔧 依存パーツを装備（WebKitを補強）
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwayland-client0 libwayland-cursor0 libwayland-egl1 \
+            libxkbcommon0 libdbus-1-3 libegl1-mesa libgl1-mesa-dri libgl1-mesa-glx \
+            libglu1-mesa libxcursor1 libxinerama1 libxi6 libxrandr2 libxtst6 fuse \
+            libgstreamer1.0-0 libgstreamer-plugins-base1.0-0 xvfb \
+            libwebkit2gtk-4.0-37 # ← これが今回のターゲットだ！
+          
+          echo "[missionLog] ACTION: WebKitの装着を確認。これで視界はクリアだ！"
+
       - name: 🔧 依存パーツを装備
         run: |
           sudo apt-get update
