@@ -64,29 +64,27 @@ jobs:
           ./slicer.AppImage --appimage-extract
           echo "[missionLog] ACTION: 抽出したエンジンを解凍したぞ！"
 
-      - name: 📐 内部パーツでスライス実行
+      - name: 📐 内部パーツでスライス実行（v2.6.0 CLI仕様に完全適合）
         id: run_slice
         run: |
           FULL_PATH=$(ls モデル/*.obj | head -n 1)
-          if [ -z "$FULL_PATH" ]; then
-            echo "[missionLog] ERROR: モデルがないぞ！"
-            exit 1
-          fi
-          
           FILE_NAME=$(basename "$FULL_PATH" .obj)
+          # 出力は --export-3mf を使うのが今の流儀だ！
           OUTPUT_PATH="モデル/${FILE_NAME}.3mf"
           
           echo "FILE_NAME=${FILE_NAME}" >> $GITHUB_ENV
           
-          # 内部ライブラリを参照させて実行
+          # 内部ライブラリ参照
           export LD_LIBRARY_PATH=$PWD/squashfs-root/usr/lib:$LD_LIBRARY_PATH
-          xvfb-run ./squashfs-root/AppRun --slice \
-          --no-gui \
-          --load-config 設定/a1mini_基本設定.ini \
-          --output "$OUTPUT_PATH" \
-          "$FULL_PATH"
           
-          echo "[missionLog] VALUE_CHANGE: '${OUTPUT_PATH}' が完成だ！"
+          # v2.6.0 用の新コマンド構成
+          xvfb-run ./squashfs-root/AppRun \
+            --slice 0 \
+            --load-settings 設定/a1mini_基本設定.ini \
+            --export-3mf "$OUTPUT_PATH" \
+            "$FULL_PATH"
+          
+          echo "[missionLog] VALUE_CHANGE: ついに '${OUTPUT_PATH}' が完成したぞ、隊員！"
 
       - name: 💾 git add . で全部保存！
         run: |
