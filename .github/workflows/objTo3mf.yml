@@ -37,22 +37,27 @@ jobs:
             libglu1-mesa libxcursor1 libxinerama1 libxi6 libxrandr2 libxtst6 fuse \
             libgstreamer1.0-0 libgstreamer-plugins-base1.0-0 xvfb
           echo "[missionLog] ACTION: 基本パーツ装着完了！"
-
       - name: 🔍 APIから最新のUbuntu用AppImageを抽出
         run: |
-          # GitHub APIから最新リリースの情報を取得し、
-          # 正規表現で "ubuntu" と ".AppImage" を含む最初のURLを抽出する
-          LATEST_URL=$(curl -s https://api.github.com/repos/bambulab/BambuStudio/releases/latest | \
-            grep -oP 'https://github.com/bambulab/BambuStudio/releases/download/[^"]+ubuntu[^"]+\.AppImage' | \
-            head -n 1)
+          # 1. 最新のリリース情報を一括取得
+          RELEASE_JSON=$(curl -s https://api.github.com/repos/bambulab/BambuStudio/releases/latest)
           
-          if [ -z "$LATEST_URL" ]; then
-            echo "[missionLog] ERROR: Ubuntu用のAppImageが見つからなかったぞ！"
+          # 2. タグ名を抽出 (例: v02.06.00.51)
+          TAG_NAME=$(echo "$RELEASE_JSON" | grep -oP '"tag_name": "\K[^"]+')
+          
+          # 3. Ubuntu用AppImageのファイル名を抽出
+          FILE_NAME=$(echo "$RELEASE_JSON" | grep -oP '[^"]+ubuntu[^"]+\.AppImage' | head -n 1)
+          
+          # 4. 合体させて完全なURLを作る！
+          LATEST_URL="https://github.com/bambulab/BambuStudio/releases/download/${TAG_NAME}/${FILE_NAME}"
+          
+          if [ -z "$FILE_NAME" ] || [ -z "$TAG_NAME" ]; then
+            echo "[missionLog] ERROR: Ubuntu用のAppImageまたはタグ名が見つからなかったぞ！"
             exit 1
           fi
           
           echo "LATEST_URL=$LATEST_URL" >> $GITHUB_ENV
-          echo "[missionLog] DATA_CHANGE: 最新のUbuntu用エンジンを特定しました！ -> $LATEST_URL"
+          echo "[missionLog] DATA_CHANGE: 最新エンジン (${TAG_NAME}) を捕捉！ -> $LATEST_URL"
 
       - name: 🛸 最新版を召喚
         run: |
