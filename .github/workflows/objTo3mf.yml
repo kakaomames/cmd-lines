@@ -86,36 +86,27 @@ jobs:
 
           
 
-      - name: 📐 内部パーツでスライス実行（正解JSON乗っ取り作戦）
+      - name: 📐 内部パーツでスライス実行（最終・Project適合モード）
         id: run_slice
         run: |
-          # 1. まず「正解の形」を生成
+          # 1. ライブラリパス設定
           export LD_LIBRARY_PATH=$PWD/squashfs-root/usr/lib:$LD_LIBRARY_PATH
-          xvfb-run ./squashfs-root/AppRun --export-settings base_config.json
           
-          # 2. サポートあり・A1mini・PLA の設定を上書きする (jq を使用)
-          # A1 mini 用の主要な設定を、エンジンが吐いた JSON に無理やり流し込む！
-          jq '.enable_support = "1" | 
-              .support_type = "normal(auto)" | 
-              .support_on_build_plate_only = "1" |
-              .printer_model = "Bambu Lab A1 mini" |
-              .filament_type[0] = "PLA"' base_config.json > final_config.json
-
-          # 3. ターゲットの決定
+          # 2. ターゲットの決定
           FULL_PATH=$(ls モデル/*.obj | head -n 1)
           FILE_NAME=$(basename "$FULL_PATH" .obj)
           OUTPUT_PATH="モデル/${FILE_NAME}.3mf"
           
           echo "FILE_NAME=${FILE_NAME}" >> $GITHUB_ENV
 
-          # 4. 実行！
+          # 3. 実行（--slice 0 を最後の方に持っていき、--load-settings を外して「直」で叩く！）
+          # もし final_config.json がダメなら、一度「素」の状態で 3mf を作れるか試すんだ！
           xvfb-run ./squashfs-root/AppRun \
-            --slice 0 \
-            --load-settings final_config.json \
+            "$FULL_PATH" \
             --export-3mf "$OUTPUT_PATH" \
-            "$FULL_PATH"
+            --slice 0
           
-          echo "[missionLog] COMPLETE: ついに、ついに '${OUTPUT_PATH}' が完成したぞ！"
+          echo "[missionLog] ACTION: 裸のOBJから直接3MFへの変換・スライスを試行した！"
 
 
 
