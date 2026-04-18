@@ -4,9 +4,12 @@ on:
   push:
     paths:
       - 'モデル/*.obj'
+  # これを追加すると「ボタンポチ」が可能になるぞ！
+  workflow_dispatch:
 
 jobs:
-  スライスと一括保存:
+  slice_and_push:
+    name: 📐 スライスと一括保存
     runs-on: ubuntu-22.04
     permissions:
       contents: write
@@ -27,37 +30,46 @@ jobs:
           mv *.AppImage slicer.AppImage
           chmod +x slicer.AppImage
 
-      - name: 📐 スライス実行
+      - name: 📐 同じ名前でスライス実行
+        id: run_slice
         run: |
+          # ターゲットのobjを探す
           FULL_PATH=$(ls モデル/*.obj | head -n 1)
+          if [ -z "$FULL_PATH" ]; then
+            echo "[missionLog] ERROR: モデルが見つからないぞ！"
+            exit 1
+          fi
+          
           FILE_NAME=$(basename "$FULL_PATH" .obj)
-          # 同じ名前で3mfを生成
           OUTPUT_PATH="モデル/${FILE_NAME}.3mf"
           
-          echo "[missionLog] DATA_CHANGE: '${FILE_NAME}' のスライスを開始します..."
+          echo "FILE_NAME=${FILE_NAME}" >> $GITHUB_ENV
+          echo "[missionLog] ACTION: '${FILE_NAME}' のスライスを開始！"
           
           ./slicer.AppImage --slice \
           --load-config 設定/a1mini_基本設定.ini \
           --output "$OUTPUT_PATH" \
           "$FULL_PATH"
           
-          echo "[missionLog] VALUE_CHANGE: '${OUTPUT_PATH}' が完成したぞ！"
+          echo "[missionLog] VALUE_CHANGE: '${OUTPUT_PATH}' 完了！"
 
       - name: 💾 git add . で全部保存！
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "Gemini-Programming-Unit"
           
-          # 全部まとめてステージング！
           git add .
           
-          # 変化があればコミットしてプッシュ
-          git diff --quiet && git diff --staged --quiet || (git commit -m "🤖 自動スライス完了: ${FILE_NAME}" && git push)
-          
-          echo "[missionLog] COMPLETE: リポジトリの更新が完了しました！"
+          if [ -n "$(git status --porcelain)" ]; then
+            git commit -m "🤖 スライス実行（ボタンポチ対応）: ${{ env.FILE_NAME }}"
+            git push
+            echo "[missionLog] COMPLETE: リポジトリを更新しました！"
+          else
+            echo "[missionLog] SKIP: 変更がないため保存をスキップします。"
+          fi
 
-      - name: 📮 Vercelサーバーへ「完了」を報告
+      - name: 📮 Vercelサーバーへ通知
         run: |
-          curl -X POST -d '{"status":"pushed"}' \
+          curl -X POST -d '{"status":"pushed", "model":"${{ env.FILE_NAME }}"}' \
           -H "Content-Type: application/json" \
           https://カカオマメのプロジェクト.vercel.app/api/notify
