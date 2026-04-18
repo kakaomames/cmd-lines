@@ -69,6 +69,18 @@ jobs:
           ./slicer.AppImage --appimage-extract
           echo "[missionLog] ACTION: 抽出したエンジンを解凍したぞ！"
 
+      - name: 🔍 エンジンから「正解のJSON」を書き出す
+        run: |
+          # 内部ライブラリ参照
+          export LD_LIBRARY_PATH=$PWD/squashfs-root/usr/lib:$LD_LIBRARY_PATH
+          
+          # エンジンにデフォルト設定を JSON で出力させる
+          xvfb-run ./squashfs-root/AppRun --export-settings config_sample.json
+          
+          echo "[missionLog] DATA_CHANGE: エンジンが認める『正解の形』を config_sample.json に書き出したぞ！"
+          # 中身をログに出力して確認
+          cat config_sample.json
+
       - name: 📐 内部パーツでスライス実行（v2.6.0 CLI仕様に完全適合）
         id: run_slice
         run: |
