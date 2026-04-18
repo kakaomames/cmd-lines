@@ -86,10 +86,10 @@ jobs:
 
           
 
-      - name: 📐 内部パーツでスライス実行（v2.6 CLI 最終適合仕様）
-       id: ls
-       run: |
-         ls -F
+      - name: 📐 ls
+        id: ls
+        run: |
+          ls -F
          
       - name: 📐 内部パーツでスライス実行（v2.6 CLI 最終適合仕様）
         id: run_slice
