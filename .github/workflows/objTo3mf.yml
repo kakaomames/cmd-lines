@@ -35,28 +35,27 @@ jobs:
           mv *.AppImage slicer.AppImage
           chmod +x slicer.AppImage
 
-      - name: 📐 同じ名前でスライス実行
+      - name: 📐 スライス実行（デバッグモード全開）
         id: run_slice
+        env:
+          # ソースコードから見つけた隠しスイッチをONにする！
+          SLIC3R_DEBUGOUT: 1
+          SLIC3R_LOGLEVEL: 9
         run: |
-          # ターゲットのobjを探す
           FULL_PATH=$(ls モデル/*.obj | head -n 1)
-          if [ -z "$FULL_PATH" ]; then
-            echo "[missionLog] ERROR: モデルが見つからないぞ！"
-            exit 1
-          fi
-          
           FILE_NAME=$(basename "$FULL_PATH" .obj)
           OUTPUT_PATH="モデル/${FILE_NAME}.3mf"
           
-          echo "FILE_NAME=${FILE_NAME}" >> $GITHUB_ENV
-          echo "[missionLog] ACTION: '${FILE_NAME}' のスライスを開始！"
+          echo "[missionLog] ACTION: '${FILE_NAME}' のデバッグスライスを開始！"
           
-          ./slicer.AppImage --slice \
+          # xvfb で仮想画面を作りつつ実行
+          xvfb-run ./slicer.AppImage --slice \
+          --no-gui \
           --load-config 設定/a1mini_基本設定.ini \
           --output "$OUTPUT_PATH" \
           "$FULL_PATH"
           
-          echo "[missionLog] VALUE_CHANGE: '${OUTPUT_PATH}' 完了！"
+          echo "FILE_NAME=${FILE_NAME}" >> $GITHUB_ENV
 
       - name: 💾 git add . で全部保存！
         run: |
