@@ -47,7 +47,31 @@ print("aaaaaaa")
 
 
 
+from flask import Flask, jsonify
+import datetime
 
+# 既存のFlaskアプリに統合する場合
+# app
+
+@app.route('/kyoshin_time', methods=['GET'])
+def get_kyoshin_time():
+    # 強震モニタ用に安定した「2秒前」の時刻を生成
+    target_time = datetime.datetime.now() - datetime.timedelta(seconds=2)
+    
+    # URL生成に必要な各パーツをJSONで返す
+    response_data = {
+        "date_path": target_time.strftime("%Y%m%d"),          # 20260424
+        "full_time": target_time.strftime("%Y%m%d%H%M%S"),    # 20260424154905
+        "url": f"https://weather-kyoshin.west.edge.storage-yahoo.jp/RealTimeData/{target_time.strftime('%Y%m%d')}/{target_time.strftime('%Y%m%d%H%M%S')}.json"
+    }
+    
+    # 隊長！時刻を生成したぞ！
+    print(f"--- [LOG] 生成URL: {response_data['url']} ---")
+    
+    return jsonify(response_data)
+
+# if __name__ == "__main__"
+#     app.
 # ルートの順番に関わらず、これに一致すれば最優先で通す
 
 @app.route('/yt', methods=['GET'], endpoint='yt_proxy')
