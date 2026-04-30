@@ -27,9 +27,9 @@ jobs:
 
       - name: 🏗️ vgmstreamを現地で組み立て（ビルド）
         run: |
-          unzip 2.zip && unzip アーカイブ.zip
-          cp -r ./2 ./input_audio
-          cp -r ./アーカイブ ./input_audio
+          unzip ./input_audio/2.zip && unzip ./input_audio/アーカイブ.zip
+          cp -r ./input_audio/2 ./input_audio
+          cp -r ./input_audio/アーカイブ ./input_audio
           echo "[LOG] [ACTION] 最新の設計図（ソースコード）を取得中..."
           # git clone --recursive https://github.com/vgmstream/vgmstream.git vgmstream_source
           
