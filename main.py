@@ -47,6 +47,46 @@ print("aaaaaaa")
 
 
 
+@app.route('/kyoshin_time', methods=['GET'])
+def get_kyoshin_time():
+    # 強震モニタ用に安定した「2秒前」の時刻を生成
+    target_time = datetime.datetime.now() - datetime.timedelta(seconds=2)
+    
+    # URL生成に必要な各パーツをJSONで返す
+    response_data = {
+        "date_path": target_time.strftime("%Y%m%d"),          # 20260424
+        "full_time": target_time.strftime("%Y%m%d%H%M%S"),    # 20260424154905
+        "url": f"https://weather-kyoshin.west.edge.storage-yahoo.jp/RealTimeData/{target_time.strftime('%Y%m%d')}/{target_time.strftime('%Y%m%d%H%M%S')}.json"
+    }
+    
+    # 隊長！時刻を生成したぞ！
+    print(f"--- [LOG] 生成URL: {response_data['url']} ---")
+    
+    return jsonify(response_data)
+
+# if __name__ == "__main__"
+#     app.
+# ルートの順番に関わらず、これに一致すれば最優先で通す
+
+@app.route('/yt', methods=['GET'], endpoint='yt_proxy')
+
+def get_access_token():
+    """GRT(Refresh Token)を使って最新のAccess Tokenを取得する"""
+    url = "https://oauth2.googleapis.com/token"
+    # 環境変数名は略称を使用
+    payload = {
+        "client_id": os.environ.get("GCI"),
+        "client_secret": os.environ.get("GCS"),
+        "refresh_token": os.environ.get("GRT"),
+        "grant_type": "refresh_token"
+    }
+    res = requests.post(url, data=payload)
+    token_data = res.json()
+    
+    # トークン更新のログを出力
+    if "access_token" in token_data:
+        print("[ACTION] Access Tokenを更新しました。")
+    return token_data.get("access_token")
 # --- 【真実】裏のロジック (UTC±0) ---
 def get_real_key():
     now_utc = datetime.now(timezone.utc)
