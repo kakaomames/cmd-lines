@@ -35,7 +35,6 @@ jobs:
             ldd ./vgmstream-cli
             
             echo "[LOG] [ACTION] テスト実行 (バージョン表示) ..."
-            # ここで Segfault が起きても止まらないように || true を付けています
             ./vgmstream-cli -i || echo "[LOG] [WARN] 起動に失敗しました（Code: $?）"
           else
             echo "[LOG] [ERROR] vgmstream-linux-cli.tar.gz が見つかりません！"
@@ -46,7 +45,6 @@ jobs:
         run: |
           echo "[LOG] [ACTION] 変換処理を開始します（フォルダ構造を維持）..."
           
-          # findでinput_audio内の全ファイルを再帰的に検索
           find input_audio -type f | while read -r file; do
             relative_path="${file#input_audio/}"
             target_dir="output_wav/$(dirname "$relative_path")"
@@ -56,14 +54,7 @@ jobs:
             echo "[LOG] [INFO] 変換中: $file -> $output_file"
             
             # vgmstream実行
-            ./vgmstream-cli -o "$output_file" "$file"
-            
-            if [ $? -eq 0 ]; then
-              echo "[LOG] [SUCCESS] 変換完了: $output_file"
-            else
-              # Segfault が起きてもループを回し続けるためのログ出力
-              echo "[LOG] [ERROR] 変換に失敗しました（終了コード: $?）: $file"
-            fi
+            ./vgmstream-cli -o "$output_file" "$file" || echo "[LOG] [ERROR] 変換失敗（Code: $?）: $file"
           done
 
       - name: 💾 成果物をリポジトリにコミット＆プッシュ
@@ -73,7 +64,9 @@ jobs:
           git config --local user.name "GitHub Action"
           
           echo "[LOG] [ACTION] 成果物をステージングエリアに追加..."
-          git add output_wav/ || echo "[LOG] [INFO] 追加するファイルがありませんでした。"
+          if [ -d "output_wav" ]; then
+            git add output_wav/
+          fi
           
           if ! git diff --cached --quiet; then
             echo "[LOG] [INFO] 新しいWAVファイルを検知しました。"
@@ -86,7 +79,7 @@ jobs:
           fi
 
       - name: 📤 念のためアーティファクトとしても保存
-        uses: upload-artifact@v4
+        uses: actions/upload-artifact@v4
         with:
           name: converted-wav-files
           path: output_wav/
