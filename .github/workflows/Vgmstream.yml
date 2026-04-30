@@ -6,7 +6,7 @@ on:
       - 'input_audio/**' # input_audioフォルダへの変更を検知
   workflow_dispatch: # 手動実行ボタン
 
-# リポジトリへの書き込み権限を許可（プッシュに必須）
+# リポジトリへの書き込み権限を許可
 permissions:
   contents: write
 
@@ -27,14 +27,20 @@ jobs:
       - name: 🔧 バイナリの診断と準備
         run: |
           echo "[LOG] [ACTION] 兵装庫から展開中..."
-          tar -xzf vgmstream-linux-cli.tar.gz
-          chmod +x vgmstream-cli
-          
-          echo "[LOG] [ACTION] 依存関係のチェックを実行 (ldd) ..."
-          ldd ./vgmstream-cli
-          
-          echo "[LOG] [ACTION] テスト実行..."
-          ./vgmstream-cli -i || echo "[LOG] [WARN] 起動に失敗しました（Code: $?）"
+          if [ -f "vgmstream-linux-cli.tar.gz" ]; then
+            tar -xzf vgmstream-linux-cli.tar.gz
+            chmod +x vgmstream-cli
+            
+            echo "[LOG] [ACTION] 依存関係のチェックを実行 (ldd) ..."
+            ldd ./vgmstream-cli
+            
+            echo "[LOG] [ACTION] テスト実行 (バージョン表示) ..."
+            # ここで Segfault が起きても止まらないように || true を付けています
+            ./vgmstream-cli -i || echo "[LOG] [WARN] 起動に失敗しました（Code: $?）"
+          else
+            echo "[LOG] [ERROR] vgmstream-linux-cli.tar.gz が見つかりません！"
+            exit 1
+          fi
 
       - name: 🎧 音声変換ミッション実行（階層維持スキャン）
         run: |
@@ -42,16 +48,11 @@ jobs:
           
           # findでinput_audio内の全ファイルを再帰的に検索
           find input_audio -type f | while read -r file; do
-            # 相対パスの取得 (例: stage1/bgm/theme.adx)
             relative_path="${file#input_audio/}"
-            
-            # 出力先ディレクトリの特定と作成 (例: output_wav/stage1/bgm)
             target_dir="output_wav/$(dirname "$relative_path")"
             mkdir -p "$target_dir"
             
-            # 出力ファイル名の設定
             output_file="output_wav/${relative_path}.wav"
-            
             echo "[LOG] [INFO] 変換中: $file -> $output_file"
             
             # vgmstream実行
@@ -60,7 +61,8 @@ jobs:
             if [ $? -eq 0 ]; then
               echo "[LOG] [SUCCESS] 変換完了: $output_file"
             else
-              echo "[LOG] [ERROR] 失敗したためスキップします: $file"
+              # Segfault が起きてもループを回し続けるためのログ出力
+              echo "[LOG] [ERROR] 変換に失敗しました（終了コード: $?）: $file"
             fi
           done
 
@@ -71,14 +73,11 @@ jobs:
           git config --local user.name "GitHub Action"
           
           echo "[LOG] [ACTION] 成果物をステージングエリアに追加..."
-          # output_wav フォルダ内の全ファイルを階層ごと追加
-          git add output_wav/
+          git add output_wav/ || echo "[LOG] [INFO] 追加するファイルがありませんでした。"
           
-          # 変更がある場合のみコミット＆プッシュ
           if ! git diff --cached --quiet; then
             echo "[LOG] [INFO] 新しいWAVファイルを検知しました。"
             git commit -m "Github Actions push the wav audio"
-            
             echo "[LOG] [ACTION] リポジトリへプッシュ中..."
             git push
             echo "[LOG] [SUCCESS] 成果物のプッシュが完了しました！"
