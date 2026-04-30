@@ -3527,8 +3527,8 @@ def page_not_found(e):
 
 
 @app.route('/fish', methods=['GET'])
-def pokeque():
-    """最初のURL入力フォームを表示"""
+def fish():
+    """fishを表示"""
     return render_template('fish.html')
  
 @app.route('/pokemonquest', methods=['GET'])
