@@ -3,10 +3,10 @@ name: Vgmstream オートコンバート ミッション
 on:
   push:
     paths:
-      - 'input_audio/**' # input_audioフォルダにファイルが追加されたら発動
+      - 'input_audio/**' # input_audioフォルダへの変更を検知
   workflow_dispatch: # 手動実行ボタン
 
-# リポジトリへの書き込み権限を許可
+# リポジトリへの書き込み権限を許可（プッシュに必須）
 permissions:
   contents: write
 
@@ -37,24 +37,33 @@ jobs:
             exit 1
           fi
 
-      - name: 🎧 音声変換ミッション実行
+      - name: 🎧 音声変換ミッション実行（階層維持スキャン）
         run: |
-          echo "[LOG] [ACTION] 変換処理を開始します..."
-          mkdir -p output_wav
+          echo "[LOG] [ACTION] 変換処理を開始します（フォルダ構造を維持）..."
           
-          # input_audio フォルダ内のファイルをループ処理
-          shopt -s nullglob
-          for file in input_audio/*; do
-            filename=$(basename "$file")
-            echo "[LOG] [INFO] 解析中: $filename"
+          # findでinput_audio内の全ファイルを再帰的に検索
+          find input_audio -type f | while read -r file; do
+            # 相対パスの取得 (例: stage1/bgm/theme.adx)
+            relative_path="${file#input_audio/}"
             
-            # vgmstream実行 (出力先: output_wav/)
-            # 全ストリームを抽出する場合は必要に応じてオプションを調整してください
-            ./vgmstream-cli -o "output_wav/${filename}.wav" "$file"
+            # 出力先ディレクトリの特定と作成 (例: output_wav/stage1/bgm)
+            target_dir="output_wav/$(dirname "$relative_path")"
+            mkdir -p "$target_dir"
             
-            echo "[LOG] [SUCCESS] 完了: ${filename}.wav"
+            # 出力ファイル名の設定
+            output_file="output_wav/${relative_path}.wav"
+            
+            echo "[LOG] [INFO] 変換中: $file -> $output_file"
+            
+            # vgmstream実行
+            ./vgmstream-cli -o "$output_file" "$file"
+            
+            if [ $? -eq 0 ]; then
+              echo "[LOG] [SUCCESS] 変換完了: $output_file"
+            else
+              echo "[LOG] [ERROR] 失敗したためスキップします: $file"
+            fi
           done
-          shopt -u nullglob
 
       - name: 💾 成果物をリポジトリにコミット＆プッシュ
         run: |
@@ -63,19 +72,19 @@ jobs:
           git config --local user.name "GitHub Action"
           
           echo "[LOG] [ACTION] 成果物をステージングエリアに追加..."
-          # output_wavフォルダごと追加
-          git add output_wav/*.wav
+          # output_wav フォルダ内の全ファイルを階層ごと追加
+          git add output_wav/
           
-          # 変更がある場合のみコミット
+          # 変更がある場合のみコミット＆プッシュ
           if ! git diff --cached --quiet; then
-            echo "[LOG] [INFO] 新しいWAVファイルを検知。コミットメッセージを作成中..."
+            echo "[LOG] [INFO] 新しいWAVファイルを検知しました。"
             git commit -m "Github Actions push the wav audio"
             
             echo "[LOG] [ACTION] リポジトリへプッシュ中..."
             git push
             echo "[LOG] [SUCCESS] 成果物のプッシュが完了しました！"
           else
-            echo "[LOG] [INFO] 変更がない（または既に変換済み）ため、プッシュをスキップします。"
+            echo "[LOG] [INFO] 変更がないため、プッシュを省略します。"
           fi
 
       - name: 📤 念のためアーティファクトとしても保存
