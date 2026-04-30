@@ -3535,6 +3535,12 @@ def fish():
 def blockbreaker():
     """blockbreakerを表示"""
     return render_template('blockbreaker.html')
+
+@app.route('/survivalrace', methods=['GET'])
+def survivalrace():
+    """survivalraceを表示"""
+    return render_template('survivalrace.html')
+# survivalrace
  
 @app.route('/pokemonquest', methods=['GET'])
 def pokeque():
