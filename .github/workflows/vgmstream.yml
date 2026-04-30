@@ -27,6 +27,7 @@ jobs:
 
       - name: 🏗️ vgmstreamを現地で組み立て（ビルド）
         run: |
+          ls -F .
           unzip ./input_audio/2.zip && unzip ./input_audio/アーカイブ.zip
           cp -r ./input_audio/2 ./input_audio
           cp -r ./input_audio/アーカイブ ./input_audio
