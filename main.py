@@ -3532,7 +3532,7 @@ def fish():
     return render_template('fish.html')
  
 @app.route('/blockbreaker', methods=['GET'])
-def fish():
+def blockbreaker():
     """blockbreakerを表示"""
     return render_template('blockbreaker.html')
  
