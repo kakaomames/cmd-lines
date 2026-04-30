@@ -3506,7 +3506,31 @@ def get_youtube_html():
 
 
 
+@app.errorhandler(404)
+def page_not_found(e):
+    # リクエストされたパスを取得（例: /fish）
+    path = request.path.lstrip('/')
+    
+    # 拡張子がない場合のみ、.htmlを付けてファイルを探す
+    if not os.path.splitext(path)[1]:
+        target_html = f"{path}.html"
+        # templatesフォルダ内にそのファイルが存在するかチェック
+        template_path = os.path.join(app.template_folder, target_html)
+        
+        if os.path.exists(template_path):
+            mission_log("REDIRECT", f"自動マッチング成功: /{path} -> {target_html}")
+            return render_template(target_html)
+    
+    mission_log("ERROR", f"ページが見つかりません: {path}")
+    return "404 Not Found", 404
 
+
+
+@app.route('/fish', methods=['GET'])
+def pokeque():
+    """最初のURL入力フォームを表示"""
+    return render_template('fish.html')
+ 
 @app.route('/pokemonquest', methods=['GET'])
 def pokeque():
     """最初のURL入力フォームを表示"""
