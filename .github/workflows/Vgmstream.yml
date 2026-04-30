@@ -24,18 +24,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libmpg123-0 libvorbisfile3 libspeex1 libavformat60 libavcodec60 libavutil-58 libswresample-4
 
-      - name: 🔧 バイナリの展開と準備
+      - name: 🔧 バイナリの診断と準備
         run: |
-          echo "[LOG] [ACTION] 兵装庫から vgmstream-linux-cli.tar.gz を抽出中..."
-          if [ -f "vgmstream-linux-cli.tar.gz" ]; then
-            tar -xzf vgmstream-linux-cli.tar.gz
-            chmod +x vgmstream-cli
-            echo "[LOG] [SUCCESS] 実行権限の付与完了。"
-            ./vgmstream-cli -i | head -n 1
-          else
-            echo "[LOG] [ERROR] vgmstream-linux-cli.tar.gz が見つかりません！"
-            exit 1
-          fi
+          echo "[LOG] [ACTION] 兵装庫から展開中..."
+          tar -xzf vgmstream-linux-cli.tar.gz
+          chmod +x vgmstream-cli
+          
+          echo "[LOG] [ACTION] 依存関係のチェックを実行 (ldd) ..."
+          ldd ./vgmstream-cli
+          
+          echo "[LOG] [ACTION] テスト実行..."
+          ./vgmstream-cli -i || echo "[LOG] [WARN] 起動に失敗しました（Code: $?）"
 
       - name: 🎧 音声変換ミッション実行（階層維持スキャン）
         run: |
