@@ -18,12 +18,20 @@ jobs:
       - name: 📦 リポジトリをチェックアウト
         uses: actions/checkout@v4
 
-      - name: 🛠️ 依存ライブラリの補給 (Ubuntu環境整備)
+      - name: 🛠️ 依存ライブラリの補給 (Ubuntu 24.04 noble対応版)
         run: |
           echo "[LOG] [ACTION] 共有ライブラリをインストール中..."
           sudo apt-get update
-          sudo apt-get install -y libmpg123-0 libvorbisfile3 libspeex1 libavformat60 libavcodec60 libavutil-58 libswresample-4
-
+          # バージョン番号を極力外して、自動的に最適なものを選択させます
+          sudo apt-get install -y \
+            libmpg123-0 \
+            libvorbisfile3 \
+            libspeex1 \
+            libavformat-dev \
+            libavcodec-dev \
+            libavutil-dev \
+            libswresample-dev
+      
       - name: 🔧 バイナリの診断と準備
         run: |
           echo "[LOG] [ACTION] 兵装庫から展開中..."
