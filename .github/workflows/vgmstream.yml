@@ -21,6 +21,8 @@ jobs:
         run: |
           echo "[LOG] [ACTION] ビルドに必要なツールをインストール中..."
           sudo apt-get update
+          unzip 2.zip && unzip アーカイブ.zip
+          sudo apt-get install -y unzip
           sudo apt-get install -y build-essential cmake git libmpg123-dev libvorbis-dev libspeex-dev libavformat-dev libavcodec-dev libavutil-dev libswresample-dev
 
       - name: 🏗️ vgmstreamを現地で組み立て（ビルド）
