@@ -26,18 +26,18 @@ jobs:
       - name: 🏗️ vgmstreamを現地で組み立て（ビルド）
         run: |
           echo "[LOG] [ACTION] 最新の設計図（ソースコード）を取得中..."
-          git clone --recursive https://github.com/vgmstream/vgmstream.git vgmstream_source
+          # git clone --recursive https://github.com/vgmstream/vgmstream.git vgmstream_source
           
           echo "[LOG] [ACTION] コンパイル開始（CLI専用モード）..."
-          cd vgmstream_source
-          mkdir build && cd build
+          # cd vgmstream_source
+          # mkdir build && cd build
           # 不要なプラグインをすべてOFFにし、CLIのみを生成する設定
-          cmake .. -DBUILD_CLI=ON -DBUILD_AUDACIOUS=OFF -DBUILD_WINAMP=OFF -DBUILD_XMPLAY=OFF
-          make -j$(nproc)
+          ## cmake .. -DBUILD_CLI=ON -DBUILD_AUDACIOUS=OFF -DBUILD_WINAMP=OFF -DBUILD_XMPLAY=OFF
+          # make -j$(nproc)
           
           echo "[LOG] [SUCCESS] バイナリ完成！"
-          cp cli/vgmstream-cli ../../vgmstream-cli
-          cd ../../
+          # cp cli/vgmstream-cli ../../vgmstream-cli
+          # cd ../../
           chmod +x vgmstream-cli
 
       - name: 🎧 音声変換ミッション実行（階層維持）
