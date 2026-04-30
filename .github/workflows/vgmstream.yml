@@ -1,58 +1,47 @@
-name: Vgmstream オートコンバート ミッション
+name: Vgmstream 完全自前ビルド・ミッション
 
 on:
   push:
     paths:
-      - 'input_audio/**' # input_audioフォルダへの変更を検知
-  workflow_dispatch: # 手動実行ボタン
+      - 'input_audio/**'
+  workflow_dispatch:
 
-# リポジトリへの書き込み権限を許可
 permissions:
   contents: write
 
 jobs:
-  convert-audio:
+  build-and-convert:
     runs-on: ubuntu-latest
 
     steps:
       - name: 📦 リポジトリをチェックアウト
         uses: actions/checkout@v4
 
-      - name: 🛠️ 依存ライブラリの補給 (Ubuntu 24.04 noble対応版)
+      - name: 🛠️ 建設資材（ビルドツール）の補給
         run: |
-          echo "[LOG] [ACTION] 共有ライブラリをインストール中..."
+          echo "[LOG] [ACTION] ビルドに必要なツールをインストール中..."
           sudo apt-get update
-          # バージョン番号を極力外して、自動的に最適なものを選択させます
-          sudo apt-get install -y \
-            libmpg123-0 \
-            libvorbisfile3 \
-            libspeex1 \
-            libavformat-dev \
-            libavcodec-dev \
-            libavutil-dev \
-            libswresample-dev
-      
-      - name: 🔧 バイナリの診断と準備
-        run: |
-          echo "[LOG] [ACTION] 兵装庫から展開中..."
-          if [ -f "vgmstream-linux-cli.tar.gz" ]; then
-            tar -xzf vgmstream-linux-cli.tar.gz
-            chmod +x vgmstream-cli
-            
-            echo "[LOG] [ACTION] 依存関係のチェックを実行 (ldd) ..."
-            ldd ./vgmstream-cli
-            
-            echo "[LOG] [ACTION] テスト実行 (バージョン表示) ..."
-            ./vgmstream-cli -i || echo "[LOG] [WARN] 起動に失敗しました（Code: $?）"
-          else
-            echo "[LOG] [ERROR] vgmstream-linux-cli.tar.gz が見つかりません！"
-            exit 1
-          fi
+          sudo apt-get install -y build-essential cmake git libmpg123-dev libvorbis-dev libspeex-dev libavformat-dev libavcodec-dev libavutil-dev libswresample-dev
 
-      - name: 🎧 音声変換ミッション実行（階層維持スキャン）
+      - name: 🏗️ vgmstreamを現地で組み立て（ビルド）
         run: |
-          echo "[LOG] [ACTION] 変換処理を開始します（フォルダ構造を維持）..."
+          echo "[LOG] [ACTION] 最新の設計図（ソースコード）を取得中..."
+          git clone --recursive https://github.com/vgmstream/vgmstream.git vgmstream_source
           
+          echo "[LOG] [ACTION] コンパイル開始..."
+          cd vgmstream_source
+          mkdir build && cd build
+          cmake .. -DBUILD_CLI=ON
+          make -j$(nproc)
+          
+          echo "[LOG] [SUCCESS] バイナリ完成！"
+          cp cli/vgmstream-cli ../../vgmstream-cli
+          cd ../../
+          chmod +x vgmstream-cli
+
+      - name: 🎧 音声変換ミッション実行（階層維持）
+        run: |
+          echo "[LOG] [ACTION] 変換処理を開始します..."
           find input_audio -type f | while read -r file; do
             relative_path="${file#input_audio/}"
             target_dir="output_wav/$(dirname "$relative_path")"
@@ -61,34 +50,26 @@ jobs:
             output_file="output_wav/${relative_path}.wav"
             echo "[LOG] [INFO] 変換中: $file -> $output_file"
             
-            # vgmstream実行
-            ./vgmstream-cli -o "$output_file" "$file" || echo "[LOG] [ERROR] 変換失敗（Code: $?）: $file"
+            ./vgmstream-cli -o "$output_file" "$file" || echo "[LOG] [ERROR] 変換失敗: $file"
           done
 
       - name: 💾 成果物をリポジトリにコミット＆プッシュ
         run: |
-          echo "[LOG] [ACTION] Gitのユーザー設定を開始..."
+          echo "[LOG] [ACTION] Git設定と成果物の格納..."
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           
-          echo "[LOG] [ACTION] 成果物をステージングエリアに追加..."
           if [ -d "output_wav" ]; then
-            git add output_wav/
-          fi
-          
-          if ! git diff --cached --quiet; then
-            echo "[LOG] [INFO] 新しいWAVファイルを検知しました。"
-            git commit -m "Github Actions push the wav audio"
-            echo "[LOG] [ACTION] リポジトリへプッシュ中..."
-            git push
-            echo "[LOG] [SUCCESS] 成果物のプッシュが完了しました！"
-          else
-            echo "[LOG] [INFO] 変更がないため、プッシュを省略します。"
+            git add .
+            if ! git diff --cached --quiet; then
+              git commit -m "Github Actions push the wav audio (Built from source)"
+              git push
+              echo "[LOG] [SUCCESS] 成果物を戦利品として保存しました！"
+            fi
           fi
 
-      - name: 📤 念のためアーティファクトとしても保存
+      - name: 📤 バックアップ保存
         uses: actions/upload-artifact@v4
         with:
           name: converted-wav-files
           path: output_wav/
-          retention-days: 3
