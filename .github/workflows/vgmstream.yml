@@ -53,6 +53,12 @@ jobs:
             
             ./vgmstream-cli -o "$output_file" "$file" || echo "[LOG] [ERROR] 変換失敗: $file"
           done
+          
+      - name: 🎧 音声をまとめて固める(毎回上書き。もし、バージョン分けるなら_v{数}とか)
+        run: |
+
+          echo "🎧 音声をまとめて固める(毎回上書き。もし、バージョン分けるなら_v{数}とか)"
+          zip -r converted_assets.zip output_wav/
 
       - name: 💾 成果物をリポジトリにコミット＆プッシュ
         run: |
@@ -68,6 +74,7 @@ jobs:
               echo "[LOG] [SUCCESS] 成果物を戦利品として保存しました！"
             fi
           fi
+          
 
       - name: 📤 バックアップ保存
         uses: actions/upload-artifact@v4
