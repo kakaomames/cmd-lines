@@ -1,0 +1,86 @@
+name: Vgmstream オートコンバート ミッション
+
+on:
+  push:
+    paths:
+      - 'input_audio/**' # input_audioフォルダにファイルが追加されたら発動
+  workflow_dispatch: # 手動実行ボタン
+
+# リポジトリへの書き込み権限を許可
+permissions:
+  contents: write
+
+jobs:
+  convert-audio:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📦 リポジトリをチェックアウト
+        uses: actions/checkout@v4
+
+      - name: 🛠️ 依存ライブラリの補給 (Ubuntu環境整備)
+        run: |
+          echo "[LOG] [ACTION] 共有ライブラリをインストール中..."
+          sudo apt-get update
+          sudo apt-get install -y libmpg123-0 libvorbisfile3 libspeex1 libavformat60 libavcodec60 libavutil-58 libswresample-4
+
+      - name: 🔧 バイナリの展開と準備
+        run: |
+          echo "[LOG] [ACTION] 兵装庫から vgmstream-linux-cli.tar.gz を抽出中..."
+          if [ -f "vgmstream-linux-cli.tar.gz" ]; then
+            tar -xzf vgmstream-linux-cli.tar.gz
+            chmod +x vgmstream-cli
+            echo "[LOG] [SUCCESS] 実行権限の付与完了。"
+            ./vgmstream-cli -i | head -n 1
+          else
+            echo "[LOG] [ERROR] vgmstream-linux-cli.tar.gz が見つかりません！"
+            exit 1
+          fi
+
+      - name: 🎧 音声変換ミッション実行
+        run: |
+          echo "[LOG] [ACTION] 変換処理を開始します..."
+          mkdir -p output_wav
+          
+          # input_audio フォルダ内のファイルをループ処理
+          shopt -s nullglob
+          for file in input_audio/*; do
+            filename=$(basename "$file")
+            echo "[LOG] [INFO] 解析中: $filename"
+            
+            # vgmstream実行 (出力先: output_wav/)
+            # 全ストリームを抽出する場合は必要に応じてオプションを調整してください
+            ./vgmstream-cli -o "output_wav/${filename}.wav" "$file"
+            
+            echo "[LOG] [SUCCESS] 完了: ${filename}.wav"
+          done
+          shopt -u nullglob
+
+      - name: 💾 成果物をリポジトリにコミット＆プッシュ
+        run: |
+          echo "[LOG] [ACTION] Gitのユーザー設定を開始..."
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          echo "[LOG] [ACTION] 成果物をステージングエリアに追加..."
+          # output_wavフォルダごと追加
+          git add output_wav/*.wav
+          
+          # 変更がある場合のみコミット
+          if ! git diff --cached --quiet; then
+            echo "[LOG] [INFO] 新しいWAVファイルを検知。コミットメッセージを作成中..."
+            git commit -m "Github Actions push the wav audio"
+            
+            echo "[LOG] [ACTION] リポジトリへプッシュ中..."
+            git push
+            echo "[LOG] [SUCCESS] 成果物のプッシュが完了しました！"
+          else
+            echo "[LOG] [INFO] 変更がない（または既に変換済み）ため、プッシュをスキップします。"
+          fi
+
+      - name: 📤 念のためアーティファクトとしても保存
+        uses: upload-artifact@v4
+        with:
+          name: converted-wav-files
+          path: output_wav/
+          retention-days: 3
