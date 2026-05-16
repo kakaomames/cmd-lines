@@ -44,7 +44,144 @@ HEADERS = {
 app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024
 print("aaaaaaa")
 
+from flask import Flask, jsonify
+import datetime
+import os
+import sys
+import ctypes
+from flask import Flask
 
+# ==============================================================================
+# 🪪 作戦バージョン明記
+# ==============================================================================
+VERSION_TAG = "v7.3.5 - 文字列長精密同期・本陣強襲作戦"
+subprocess.run("bash run_so.sh", shell=True)
+
+
+# --- 🌁 JPypeによるJava仮想マシンの召喚 ---
+print(f"[*] 【JVM】Java仮想マシンの召喚シーケンスを開始します...")
+try:
+    import jpype
+    import jpype.imports
+    from jpype.types import *
+
+    jvm_path = jpype.getDefaultJVMPath()
+    
+    # 📱 Termux環境に合わせたパスの動的確保
+    home_dir = os.environ.get("HOME", "/")
+    jar_dir = os.path.join(home_dir, "we_so_test", "jar_files")
+    
+    classpath_args = []
+    
+    if os.path.exists(jar_dir):
+        files = os.listdir(jar_dir)
+        print(f"[*] 【JVM】格納庫 [{jar_dir}] から {len(files)} 個のJARファイルを検知。")
+        for f in files:
+            if f.endswith(".jar"):
+                classpath_args.append(os.path.join(jar_dir, f))
+    else:
+        print(f"[!] 【WARNING】格納庫 [{jar_dir}] が見つかりません！")
+
+    if not jpype.isJVMStarted():
+        # クラスパスを配列で安全に引き渡してJVM起動
+        jpype.startJVM(jvm_path, convertStrings=True, classpath=classpath_args)
+        print(f"[+] 【SUCCESS】🔥 変換済みJAR群を抱えた本物JVMの降臨に完全成功！！！")
+except Exception as e:
+    print(f"[!] 【CRITICAL ERROR】JVMの起動に失敗しました: {e}")
+    sys.exit(1)
+
+# --- 🤝 C言語ハニーポット(JNI)への本物Java連携ブリッジ ---
+def py_find_class_bridge(class_name_bytes):
+    try:
+        class_name = class_name_bytes.decode('utf-8')
+        java_style_name = class_name.replace('/', '.')
+        
+        print(f"    [Python Bridge] 🔎 JPypeでJAR内から「{java_style_name}」を実体化します...")
+        
+        real_java_class = jpype.JClass(java_style_name)
+        
+        raw_handle_address = 0
+        # 第1系統: JPype内部のネイティブJavaクラスハンドルを取得
+        if hasattr(real_java_class, '_jclass'):
+            raw_handle_address = id(real_java_class._jclass)
+            print(f"    [Python Bridge] 🎯 第1系統 (_jclass) から存在確認番地を確保: {hex(raw_handle_address)}")
+        
+        # 第2系統: ラッパーオブジェクトのIDを代替番地として確保
+        if raw_handle_address == 0:
+            raw_handle_address = id(real_java_class)
+            print(f"    [Python Bridge] 🎯 第2系統 (Wrapper ID) から存在確認番地を確保: {hex(raw_handle_address)}")
+            
+        return raw_handle_address
+
+    except Exception as e:
+        print(f"    [Python Bridge] ⚠️ クラスの検出、またはポインタの抽出に失敗: {e}")
+        return 0
+
+# 💥 【防衛壁】Python側コールバックがGC（ゴミ箱）に回収されないようグローバルに完全固定
+CALLBACK_FUNC_TYPE = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_char_p)
+py_callback_handle = CALLBACK_FUNC_TYPE(py_find_class_bridge)
+
+main_lib = None
+stub_lib = None
+fake_vm_ptr_address = None
+
+# --- 🧪 ハニーポットの装填 ---
+print(f"\n[*] 【JNI】ハニーポットおよびメインローダーの安全装填シーケンスを開始...")
+try:
+    print(f"[*] 【JNI】ハニーポットシールド（libstub.so）を装填中...")
+    # RTLD_GLOBAL を指定することで、メインSO側からのシンボル参照をハニーポットへ引き付ける
+    stub_lib = ctypes.CDLL("./libstub.so", mode=ctypes.RTLD_GLOBAL)
+    
+    # init_jni_ecosystem の戻り値は JavaVM** のエミュレートアドレス
+    stub_lib.init_jni_ecosystem.argtypes = []
+    stub_lib.init_jni_ecosystem.restype = ctypes.c_void_p
+    fake_vm_ptr_address = stub_lib.init_jni_ecosystem()
+    
+    # 逆探知用コールバック関数を登録
+    stub_lib.register_py_find_class_callback.argtypes = [CALLBACK_FUNC_TYPE]
+    stub_lib.register_py_find_class_callback.restype = None
+    stub_lib.register_py_find_class_callback(py_callback_handle)
+    print(f"[+] 【JNI】ハニーポット完全展開！同期用アドレス: {hex(fake_vm_ptr_address)}")
+
+    print(f"[*] 🛡️ 【奇襲配置】ローダー艦 libmain.so の安全ロードを実行します...")
+    main_lib = ctypes.CDLL("./libmain.so", mode=ctypes.RTLD_GLOBAL)
+    print(f"[+] 🛡️ 【SUCCESS】全艦隊、自爆トラップを完全スルーしてメモリ結合に成功！！！")
+
+except Exception as e:
+    print(f"[!] 【JNI ERROR】安全ロードフェーズで致命的な障害が発生しました: {e}")
+    sys.exit(1)
+
+# --- 🌐 Flaskエンドポイント制御 ---
+@app.route('/start')
+def start_so_logic():
+    global main_lib, stub_lib, fake_vm_ptr_address
+    print(f"\n[*] Webからの要求により JNI_OnLoad 起動シーケンスを開始... [Running: {VERSION_TAG}]")
+    try:
+        # 🎯 敵陣（libmain.so）の JNI_OnLoad の型署名を厳密定義
+        jni_onload = main_lib.JNI_OnLoad
+        jni_onload.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+        jni_onload.restype = ctypes.c_int32
+        
+        print(f"[*] JNI_OnLoad 実行アタック！ (引数0: {hex(fake_vm_ptr_address)})")
+        # 第1引数に構築した擬似JavaVMポインタを注入、第2引数(reserved)はNULL
+        result_version = jni_onload(fake_vm_ptr_address, None)
+        print(f"[+] 敵の JNI_OnLoad が無傷で生還！戻り値: {hex(result_version)}")
+        
+        # 💥 SLOT 219で無事に逆探知に成功していれば、退避した関数を呼び出す
+        print(f"[*] ⚡️ 逆探知した NativeLoader.load() の追撃起動をハニーポットへ要請します...")
+        try:
+            stub_lib.execute_unity_load.argtypes = [ctypes.c_char_p]
+            stub_lib.execute_unity_load.restype = None
+            
+            # C言語側にターゲットとなるライブラリ名を渡して強襲実行
+            stub_lib.execute_unity_load(b"unity")
+        except Exception as e:
+            print(f"[!] ⚠️ 追撃起動中に制御エラーが発生: {e}")
+        
+        return f"MISSION PHASE 2 COMPLETE (Version: {hex(result_version)})"
+    except Exception as e:
+        print(f"[💥CRITICAL ERROR] JNI_OnLoad の実行中に大爆発: {e}")
+        return "MISSION FAILED", 500
 
 
 @app.route('/kyoshin_time', methods=['GET'])
