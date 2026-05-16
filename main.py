@@ -25,7 +25,105 @@ GITHUB_OWNER = "kakaomames"        # あなたのGitHubユーザー名
 GITHUB_REPO = "backup"            # データ保存用のリポジトリ名
 GAME_FOLDER = "pokeque"
 
+import os
+import sys
+import shutil
+import subprocess
+from datetime import datetime
 
+# --- 🛰️ Gemini programming隊 専用 ログユニット ---
+def mission_log(log_type, message):
+    """値を監視し、変化があったときやエラー時に即座に格納庫へログを払い出す"""
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+    color_code = "\033[1;31m" if log_type == "ERROR" else "\033[1;32m"
+    reset_code = "\033[0m"
+    print(f"{timestamp} [{color_code}{log_type}{reset_code}] {message}", flush=True)
+
+# --- 🚀 【作戦発動】サブプロセス環境自動調達シーケンス ---
+def execute_tactical_setup():
+    mission_log("INFO", "🪪 作戦バージョン: v7.3.4 - サブプロセス環境自動調達シェル起動")
+    
+    # 🕵️ 1. 現在の実行環境が Termux(Android) か通常の Linux かを判定
+    is_termux = "PREFIX" in os.environ or os.path.exists("/data/data/com.termux")
+    
+    # 🚨 すでに Java (java) と コンパイラ (clang または gcc) があるか確認
+    has_java = shutil.which("java") is not None
+    has_compiler = (shutil.which("clang") is not None) or (shutil.which("gcc") is not None)
+    
+    if has_java and has_compiler:
+        mission_log("SUCCESS", "🎯 環境インフラ（Java/コンパイラ）は既に配備済みです。インストールをスキップします。")
+    else:
+        mission_log("WARN", "⚠️ 環境インフラが不足しています。サブプロセスによる強制調達を開始します...")
+        
+        if is_termux:
+            mission_log("INFO", "📱 ターゲット環境: Termux (aarch64)")
+            commands = [
+                ["pkg", "update", "-y"],
+                ["pkg", "install", "clang", "make", "-y"],
+                ["pkg", "install", "openjdk-17", "-y"]
+            ]
+        else:
+            mission_log("INFO", "💻 ターゲット環境: Standard Linux (Ubuntu/Debian/Vercel Container)")
+            # 💡 一般環境では、sudoが使えない、あるいはパーミッションがない場合を考慮し、
+            # エラーが出ても進軍を止めないように try-except でラップして実行します
+            commands = [
+                ["apt-get", "update", "-y"],
+                ["apt-get", "install", "-y", "build-essential", "clang", "default-jdk"]
+            ]
+            
+        # 💥 コマンドを一斉掃射
+        for cmd in commands:
+            cmd_str = " ".join(cmd)
+            mission_log("EXEC", f"コマンド執行中: {cmd_str}")
+            try:
+                # サブプロセスで標準出力をキャッチしつつ実行
+                result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=300)
+                if result.returncode == 0:
+                    mission_log("SUCCESS", f"コマンド成功: {cmd_str}")
+                else:
+                    mission_log("ERROR", f"コマンド失敗 (Exit Code: {result.returncode}): {cmd_str}")
+                    print(result.stderr, flush=True)
+            except Exception as e:
+                mission_log("ERROR", f"コマンド実行中に致命的システム例外: {str(e)}")
+
+    # --- 🗺️ 2. JVMとリンカーの隠れみのルート（環境変数）を Python 内で強制結合 ---
+    mission_log("INFO", "🗺️ システムリンカーの隠れみのルート（LD_LIBRARY_PATH/JAVA_HOME）を精密同期中...")
+    
+    if is_termux:
+        prefix = os.environ.get("PREFIX", "/data/data/com.termux/files/usr")
+        java_home = f"{prefix}/opt/openjdk"
+    else:
+        # 一般LinuxでデフォルトJDKが入る標準的なパスを走査
+        possible_paths = [
+            "/usr/lib/jvm/default-java",
+            "/usr/lib/jvm/java-17-openjdk-amd64",
+            "/usr/lib/jvm/java-11-openjdk-amd64"
+        ]
+        java_home = "/usr/lib/jvm/default-java"
+        for p in possible_paths:
+            if os.path.exists(p):
+                java_home = p
+                break
+
+    # Pythonプロセス自身の環境変数を書き換える（これで以降のJPypeやrun_so.shに引き継がれる）
+    os.environ["JAVA_HOME"] = java_home
+    
+    # LD_LIBRARY_PATH の同期
+    current_ld = os.environ.get("LD_LIBRARY_PATH", "")
+    jvm_lib_server = f"{java_home}/lib/server"
+    
+    if jvm_lib_server not in current_ld:
+        os.environ["LD_LIBRARY_PATH"] = f"{jvm_lib_server}:{current_ld}" if current_ld else jvm_lib_server
+
+    mission_log("SUCCESS", f"🎯 JAVA_HOME を Python 環境に完全注入: {os.environ['JAVA_HOME']}")
+    mission_log("SUCCESS", f"🗺️ LD_LIBRARY_PATH を完全結合: {os.environ['LD_LIBRARY_PATH']}")
+
+# 💥 main.py が読み込まれた瞬間に最優先で作戦を発動
+execute_tactical_setup()
+
+# ==============================================================================
+# （ここから下に既存の Flask の定義 `app = Flask(__name__)` や、ルート定義、
+#   および前回の修復パッチを適用した `page_not_found` などのコードが省略なしで続きます）
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'SECRET_KEY_TEST'
@@ -56,6 +154,7 @@ from flask import Flask
 # ==============================================================================
 VERSION_TAG = "v7.3.5 - 文字列長精密同期・本陣強襲作戦"
 subprocess.run("bash run_so.sh", shell=True)
+subprocess.run("apt install libibverbs1", shell=True)
 
 
 # --- 🌁 JPypeによるJava仮想マシンの召喚 ---
