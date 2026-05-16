@@ -28,6 +28,8 @@ GAME_FOLDER = "pokeque"
 import os
 import sys
 import shutil
+import tarfile
+import urllib.request
 import subprocess
 from datetime import datetime
 
@@ -39,91 +41,76 @@ def mission_log(log_type, message):
     reset_code = "\033[0m"
     print(f"{timestamp} [{color_code}{log_type}{reset_code}] {message}", flush=True)
 
-# --- 🚀 【作戦発動】サブプロセス環境自動調達シーケンス ---
+# --- 🚀 【新・作戦発動】ポータブルJava自動爆撃・展開シーケンス ---
 def execute_tactical_setup():
-    mission_log("INFO", "🪪 作戦バージョン: v7.3.4 - サブプロセス環境自動調達シェル起動")
+    mission_log("INFO", "🪪 作戦バージョン: v7.3.5 - ポータブルJava聖域展開シェル起動")
     
-    # 🕵️ 1. 現在の実行環境が Termux(Android) か通常の Linux かを判定
-    is_termux = "PREFIX" in os.environ or os.path.exists("/data/data/com.termux")
+    # 🗺️ Vercelの書き込み可能聖域 `/tmp` をベース陣地にする
+    target_tmp_dir = "/tmp/portable_env"
+    java_dest_dir = os.path.join(target_tmp_dir, "jdk")
     
-    # 🚨 すでに Java (java) と コンパイラ (clang または gcc) があるか確認
-    has_java = shutil.which("java") is not None
-    has_compiler = (shutil.which("clang") is not None) or (shutil.which("gcc") is not None)
-    
-    if has_java and has_compiler:
-        mission_log("SUCCESS", "🎯 環境インフラ（Java/コンパイラ）は既に配備済みです。インストールをスキップします。")
+    # Linux x86_64 用 OpenJDK 17 バイナリの直撃ダウンロードURL (Adoptium公式)
+    jdk_url = "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.10%2B7/OpenJDK17U-jre_x64_linux_hotspot_17.0.10_7.tar.gz"
+    tar_path = os.path.join(target_tmp_dir, "openjdk.tar.gz")
+
+    # 🚨 既に聖域に展開済みかチェック
+    if os.path.exists(os.path.join(java_dest_dir, "bin/java")):
+        mission_log("SUCCESS", "🎯 聖域内にポータブルJavaが既に展開されています。")
     else:
-        mission_log("WARN", "⚠️ 環境インフラが不足しています。サブプロセスによる強制調達を開始します...")
-        
-        if is_termux:
-            mission_log("INFO", "📱 ターゲット環境: Termux (aarch64)")
-            commands = [
-                ["pkg", "update", "-y"],
-                ["pkg", "install", "clang", "make", "-y"],
-                ["pkg", "install", "openjdk-17", "-y"]
-            ]
-        else:
-            mission_log("INFO", "💻 ターゲット環境: Standard Linux (Ubuntu/Debian/Vercel Container)")
-            # 💡 一般環境では、sudoが使えない、あるいはパーミッションがない場合を考慮し、
-            # エラーが出ても進軍を止めないように try-except でラップして実行します
-            commands = [
-                ["apt-get", "update", "-y"],
-                ["apt-get", "install", "-y", "build-essential", "clang", "default-jdk"]
-            ]
+        mission_log("WARN", "⚠️ サーバーレス環境内にJavaを発見できません。聖域(/tmp)への空中投下を開始します...")
+        try:
+            if not os.path.exists(target_tmp_dir):
+                os.makedirs(target_tmp_dir)
+                
+            # 1. 高速ダウンロード
+            mission_log("EXEC", f"Javaバイナリを空中投下中 (URL: {jdk_url}) ...")
+            urllib.request.urlretrieve(jdk_url, tar_path)
+            mission_log("SUCCESS", "📦 空中投下（ダウンロード）完了。")
+
+            # 2. 聖域内での解凍
+            mission_log("EXEC", "聖域内でのアーカイブ解凍シーケンスを開始...")
+            with tarfile.open(tar_path, "r:gz") as tar:
+                tar.extractall(path=target_tmp_dir)
             
-        # 💥 コマンドを一斉掃射
-        for cmd in commands:
-            cmd_str = " ".join(cmd)
-            mission_log("EXEC", f"コマンド執行中: {cmd_str}")
-            try:
-                # サブプロセスで標準出力をキャッチしつつ実行
-                result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=300)
-                if result.returncode == 0:
-                    mission_log("SUCCESS", f"コマンド成功: {cmd_str}")
-                else:
-                    mission_log("ERROR", f"コマンド失敗 (Exit Code: {result.returncode}): {cmd_str}")
-                    print(result.stderr, flush=True)
-            except Exception as e:
-                mission_log("ERROR", f"コマンド実行中に致命的システム例外: {str(e)}")
+            # 解凍されたフォルダ（通常 jdk-17.0.10+7-jre のような名前）を固定位置にリネーム
+            extracted_folder = [f for f in os.listdir(target_tmp_dir) if os.path.isdir(os.path.join(target_tmp_dir, f)) and f != "jdk"][0]
+            shutil.move(os.path.join(target_tmp_dir, extracted_folder), java_dest_dir)
+            
+            # ゴミの撤去
+            if os.path.exists(tar_path):
+                os.remove(tar_path)
+                
+            mission_log("SUCCESS", "⚡️ 聖域内へのポータブルJava展開が完全完了しました！")
+        except Exception as e:
+            mission_log("ERROR", f"ポータブルJava展開中に致命的システム例外: {str(e)}")
+            return
 
-    # --- 🗺️ 2. JVMとリンカーの隠れみのルート（環境変数）を Python 内で強制結合 ---
-    mission_log("INFO", "🗺️ システムリンカーの隠れみのルート（LD_LIBRARY_PATH/JAVA_HOME）を精密同期中...")
+    # --- 🗺️ 3. 聖域ルートを Python 環境変数へ強制結合（完全上書き乗っ取り） ---
+    mission_log("INFO", "🗺️ システムリンカーの隠れみのルート（LD_LIBRARY_PATH/JAVA_HOME）を聖域に精密同期中...")
     
-    if is_termux:
-        prefix = os.environ.get("PREFIX", "/data/data/com.termux/files/usr")
-        java_home = f"{prefix}/opt/openjdk"
-    else:
-        # 一般LinuxでデフォルトJDKが入る標準的なパスを走査
-        possible_paths = [
-            "/usr/lib/jvm/default-java",
-            "/usr/lib/jvm/java-17-openjdk-amd64",
-            "/usr/lib/jvm/java-11-openjdk-amd64"
-        ]
-        java_home = "/usr/lib/jvm/default-java"
-        for p in possible_paths:
-            if os.path.exists(p):
-                java_home = p
-                break
-
-    # Pythonプロセス自身の環境変数を書き換える（これで以降のJPypeやrun_so.shに引き継がれる）
-    os.environ["JAVA_HOME"] = java_home
+    # 展開したポータブルJavaの絶対パスを強制注入
+    os.environ["JAVA_HOME"] = java_dest_dir
     
-    # LD_LIBRARY_PATH の同期
+    # libjvm.so の正確な格納位置（JREは lib/server 内に心臓部がある）
+    jvm_lib_server = os.path.join(java_dest_dir, "lib/server")
     current_ld = os.environ.get("LD_LIBRARY_PATH", "")
-    jvm_lib_server = f"{java_home}/lib/server"
     
-    if jvm_lib_server not in current_ld:
-        os.environ["LD_LIBRARY_PATH"] = f"{jvm_lib_server}:{current_ld}" if current_ld else jvm_lib_server
+    # 既存のパスの最先頭に叩き込むことで、システム標準より最優先で読み込ませる
+    os.environ["LD_LIBRARY_PATH"] = f"{jvm_lib_server}:{current_ld}" if current_ld else jvm_lib_server
 
-    mission_log("SUCCESS", f"🎯 JAVA_HOME を Python 環境に完全注入: {os.environ['JAVA_HOME']}")
-    mission_log("SUCCESS", f"🗺️ LD_LIBRARY_PATH を完全結合: {os.environ['LD_LIBRARY_PATH']}")
+    # パスが本当に通ったか、ログで完全勝利宣言
+    if os.path.exists(os.path.join(jvm_lib_server, "libjvm.so")):
+        mission_log("SUCCESS", f"🔥 🚀 [CONFIRMED] 聖域の libjvm.so の存在を確認！: {os.path.join(jvm_lib_server, 'libjvm.so')}")
+    else:
+        mission_log("ERROR", "❌ [CRITICAL] 展開されたはずの libjvm.so が見つかりません！")
+
+    mission_log("SUCCESS", f"🎯 JAVA_HOME を聖域パスに完全注入: {os.environ['JAVA_HOME']}")
+    mission_log("SUCCESS", f"🗺️ LD_LIBRARY_PATH を聖域結合: {os.environ['LD_LIBRARY_PATH']}")
 
 # 💥 main.py が読み込まれた瞬間に最優先で作戦を発動
 execute_tactical_setup()
 
-# ==============================================================================
-# （ここから下に既存の Flask の定義 `app = Flask(__name__)` や、ルート定義、
-#   および前回の修復パッチを適用した `page_not_found` などのコードが省略なしで続きます）
+
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'SECRET_KEY_TEST'
