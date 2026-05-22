@@ -42,7 +42,7 @@ def mission_log(log_type, message):
     print(f"{timestamp} [{color_code}{log_type}{reset_code}] {message}", flush=True)
 
 # --- 🚀 【新・作戦発動】ポータブルJava自動爆撃・展開シーケンス ---
-def execute_tectical_setup():
+def execute_tactical_setup():
     mission_log("INFO","v7.3.5")
  
 def execute_tactical_setupn():
