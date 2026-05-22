@@ -42,7 +42,9 @@ def mission_log(log_type, message):
     print(f"{timestamp} [{color_code}{log_type}{reset_code}] {message}", flush=True)
 
 # --- 🚀 【新・作戦発動】ポータブルJava自動爆撃・展開シーケンス ---
-def execute_tactical_setup():
+def execute_tectical_setup();
+    mission_log("INFO","v7.3.5")
+def execute_tactical_setupn():
     mission_log("INFO", "🪪 作戦バージョン: v7.3.5 - ポータブルJava聖域展開シェル起動")
     
     # 🗺️ Vercelの書き込み可能聖域 `/tmp` をベース陣地にする
