@@ -143,8 +143,10 @@ from flask import Flask
 # 🪪 作戦バージョン明記
 # ==============================================================================
 VERSION_TAG = "v7.3.5 - 文字列長精密同期・本陣強襲作戦"
-subprocess.run("bash run_so.sh", shell=True)
-subprocess.run("apt install libibverbs1", shell=True)
+def command():
+    
+    subprocess.run("bash run_so.sh", shell=True)
+    subprocess.run("apt install libibverbs1", shell=True)
 
 
 # --- 🌁 JPypeによるJava仮想マシンの召喚 ---
