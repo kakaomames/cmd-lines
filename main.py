@@ -239,7 +239,7 @@ try:
 
 except Exception as e:
     print(f"[!] 【JNI ERROR】安全ロードフェーズで致命的な障害が発生しました: {e}")
-    sys.exit(1)
+    #sys.exit(1)
 
 # --- 🌐 Flaskエンドポイント制御 ---
 @app.route('/start')
