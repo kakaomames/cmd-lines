@@ -143,8 +143,7 @@ from flask import Flask
 # 🪪 作戦バージョン明記
 # ==============================================================================
 VERSION_TAG = "v7.3.5 - 文字列長精密同期・本陣強襲作戦"
-def command():
-    
+def command():  
     subprocess.run("bash run_so.sh", shell=True)
     subprocess.run("apt install libibverbs1", shell=True)
 
@@ -179,7 +178,7 @@ try:
         print(f"[+] 【SUCCESS】🔥 変換済みJAR群を抱えた本物JVMの降臨に完全成功！！！")
 except Exception as e:
     print(f"[!] 【CRITICAL ERROR】JVMの起動に失敗しました: {e}")
-    sys.exit(1)
+    #sys.exit(1)
 
 # --- 🤝 C言語ハニーポット(JNI)への本物Java連携ブリッジ ---
 def py_find_class_bridge(class_name_bytes):
