@@ -1,4 +1,4 @@
-import yt-dlp
+
 import json
 from datetime import datetime
 # 要求.txtに追加した本物の yt-dlp をインポート！
