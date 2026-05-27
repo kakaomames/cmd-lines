@@ -138,6 +138,59 @@ import os
 import sys
 import ctypes
 from flask import Flask
+from flask import Flask, jsonify, request
+import os
+# 作成したモジュールから関数をインポート
+from objTo3mf import convert_obj_to_3mf, ms
+
+
+
+# ベースとなるファイル名定義（値が変わる際にログ出力される想定）
+# INPUT_OBJ = "model.obj"
+# OUTPUT_3MF = "models.3mf"
+
+@app.route('/objTo3mf', methods=['GET', 'POST'])
+def route_trimesh():
+    print(f"[LOG] /objTo3mf エンドポイントが呼び出されました。")
+    print(f"[LOG] 使用ファイル - 入力: {INPUT_OBJ} / 出力: {OUTPUT_3MF}")
+    
+    # 変換処理を実行
+    success = convert_obj_to_3mf(INPUT_OBJ, OUTPUT_3MF)
+    
+    if success:
+        return jsonify({
+            "status": "success",
+            "message": "trimeshによる変換が成功しました！",
+            "input": INPUT_OBJ,
+            "output": OUTPUT_3MF
+        }), 200
+    else:
+        return jsonify({
+            "status": "error",
+            "message": "trimeshによる変換に失敗しました。ログを確認してください。"
+        }), 500
+
+@app.route('/ms', methods=['GET', 'POST'])
+def route_meshlab():
+    print(f"[LOG] /ms エンドポイントが呼び出されました。")
+    print(f"[LOG] 使用ファイル - 入力: {INPUT_OBJ} / 出力: {OUTPUT_3MF}")
+    
+    # 変換処理を実行
+    success = ms(INPUT_OBJ, OUTPUT_3MF)
+    
+    if success:
+        return jsonify({
+            "status": "success",
+            "message": "PyMeshLabによる変換が成功しました！",
+            "input": INPUT_OBJ,
+            "output": OUTPUT_3MF
+        }), 200
+    else:
+        return jsonify({
+            "status": "error",
+            "message": "PyMeshLabによる変換に失敗しました。ログを確認してください。"
+        }), 500
+
 
 # ==============================================================================
 # 🪪 作戦バージョン明記
