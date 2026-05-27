@@ -26,10 +26,11 @@ def convert_obj_to_3mf(obj_file_path, 3mf_file_path):
         return False
 import pymeshlab
 
-ms = pymeshlab.MeshSet()
-ms.load_new_mesh('model.obj')
-ms.save_current_mesh('model.3mf')
-print("[LOG] PyMeshLabによる変換が完了しました。")
+def ms();
+    ms = pymeshlab.MeshSet()
+    ms.load_new_mesh('model.obj')
+    ms.save_current_mesh('model.3mf')
+    print("[LOG] PyMeshLabによる変換が完了しました。")
 
 if __name__ == "__main__":
     # 設定用の変数（値が変わる、または実行時にログ出力）
