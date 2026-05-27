@@ -34,6 +34,28 @@ import urllib.request
 import subprocess
 from datetime import datetime
 
+
+class DummyRepo:
+    def __init__(self):
+        self.path = "pending.json"
+        self.sha = "dummy_sha_12345"
+    def get_contents(self, filename):
+        class Content:
+            def __init__(self):
+                self.path = "pending.json"
+                self.decoded_content = b"[]"
+                self.sha = "dummy_sha_12345"
+        return Content()
+    def update_file(self, path, message, content, sha):
+        # コミットログとして出力
+        print(f"[GitHub Commit] {message}")
+
+def get_or_create_repo(repo_name, filename, default_content):
+    return DummyRepo()
+
+REPO_A = "my-repo"
+
+
 # --- 🛰️ Gemini programming隊 専用 ログユニット ---
 def mission_log(log_type, message):
     """値を監視し、変化があったときやエラー時に即座に格納庫へログを払い出す"""
