@@ -1,8 +1,9 @@
 import trimesh
 import os
+import pymeshlab
 
-def convert_obj_to_3mf(obj_file_path, 3mf_file_path):
-    print(f"[LOG] 変換処理を開始します: {obj_file_path}")
+def convert_obj_to_3mf(obj_file_path, file_path_3mf):
+    print(f"[LOG] trimesh変換処理を開始します: {obj_file_path}")
     
     # ファイルの存在チェック
     if not os.path.exists(obj_file_path):
@@ -11,31 +12,51 @@ def convert_obj_to_3mf(obj_file_path, 3mf_file_path):
         
     try:
         # OBJファイルの読み込み
-        print("[LOG] OBJファイルを読み込み中...")
+        print("[LOG] [trimesh] OBJファイルを読み込み中...")
         mesh = trimesh.load(obj_file_path)
         
         # 3MF形式でエクスポート
-        print(f"[LOG] 3MFファイルを出力中: {3mf_file_path}")
-        mesh.export(3mf_file_path, file_type='3mf')
+        print(f"[LOG] [trimesh] 3MFファイルを出力中: {file_path_3mf}")
+        mesh.export(file_path_3mf, file_type='3mf')
         
-        print("[LOG] 変換が正常に完了しました！✨")
+        print("[LOG] [trimesh] 変換が正常に完了しました！✨")
         return True
         
     except Exception as e:
-        print(f"[LOG] 変換中にエラーが発生しました: {str(e)}")
+        print(f"[LOG] [trimesh] 変換中にエラーが発生しました: {str(e)}")
         return False
-import pymeshlab
 
-def ms();
-    ms = pymeshlab.MeshSet()
-    ms.load_new_mesh('model.obj')
-    ms.save_current_mesh('model.3mf')
-    print("[LOG] PyMeshLabによる変換が完了しました。")
-
-if __name__ == "__main__":
-    # 設定用の変数（値が変わる、または実行時にログ出力）
-    input_obj = "model.obj"
-    output_3mf = "models.3mf"
+def ms(obj_file_path, file_path_3mf):
+    print(f"[LOG] PyMeshLab変換処理を開始します: {obj_file_path}")
     
-    print(f"[LOG] 設定値 - 入力: {input_obj} / 出力: {output_3mf}")
-    convert_obj_to_3mf(input_obj, output_3mf)
+    # ファイルの存在チェック
+    if not os.path.exists(obj_file_path):
+        print(f"[LOG] エラー: 入力ファイルが見つかりません: {obj_file_path}")
+        return False
+        
+    try:
+        print("[LOG] [PyMeshLab] MeshSetを初期化中...")
+        mesh_set = pymeshlab.MeshSet()
+        
+        print(f"[LOG] [PyMeshLab] OBJファイルをロード中: {obj_file_path}")
+        mesh_set.load_new_mesh(obj_file_path)
+        
+        print(f"[LOG] [PyMeshLab] 3MFファイルを保存中: {file_path_3mf}")
+        mesh_set.save_current_mesh(file_path_3mf)
+        
+        print("[LOG] [PyMeshLab] PyMeshLabによる変換が完了しました。✨")
+        return True
+        
+    except Exception as e:
+        print(f"[LOG] [PyMeshLab] 変換中にエラーが発生しました: {str(e)}")
+        return False
+
+# 単体で実行された場合のテスト動作
+if __name__ == "__main__":
+    input_obj = "model.obj"
+    output_3mf_trimesh = "models_trimesh.3mf"
+    output_3mf_meshlab = "models_meshlab.3mf"
+    
+    print(f"[LOG] 単体テスト実行 - 入力: {input_obj}")
+    convert_obj_to_3mf(input_obj, output_3mf_trimesh)
+    ms(input_obj, output_3mf_meshlab)
