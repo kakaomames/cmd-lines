@@ -139,7 +139,7 @@ import sys
 import ctypes
 from flask import Flask
 from flask import Flask, jsonify, request
-from flask import Flask, render_code, render_template, request, send_file, jsonify
+from flask import Flask, render_template, request, send_file, jsonify
 import os
 from werkzeug.utils import secure_filename
 # 自作モジュールから変換関数をインポート
@@ -2053,7 +2053,7 @@ print(f"BASE_URL:{BASE_URL}")
 # ----------------------------------------------------------------------
 
 # index.html
-INDEXSS_HTML = """
+INDEXSS_HTML = r"""
 <!DOCTYPE html>
 <html lang="ja">
 <head>
