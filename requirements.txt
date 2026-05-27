@@ -9,4 +9,4 @@ PyGithub
 JPype1
 trimesh
 lxml
-
+networkx
