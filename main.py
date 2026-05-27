@@ -159,7 +159,7 @@ if not os.path.exists(UPLOAD_FOLDER):
     print(f"[LOG] アップロード用フォルダを作成しました: {UPLOAD_FOLDER}")
 
 @app.route('/3d1')
-def index():
+def obj_index():
     print("[LOG] トップページ(HTML)が要求されました。")
     # templates/index.html をレンダリングして返す
     return render_template('objTo3mf.html')
