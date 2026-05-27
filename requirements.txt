@@ -7,3 +7,5 @@ wasmtime
 Flask-SocketIO
 PyGithub
 JPype1
+trimesh
+lxml
