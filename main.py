@@ -147,6 +147,7 @@ from objTo3mf import convert_obj_to_3mf, ms
 
 app = Flask(__name__)
 
+UPLOAD_FOLDER = '/tmp'
 # アップロードファイルを一時的に保存するフォルダ設定UPLOAD_FOLDER = '/tmp'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
