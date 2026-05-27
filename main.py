@@ -147,9 +147,10 @@ from objTo3mf import convert_obj_to_3mf, ms
 
 app = Flask(__name__)
 
-# アップロードファイルを一時的に保存するフォルダ設定
-UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
+# アップロードファイルを一時的に保存するフォルダ設定UPLOAD_FOLDER = '/tmp'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+print(f"[LOG] ファイル保存先をVercel対応のテンポラリに設定しました: {UPLOAD_FOLDER}")
 
 # 起動時に一時保存用フォルダがなければ作成
 if not os.path.exists(UPLOAD_FOLDER):
