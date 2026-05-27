@@ -139,57 +139,103 @@ import sys
 import ctypes
 from flask import Flask
 from flask import Flask, jsonify, request
+from flask import Flask, render_code, render_template, request, send_file, jsonify
 import os
-# 作成したモジュールから関数をインポート
+from werkzeug.utils import secure_filename
+# 自作モジュールから変換関数をインポート
 from objTo3mf import convert_obj_to_3mf, ms
 
+app = Flask(__name__)
 
+# アップロードファイルを一時的に保存するフォルダ設定
+UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# ベースとなるファイル名定義（値が変わる際にログ出力される想定）
-# INPUT_OBJ = "model.obj"
-# OUTPUT_3MF = "models.3mf"
+# 起動時に一時保存用フォルダがなければ作成
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+    print(f"[LOG] アップロード用フォルダを作成しました: {UPLOAD_FOLDER}")
 
-@app.route('/objTo3mf', methods=['GET', 'POST'])
-def route_trimesh():
-    print(f"[LOG] /objTo3mf エンドポイントが呼び出されました。")
-    print(f"[LOG] 使用ファイル - 入力: {INPUT_OBJ} / 出力: {OUTPUT_3MF}")
-    
-    # 変換処理を実行
-    success = convert_obj_to_3mf(INPUT_OBJ, OUTPUT_3MF)
-    
-    if success:
-        return jsonify({
-            "status": "success",
-            "message": "trimeshによる変換が成功しました！",
-            "input": INPUT_OBJ,
-            "output": OUTPUT_3MF
-        }), 200
-    else:
-        return jsonify({
-            "status": "error",
-            "message": "trimeshによる変換に失敗しました。ログを確認してください。"
-        }), 500
+@app.route('/3d1')
+def index():
+    print("[LOG] トップページ(HTML)が要求されました。")
+    # templates/index.html をレンダリングして返す
+    return render_template('objTo3mf.html')
 
-@app.route('/ms', methods=['GET', 'POST'])
-def route_meshlab():
-    print(f"[LOG] /ms エンドポイントが呼び出されました。")
-    print(f"[LOG] 使用ファイル - 入力: {INPUT_OBJ} / 出力: {OUTPUT_3MF}")
+@app.route('/objTo3mf', methods=['POST'])
+def handle_trimesh():
+    print("[LOG] /objTo3mf へPOSTリクエストを受信しました(trimeshエンジン)")
     
-    # 変換処理を実行
-    success = ms(INPUT_OBJ, OUTPUT_3MF)
+    if 'file' not in request.files:
+        print("[LOG] エラー: リクエストにファイルが含まれていません。")
+        return "ファイルがありません", 400
+        
+    file = request.files['file']
+    if file.filename == '':
+        print("[LOG] エラー: ファイル名が空です。")
+        return "ファイルが選択されていません", 400
+
+    if file:
+        # ファイル名を安全な形に整形
+        filename = secure_filename(file.filename)
+        input_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        
+        # ログ: 値の変更（保存パスの決定）
+        print(f"[LOG] OBJファイルを一時保存します: {input_path}")
+        file.save(input_path)
+        
+        # 出力用3MFのファイルパスを決定
+        base_name, _ = os.path.splitext(filename)
+        output_filename = f"{base_name}_trimesh.3mf"
+        output_path = os.path.join(app.config['UPLOAD_FOLDER'], output_filename)
+        print(f"[LOG] 変換後の出力パスを決定しました: {output_path}")
+        
+        # trimeshで変換処理
+        success = convert_obj_to_3mf(input_path, output_path)
+        
+        if success:
+            print(f"[LOG] 変換成功。ユーザーに3MFファイルを送信（ダウンロード）します。")
+            return send_file(output_path, as_attachment=True, download_name=output_filename)
+        else:
+            print("[LOG] 変換失敗のため、エラーを返します。")
+            return "trimeshでの変換に失敗しました。", 500
+
+@app.route('/ms', methods=['POST'])
+def handle_meshlab():
+    print("[LOG] /ms へPOSTリクエストを受信しました(PyMeshLabエンジン)")
     
-    if success:
-        return jsonify({
-            "status": "success",
-            "message": "PyMeshLabによる変換が成功しました！",
-            "input": INPUT_OBJ,
-            "output": OUTPUT_3MF
-        }), 200
-    else:
-        return jsonify({
-            "status": "error",
-            "message": "PyMeshLabによる変換に失敗しました。ログを確認してください。"
-        }), 500
+    if 'file' not in request.files:
+        print("[LOG] エラー: リクエストにファイルが含まれていません。")
+        return "ファイルがありません", 400
+        
+    file = request.files['file']
+    if file.filename == '':
+        print("[LOG] エラー: ファイル名が空です。")
+        return "ファイルが選択されていません", 400
+
+    if file:
+        filename = secure_filename(file.filename)
+        input_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        
+        print(f"[LOG] OBJファイルを一時保存します: {input_path}")
+        file.save(input_path)
+        
+        base_name, _ = os.path.splitext(filename)
+        output_filename = f"{base_name}_meshlab.3mf"
+        output_path = os.path.join(app.config['UPLOAD_FOLDER'], output_filename)
+        print(f"[LOG] 変換後の出力パスを決定しました: {output_path}")
+        
+        # PyMeshLabで変換処理
+        success = ms(input_path, output_path)
+        
+        if success:
+            print(f"[LOG] 変換成功。ユーザーに3MFファイルを送信（ダウンロード）します。")
+            return send_file(output_path, as_attachment=True, download_name=output_filename)
+        else:
+            print("[LOG] 変換失敗のため、エラーを返します。")
+            return "PyMeshLabでの変換に失敗しました。", 500
+
+ 
 
 
 # ==============================================================================
