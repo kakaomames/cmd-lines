@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="description" content="Gemini programming隊のリダイレクトページです。URLの追加処理が成功しました！">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="author" content="Gemini programming隊">
+    <meta name="theme-color" content="#4CAF50">
+    
+    <meta property="og:title" content="送信完了！ - Gemini programming隊">
+    <meta property="og:description" content="URLが正常に pending.json に追加されました。">
+    <meta property="og:image" content="https://kakaomames.github.io/rei/logo.png">
+    <meta property="og:type" content="website">
+    
+    <title>送信完了！ - Gemini programming隊</title>
+    
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            text-align: center;
+            padding: 50px 20px;
+            margin: 0;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            padding: 40px;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        .logo {
+            max-width: 150px;
+            height: auto;
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #2c3e50;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        p {
+            font-size: 16px;
+            color: #7f8c8d;
+            line-height: 1.6;
+        }
+        .btn {
+            display: inline-block;
+            margin-top: 25px;
+            padding: 12px 30px;
+            background-color: #3498db;
+            color: #ffffff;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .btn:hover {
+            background-color: #2980b9;
+        }
+        .hint {
+            font-size: 12px;
+            color: #bdc3c7;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <img src="https://kakaomames.github.io/rei/logo.png" alt="Gemini programming隊 ロゴ" class="logo">
+        
+        <h1>🎉 URL追加ミッション完了！</h1>
+        <p>リクエストされたURLは正常に <strong>pending.json</strong> へ格納されたぞ！<br>隊員、ナイスワークだ！</p>
+        
+        <div id="back-btn" class="btn">メイン画面に戻る</div>
+        
+        <p class="hint">※画面のどこをクリックしても、メイン画面（index.html）へ戻ることができるぞ！</p>
+    </div>
+
+    <script>
+        // 指定のページ遷移方法：ドキュメント全体のクリックイベントをフック
+        document.addEventListener('click', function() {
+            // 遷移先の対象となるHTML（環境に合わせて変更してくれ！）
+            window.location.href = 'index.html'; 
+        });
+
+        // ボタン単体をクリックした際、親へのイベント伝播(バブリング)で上記と同じ動きになるが、
+        // ログ出力を明確にする場合は、ここで個別に処理を書いても良いぞ！
+    </script>
+</body>
+</html>
