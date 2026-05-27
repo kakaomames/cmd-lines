@@ -8,7 +8,7 @@ def mission_log(log_type, message):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
     print(f"{timestamp} [{log_type}] {message}")
 
-def yt_dlp_process(target_url):
+def yt_dlp_p(target_url):
     """
     本物の yt-dlp ライブラリを使用して動画情報を調査するユニット
     """
