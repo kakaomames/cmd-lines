@@ -10,3 +10,4 @@ JPype1
 trimesh
 lxml
 networkx
+yt-dlp
