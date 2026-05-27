@@ -3881,6 +3881,11 @@ def page_not_found(e):
 def fish():
     """fishを表示"""
     return render_template('fish.html')
+@app.route('/monkeymart', methods=['GET'])
+def monkeymart():
+    """monkeymartを表示"""
+    return render_template('monkeymart.html')
+ 
  
 @app.route('/blockbreaker', methods=['GET'])
 def blockbreaker():
