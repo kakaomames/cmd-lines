@@ -11,3 +11,5 @@ trimesh
 lxml
 networkx
 yt-dlp
+ffmpeg-python
+moviepy
