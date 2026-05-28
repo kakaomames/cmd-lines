@@ -2,7 +2,6 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <!-- 隊員の教えを厳守：これでもかと大量に meta タグを配備！ -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -18,7 +17,6 @@
     <title>Gemini programming隊 - yt-dlps動画解決要塞</title>
     
     <style>
-        /* 探検隊のワクワク感を刺激するサイバーダークデザイン */
         body {
             background-color: #121212;
             color: #e0e0e0;
@@ -58,8 +56,6 @@
             letter-spacing: 1px;
             margin-bottom: 25px;
         }
-        
-        /* 各セクションの表示制御用 */
         .section {
             margin-top: 20px;
             padding: 20px;
@@ -70,8 +66,6 @@
         .hidden {
             display: none !important;
         }
-        
-        /* 入力エリアのスタイル */
         .input-group {
             display: flex;
             flex-direction: column;
@@ -106,8 +100,6 @@
         button:hover {
             background-color: #cc1122;
         }
-        
-        /* ポーリング＆ログエリアのスタイル */
         .task-info {
             font-family: monospace;
             color: #00ff66;
@@ -130,8 +122,6 @@
             box-sizing: border-box;
             font-size: 12px;
         }
-        
-        /* ビデオプレイヤーエリアのスタイル */
         video {
             width: 100%;
             border-radius: 8px;
@@ -148,7 +138,6 @@
             background-color: #ff3344;
             color: #fff;
         }
-        
         .status-msg {
             margin-top: 15px;
             font-size: 14px;
@@ -160,13 +149,11 @@
 <body>
 
     <div class="container">
-        <!-- 隊員の公式ロゴマークをトップに配置 -->
         <img src="https://kakaomames.github.io/rei/logo.png" alt="カカオマメ隊員ロゴ" class="logo">
         
         <h1>Gemini programming隊</h1>
-        <div class="subtitle">🎯 YT-DLPS CORE CONTROL PANEL 🎯</div>
+        <div class="subtitle">🎯 YT-DLPS TOTAL PROXIED CONTROL PANEL 🎯</div>
         
-        <!-- 🛡️ ステップ①: URL入力セクション -->
         <div id="inputSection" class="section">
             <div class="input-group">
                 <input type="text" id="videoUrl" placeholder="https://www.youtube.com/watch?v=..." autocomplete="off">
@@ -174,28 +161,23 @@
             </div>
         </div>
         
-        <!-- 🛡️ ステップ②: ポーリング（進捗ログ監視）セクション -->
         <div id="progressSection" class="section hidden">
             <div class="task-info" id="taskIdDisplay">TASK ID: </div>
             <div class="task-info" id="taskStatusDisplay">STATUS: ダウンロード中... ⏳</div>
-            <div class="log-box" id="logBox">スマホ基地からの生のログを待機中...</div>
+            <div class="log-box" id="logBox">中継サーバーからのログを待機中...</div>
         </div>
         
-        <!-- 🛡️ ステップ③: ビデオプレイヤーセクション -->
         <div id="playerSection" class="section hidden">
-            <h3 style="margin-top:0; color:#fff;">🎬 完成動画プレイヤー</h3>
+            <h3 style="margin-top:0; color:#fff;">🎬 完成動画プレイヤー (完全中継ストリーミング)</h3>
             <video id="videoPlayer" controls preload="auto"></video>
-            <!-- 視聴終了後の完全爆破義務化ボタン -->
             <button id="btnRemove" class="btn-danger">動画の全削除 ＆ 基地クリーンアップ（義務） 💥</button>
         </div>
         
-        <!-- 全体通知用メッセージ -->
         <div class="status-msg" id="globalStatus"></div>
     </div>
 
-<script>
-        // 隊員ルール厳守：値やアクションの変化をログ徹底出力
-        console.log("[LOG] SYSTEM: CORS完全対応版コントロールセンターが起動しました！");
+    <script>
+        console.log("[LOG] SYSTEM: 100%完全中継版コントロールセンターが起動しました！");
 
         let currentTaskId = "";
         let pollingInterval = null;
@@ -206,7 +188,7 @@
             const globalStatus = document.getElementById('globalStatus');
             
             if (!videoUrl) {
-                console.log("[LOG] WARNING: URLが空の状態で発射されました。");
+                console.log("[LOG] WARNING: URLが空です。");
                 globalStatus.style.color = "#ff3333";
                 globalStatus.innerText = "❌ URLを入力してください！";
                 return;
@@ -231,9 +213,8 @@
                     
                     document.getElementById('inputSection').classList.add('hidden');
                     document.getElementById('progressSection').classList.remove('hidden');
-                    globalStatus.innerText = "📥 スマホ基地側でyt-dlpが起動しました！安全な中継網経由で進捗を監視します。";
+                    globalStatus.innerText = "📥 進捗を100%安全な中継ルート経由で監視します。";
 
-                    // 🌟 安全な中継ポーリングを開始！
                     startPolling();
                 } else {
                     globalStatus.style.color = "#ff3333";
@@ -246,7 +227,7 @@
             }
         });
 
-        // 🌟 ポーリング処理：スマホ基地直ではなく、Vercelの中継ルート(/yt-dlps-status)を叩く！
+        // 🌟 ポーリング処理：Vercelの中継ルートを叩く
         function startPolling() {
             console.log(`[LOG] ACTION: タスク [ ${currentTaskId} ] の中継ポーリングを開始します。`);
             const logBox = document.getElementById('logBox');
@@ -255,7 +236,6 @@
 
             pollingInterval = setInterval(async () => {
                 try {
-                    // 🌟 ここが防御パッチ！Vercelのバックエンド経由で安全にスマホのログを回収する
                     const targetUrl = `/yt-dlps-status?id=${currentTaskId}&t=${Date.now()}`;
                     const res = await fetch(targetUrl);
                     if (!res.ok) throw new Error(`ステータスコード: ${res.status}`);
@@ -267,30 +247,17 @@
                         logBox.scrollTop = logBox.scrollHeight;
                     }
 
-                    // 🏁 完了検知
+                    // 🏁 完了検知 ➡️ 動画プレイヤーを中継URL（/yt-dlps-watch）で起動！
                     if (data.status === "complete" || (data.log && data.log.includes("100%"))) {
-                        console.log(`[LOG] SUCCESS: タスク [ ${currentTaskId} ] が完了！動画プレイヤーに切り替えます。`);
+                        console.log(`[LOG] SUCCESS: タスク [ ${currentTaskId} ] 完了！中継プレイヤーを展開。`);
                         clearInterval(pollingInterval);
                         
                         taskStatusDisplay.innerText = "STATUS: 結合完了！再生可能です！ 🎉";
                         globalStatus.innerText = "🎬 動画プレイヤーを起動します！";
 
-                        // 💡 ビデオのストリーミング実体は、最後に解決したスマホのURLが必要なため、
-                        // 完了時にPython側から現在のベースURLをもう一回貰い受ける形にしても良いが、
-                        // 面倒なら /yt-dlps-status の返り値にプロキシURLを含めてもらうか、
-                        // もしくは動画自体もPythonに中継（/yt-dlps-watch?id=...）させると最強。
-                        // 一旦、Python中継ルートから動画を引っ張るのが安全なので、次のように設定！
+                        // 🌟 動画もCORS回避のためVercelの中継ルートにセット！
                         const player = document.getElementById('videoPlayer');
-                        
-                        // ※動画ファイル自体は重いので、もし直接lhr.lifeへ飛ばす場合は、
-                        // 完了した瞬間に一度だけGitHubのRawを再fetchして、直接スマホの /watch?id=xxx をsrcに入れてあげるのがブラウザの負担が少なくて済むぞ！
-                        const rawConfigUrl = "https://raw.githubusercontent.com/kakaomames/yt-dlp-Xiaomi/refs/heads/main/url.json";
-                        const confRes = await fetch(`${rawConfigUrl}?t=${Date.now()}`);
-                        const confData = await confRes.json();
-                        let baseProxyUrl = confData.proxy_url;
-                        if(baseProxyUrl.endsWith('/')) baseProxyUrl = baseProxyUrl.slice(0, -1);
-                        
-                        player.src = `${baseProxyUrl}/watch?id=${currentTaskId}`;
+                        player.src = `/yt-dlps-watch?id=${currentTaskId}`;
                         
                         document.getElementById('progressSection').classList.add('hidden');
                         document.getElementById('playerSection').classList.remove('hidden');
@@ -301,25 +268,19 @@
             }, 2000);
         }
 
-        // 🌟 義務化：動画全削除 ＆ クリーンアップボタンの処理
+        // 🌟 義務化：動画全削除 ＆ クリーンアップボタン（中継ルートへ修正！）
         document.getElementById('btnRemove').addEventListener('click', async function() {
             const globalStatus = document.getElementById('globalStatus');
-            console.log("[LOG] ACTION: /remove 命令を発射します。");
+            console.log("[LOG] ACTION: 中継サーバーへ /yt-dlps-remove 爆破命令を発射します。");
             
             try {
-                const rawConfigUrl = "https://raw.githubusercontent.com/kakaomames/yt-dlp-Xiaomi/refs/heads/main/url.json";
-                const confRes = await fetch(`${rawConfigUrl}?t=${Date.now()}`);
-                const confData = await confRes.json();
-                let baseProxyUrl = confData.proxy_url;
-                if(baseProxyUrl.endsWith('/')) baseProxyUrl = baseProxyUrl.slice(0, -1);
-
-                const targetUrl = `${baseProxyUrl}/remove?t=${Date.now()}`;
-                const res = await fetch(targetUrl);
+                // 🌟 ここが修正防御パッチ！スマホに直接ではなくVercelに爆破を依頼
+                const res = await fetch(`/yt-dlps-remove?t=${Date.now()}`);
                 const data = await res.json();
                 
                 if (data.success) {
-                    console.log("[LOG] SUCCESS: スマホ基地の一時ファイル全爆破に成功しました！");
-                    alert("💥 爆破完了！スマホから完全消去されました。");
+                    console.log("[LOG] SUCCESS: 中継経由でのスマホ基地一時ファイル爆破に大成功！");
+                    alert("💥 爆破完了！すべての動画ファイルとログがスマホから完全消去されました。");
                     
                     document.getElementById('videoPlayer').src = "";
                     document.getElementById('playerSection').classList.add('hidden');
@@ -328,8 +289,8 @@
                     globalStatus.innerText = "✨ 基地は完全にクリーンになりました。次のミッションを待機中。";
                 }
             } catch (error) {
-                console.error("[LOG] ERROR: 爆破命令の送信に失敗しました。", error);
-                alert("❌ 爆破失敗。");
+                console.error("[LOG] ERROR: 爆破中継命令の送信に失敗しました。", error);
+                alert("❌ 爆破中継に失敗。手動で確認してください。");
             }
         });
     </script>
