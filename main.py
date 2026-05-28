@@ -208,7 +208,7 @@ def show_control_panel():
     # 🌟🌟【スマホ没収対抗：偽装工作】🌟🌟
     # スマホが直接触れないなら、URLの真後ろに「H.264のmp4で落とせ！」というオプションを無理やり結合する！
     # もしスマホ側が引数をそのまま結合して実行してたら、これでスマホ側のyt-dlpの挙動が強制上書きされる！
-    forced_options = '" -f "bestvideo[vcodec^=avc1]+bestaudio[acodec^=mp4a]/best[ext=mp4]" --merge-output-format "mp4'
+    forced_options = ' -f "bestvideo[vcodec^=avc1]+bestaudio[acodec^=mp4a]/best[ext=mp4]" --merge-output-format mp4'
     fake_video_url = video_url + forced_options
     
     print(f"[LOG] ACTION: 偽装オプションを密輸しました -> {fake_video_url}")
