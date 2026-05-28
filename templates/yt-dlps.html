@@ -168,8 +168,8 @@
         </div>
         
         <div id="playerSection" class="section hidden">
-            <h3 style="margin-top:0; color:#fff;">🎬 完成動画プレイヤー (完全中継ストリーミング)</h3>
-            <video id="videoPlayer" controls preload="auto"></video>
+            <h3 style="margin-top:0; color:#fff;">🎬 完成動画プレイヤー (ブラウザ強制デコード仕様)</h3>
+            <video id="videoPlayer" controls preload="auto" playsinline></video>
             <button id="btnRemove" class="btn-danger">動画の全削除 ＆ 基地クリーンアップ（義務） 💥</button>
         </div>
         
@@ -177,24 +177,21 @@
     </div>
 
     <script>
-        console.log("[LOG] SYSTEM: 100%完全中継版コントロールセンターが起動しました！");
+        console.log("[LOG] SYSTEM: ブラウザ対応型コントロールセンター起動！");
 
         let currentTaskId = "";
         let pollingInterval = null;
 
-        // 🌟 ボタンクリック：ダウンロード開始！
         document.getElementById('btnStart').addEventListener('click', async function() {
             const videoUrl = document.getElementById('videoUrl').value.trim();
             const globalStatus = document.getElementById('globalStatus');
             
             if (!videoUrl) {
-                console.log("[LOG] WARNING: URLが空です。");
                 globalStatus.style.color = "#ff3333";
                 globalStatus.innerText = "❌ URLを入力してください！";
                 return;
             }
 
-            console.log(`[LOG] ACTION: 中継サーバーへ /yt-dlps リクエストを発射。ターゲット: ${videoUrl}`);
             globalStatus.style.color = "#00ff66";
             globalStatus.innerText = "📡 ネットワークを追尾中...";
 
@@ -203,17 +200,13 @@
                 if (!response.ok) throw new Error(`サーバーエラー: ${response.status}`);
                 
                 const data = await response.json();
-                console.log("[LOG] SUCCESS: 中継応答を受信しました。", data);
 
                 if (data.task_id) {
                     currentTaskId = data.task_id;
-                    
-                    console.log(`[LOG] INFO: タスクID [ ${currentTaskId} ] をロックオンしました。`);
                     document.getElementById('taskIdDisplay').innerText = `TASK ID: ${currentTaskId}`;
-                    
                     document.getElementById('inputSection').classList.add('hidden');
                     document.getElementById('progressSection').classList.remove('hidden');
-                    globalStatus.innerText = "📥 進捗を100%安全な中継ルート経由で監視します。";
+                    globalStatus.innerText = "📥 進捗を監視中...";
 
                     startPolling();
                 } else {
@@ -221,23 +214,19 @@
                     globalStatus.innerText = "❌ タスクIDが返ってきませんでした。";
                 }
             } catch (error) {
-                console.error("[LOG] ERROR: リクエスト失敗。", error);
                 globalStatus.style.color = "#ff3333";
                 globalStatus.innerText = `❌ 通信失敗: ${error.message}`;
             }
         });
 
-        // 🌟 ポーリング処理：Vercelの中継ルートを叩く
         function startPolling() {
-            console.log(`[LOG] ACTION: タスク [ ${currentTaskId} ] の中継ポーリングを開始します。`);
             const logBox = document.getElementById('logBox');
             const taskStatusDisplay = document.getElementById('taskStatusDisplay');
             const globalStatus = document.getElementById('globalStatus');
 
             pollingInterval = setInterval(async () => {
                 try {
-                    const targetUrl = `/yt-dlps-status?id=${currentTaskId}&t=${Date.now()}`;
-                    const res = await fetch(targetUrl);
+                    const res = await fetch(`/yt-dlps-status?id=${currentTaskId}&t=${Date.now()}`);
                     if (!res.ok) throw new Error(`ステータスコード: ${res.status}`);
                     
                     const data = await res.json();
@@ -247,50 +236,49 @@
                         logBox.scrollTop = logBox.scrollHeight;
                     }
 
-                    // 🏁 完了検知 ➡️ 動画プレイヤーを中継URL（/yt-dlps-watch）で起動！
+                    // 🏁 完了検知
                     if (data.status === "complete" || (data.log && data.log.includes("100%"))) {
-                        console.log(`[LOG] SUCCESS: タスク [ ${currentTaskId} ] 完了！中継プレイヤーを展開。`);
                         clearInterval(pollingInterval);
                         
-                        taskStatusDisplay.innerText = "STATUS: 結合完了！再生可能です！ 🎉";
+                        taskStatusDisplay.innerText = "STATUS: 結合完了！ブラウザで力技再生を試みます！ 🎉";
                         globalStatus.innerText = "🎬 動画プレイヤーを起動します！";
 
-                        // 🌟 動画もCORS回避のためVercelの中継ルートにセット！
                         const player = document.getElementById('videoPlayer');
-                        player.src = `/yt-dlps-watch?id=${currentTaskId}`;
+                        
+                        # 🌟🌟【ブラウザ覚醒パッチ】🌟🌟
+                        # 単に src を入れるのではなく、innerHTML を使って「codecs="av01.0.05M.08" (AV1形式)」であることを
+                        # ブラウザのデコーダーに直接叩き込んで再生を強制させる！
+                        const proxyStreamUrl = `/yt-dlps-watch?id=${currentTaskId}`;
+                        player.innerHTML = `<source src="${proxyStreamUrl}" type='video/mp4; codecs="av01.0.05M.08, mp4a.40.2"'>`;
+                        
+                        // プレイヤーのソース構造が変わったので再ロードさせて強制再生
+                        player.load();
                         
                         document.getElementById('progressSection').classList.add('hidden');
                         document.getElementById('playerSection').classList.remove('hidden');
                     }
                 } catch (error) {
-                    console.error("[LOG] WARNING: 中継ポーリング通信中に一時的なエラーが発生しました。", error);
+                    console.error("[LOG] WARNING: ポーリング中に一時的エラー", error);
                 }
             }, 2000);
         }
 
-        // 🌟 義務化：動画全削除 ＆ クリーンアップボタン（中継ルートへ修正！）
         document.getElementById('btnRemove').addEventListener('click', async function() {
             const globalStatus = document.getElementById('globalStatus');
-            console.log("[LOG] ACTION: 中継サーバーへ /yt-dlps-remove 爆破命令を発射します。");
-            
             try {
-                // 🌟 ここが修正防御パッチ！スマホに直接ではなくVercelに爆破を依頼
                 const res = await fetch(`/yt-dlps-remove?t=${Date.now()}`);
                 const data = await res.json();
                 
                 if (data.success) {
-                    console.log("[LOG] SUCCESS: 中継経由でのスマホ基地一時ファイル爆破に大成功！");
                     alert("💥 爆破完了！すべての動画ファイルとログがスマホから完全消去されました。");
-                    
-                    document.getElementById('videoPlayer').src = "";
+                    document.getElementById('videoPlayer').innerHTML = "";
                     document.getElementById('playerSection').classList.add('hidden');
                     document.getElementById('inputSection').classList.remove('hidden');
                     document.getElementById('videoUrl').value = "";
-                    globalStatus.innerText = "✨ 基地は完全にクリーンになりました。次のミッションを待機中。";
+                    globalStatus.innerText = "✨ 基地は完全にクリーンになりました。";
                 }
             } catch (error) {
-                console.error("[LOG] ERROR: 爆破中継命令の送信に失敗しました。", error);
-                alert("❌ 爆破中継に失敗。手動で確認してください。");
+                alert("❌ 爆破中継に失敗しました。");
             }
         });
     </script>
