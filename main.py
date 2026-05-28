@@ -1,6 +1,7 @@
 import flask
 from flask import Flask, request, render_template_string, render_template, send_file,redirect, url_for, jsonify, Response, send_from_directory # 正しい順序に並べ替えてもOK
 from flask_socketio import SocketIO, emit, join_room, leave_room
+from flask import Flask, request, Response, jsonify
 app = Flask(__name__)
 # from yt_dlp import yt_dlp_p
 import subprocess
@@ -18,24 +19,27 @@ from io import BytesIO
 from urllib.parse import urlparse
 from flask_cors import CORS
 import math
-from flask import Flask, request, Response, jsonify
 from datetime import datetime, timezone
 import base64
 # 既存の import datetime を、この形式に書き換えるか追加する！
 from datetime import datetime
+import datetime
+import sys
+import ctypes
+from werkzeug.utils import secure_filename
+from objTo3mf import convert_obj_to_3mf, ms
+import requests
+import subprocess
+import shutil
+import tarfile
+import urllib.request
  
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN") # Vercelの環境変数で設定
 GITHUB_OWNER = "kakaomames"        # あなたのGitHubユーザー名
 GITHUB_REPO = "backup"            # データ保存用のリポジトリ名
 GAME_FOLDER = "pokeque"
 
-import os
-import sys
-import shutil
-import tarfile
-import urllib.request
-import subprocess
-from datetime import datetime
+
 
 
 app.config['SECRET_KEY'] = 'SECRET_KEY_TEST'
@@ -172,31 +176,8 @@ HEADERS = {
 app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024
 print("aaaaaaa")
 
-from flask import Flask, jsonify
-import datetime
-import os
-import sys
-import ctypes
-from flask import Flask
-from flask import Flask, jsonify, request
-from flask import Flask, render_template, request, send_file, jsonify
-import os
-from werkzeug.utils import secure_filename
-# 自作モジュールから変換関数をインポート
-from objTo3mf import convert_obj_to_3mf, ms
 
 
-
-
-
-
-
-
-import os
-import sys
-import requests
-import subprocess
-from flask import Flask, request, jsonify, render_template, Response
 
 
 
