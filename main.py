@@ -34,6 +34,10 @@ import urllib.request
 import subprocess
 from datetime import datetime
 
+print("[LOG] SYSTEM: ========================================================")
+print("[LOG] SYSTEM: Gemini programming隊特製 『自動追尾型』リレーサーバー 起動")
+print("[LOG] SYSTEM: 🗺️  /yt-dlps?url=... -> GitHubからURLを自動解決してスマホへ転送")
+print("[LOG] SYSTEM: ========================================================"
 
 class DummyRepo:
     def __init__(self):
@@ -169,6 +173,69 @@ from werkzeug.utils import secure_filename
 from objTo3mf import convert_obj_to_3mf, ms
 
 app = Flask(__name__)
+
+import os
+import requests
+from flask import Flask, request, jsonify
+
+a
+
+# 隊員が特定した、スマホ基地の最新URLが保管されている神のRawリンク
+RAW_URL_CONFIG = "https://raw.githubusercontent.com/kakaomames/yt-dlp-Xiaomi/refs/heads/main/url.json"
+
+# ========================================================
+# 🛡️ 統合ルート: /yt-dlps （全自動URL解決 ＆ DL発射中継）
+# ========================================================
+@app.route('/yt-dlps', methods=['GET'])
+def relay_download_request():
+    video_url = request.args.get('url')
+    if not video_url:
+        print("[LOG] ERROR [/yt-dlps]: ターゲットの動画URLが指定されていません。")
+        return jsonify({"error": "Video URL is required"}), 400
+
+    print(f"[LOG] ACTION [/yt-dlps]: 統合リクエストを受信。動画URL: {video_url}")
+
+    # --- ステップ1: GitHubのRawリンクから現在のスマホ基地のURLを奪取する ---
+    try:
+        print("[LOG] ACTION: GitHubのRawリンクから最新のスマホ基地URLを取得中...")
+        # キャッシュを回避するために、paramsに毎回異なる適当な値を設定してfetch
+        config_response = requests.get(RAW_URL_CONFIG, params={"t": os.urandom(4).hex()})
+        config_response.raise_for_status()
+        
+        config_data = config_response.json()
+        base_proxy_url = config_data.get("proxy_url")
+        
+        if not base_proxy_url:
+            raise ValueError("proxy_url が JSON 内に見つかりません。")
+            
+        print(f"[LOG] SUCCESS: 最新のスマホ基地URLを自動特定！ -> {base_proxy_url}")
+        
+    except Exception as e:
+        print(f"[LOG] ERROR: GitHubからの基地URL解決に失敗しました。詳細: {str(e)}")
+        return jsonify({"error": "Failed to resolve proxy URL from GitHub", "details": str(e)}), 500
+
+
+    # --- ステップ2: 特定したスマホ基地の /video ルートへダウンロード命令を転送（リレー） ---
+    # スマホ基地のURL末尾のハラを合わせて、綺麗に結合する
+    target_api_url = f"{base_proxy_url.rstrip('/')}/video"
+    print(f"[LOG] ACTION: 特定したスマホ基地へリクエストを転送します -> {target_api_url}")
+
+    try:
+        # スマホ側の /video?url=... を叩きに行く
+        # スマホ側はバックグラウンドでyt-dlpを動かして一瞬でレスポンスを返すので、Vercelもタイムアウトしない！
+        proxy_response = requests.get(target_api_url, params={"url": video_url}, timeout=10)
+        
+        print("[LOG] SUCCESS: スマホ基地からの応答を受信しました！結果をクライアントへ返送します。")
+        
+        # スマホから返ってきたタスクID（UUID）や進捗状況（JSON）をそのままそのままノーカットで返送！
+        return jsonify(proxy_response.json()), proxy_response.status_code
+
+    except requests.exceptions.RequestException as e:
+        print(f"[LOG] ERROR: スマホ基地への転送通信に失敗しました。詳細: {str(e)}")
+        return jsonify({"error": "Failed to communicate with proxy base", "details": str(e)}), 502
+
+
+
 
 UPLOAD_FOLDER = '/tmp'
 # アップロードファイルを一時的に保存するフォルダ設定UPLOAD_FOLDER = '/tmp'
