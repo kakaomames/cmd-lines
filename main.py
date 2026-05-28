@@ -321,7 +321,7 @@ def relay_video_stream():
 
         # 🌟🌟 隊員大懸念の「ツムツム（大爆発）」を未然に防ぐ安全防衛トリガー 🌟🌟
         # もし動画サイズが 15MB を超えていたら（7時間のライブ動画などが来たら）、強制的に変換をキャンセルしてそのまま流す！
-        if raw_size_mb > 15.0:
+        if raw_size_mb > 1.0:
             print(f"[LOG] WARNING: 危険検知！！！サイズが {raw_size_mb:.2f}MB と巨大なため、FFmpeg変換をバイパスして生データを流します（ツムツム回避）")
             return Response(raw_data, content_type='video/mp4')
 
