@@ -156,7 +156,7 @@
         
         <div id="inputSection" class="section">
             <div class="input-group">
-                <input type="text" id="videoUrl" placeholder="https://www.youtube.com/watch?v=..." autocomplete="off">
+                <input type="text" id="videoUrl" placeholder="https://www.youtube.com/shorts/..." autocomplete="off">
                 <button id="btnStart">ダウンロードミッション開始 🚀</button>
             </div>
         </div>
@@ -196,6 +196,7 @@
             globalStatus.innerText = "📡 ネットワークを追尾中...";
 
             try {
+                // 🌟 スマホを怒らせないよう、純粋なURLのまま中継へ発射！
                 const response = await fetch(`/yt-dlps?url=${encodeURIComponent(videoUrl)}`);
                 if (!response.ok) throw new Error(`サーバーエラー: ${response.status}`);
                 
@@ -240,18 +241,18 @@
                     if (data.status === "complete" || (data.log && data.log.includes("100%"))) {
                         clearInterval(pollingInterval);
                         
-                        taskStatusDisplay.innerText = "STATUS: 結合完了！ブラウザで力技再生を試みます！ 🎉";
+                        taskStatusDisplay.innerText = "STATUS: 結合完了！ブラウザでの再生を強制します！ 🎉";
                         globalStatus.innerText = "🎬 動画プレイヤーを起動します！";
 
                         const player = document.getElementById('videoPlayer');
                         
-                        # 🌟🌟【ブラウザ覚醒パッチ】🌟🌟
-                        # 単に src を入れるのではなく、innerHTML を使って「codecs="av01.0.05M.08" (AV1形式)」であることを
-                        # ブラウザのデコーダーに直接叩き込んで再生を強制させる！
+                        // 🌟🌟【ブラウザ強制覚醒】🌟🌟
+                        // 隊員がTXT引っこ抜きで突き止めた「av01 (AV1コーデック)」を
+                        // type属性のcodecsにガッツリ明示して、ブラウザの内蔵デコーダーを叩き起こす！
                         const proxyStreamUrl = `/yt-dlps-watch?id=${currentTaskId}`;
                         player.innerHTML = `<source src="${proxyStreamUrl}" type='video/mp4; codecs="av01.0.05M.08, mp4a.40.2"'>`;
                         
-                        // プレイヤーのソース構造が変わったので再ロードさせて強制再生
+                        // プレイヤーのソース構造を再ロードさせて強制再生
                         player.load();
                         
                         document.getElementById('progressSection').classList.add('hidden');
@@ -270,7 +271,7 @@
                 const data = await res.json();
                 
                 if (data.success) {
-                    alert("💥 爆破完了！すべての動画ファイルとログがスマホから完全消去されました。");
+                    alert("💥 爆破完了！スマホ基地内の一時ファイルがクリーンアップされました。");
                     document.getElementById('videoPlayer').innerHTML = "";
                     document.getElementById('playerSection').classList.add('hidden');
                     document.getElementById('inputSection').classList.remove('hidden');
