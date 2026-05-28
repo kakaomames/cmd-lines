@@ -2,6 +2,7 @@ import flask
 from flask import Flask, request, render_template_string, render_template, send_file,redirect, url_for, jsonify, Response, send_from_directory # 正しい順序に並べ替えてもOK
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from yt_dlp import yt_dlp_p
+from av01ToH254 import convert_av1_to_h264
 import subprocess
 import wasmtime
 import os
@@ -180,6 +181,11 @@ import os
 import requests
 from flask import Flask, request, jsonify, render_template, Response
 from urllib.parse import quote
+ import os
+import tempfile
+import subprocess
+import requests
+from flask import Flask, request, send_file
 
 
 RAW_URL_CONFIG = "https://raw.githubusercontent.com/kakaomames/yt-dlp-Xiaomi/refs/heads/main/url.json"
@@ -277,6 +283,66 @@ def relay_remove_command():
 # ========================================================
 @app.route('/yt-dlps-watch', methods=['GET'])
 def relay_video_stream():
+    task_id = request.args.get('id')
+    if not task_id:
+        return "Task ID is required", 400
+
+    # 一時ファイルを保存するディレクトリを作成
+    with tempfile.TemporaryDirectory() as tmpdir:
+        av1_path = os.path.join(tmpdir, "input_av1.mp4")
+        h264_path = os.path.join(tmpdir, "output_h264.mp4")
+
+        try:
+            base_proxy_url = get_base_proxy_url()
+            target_watch_url = f"{base_proxy_url}/watch"
+            
+            # 1. バックエンドからAV1動画を完全にダウンロード
+            headers = {key: value for key, value in request.headers.items() if key.lower() in ['user-agent', 'accept']}
+            req = requests.get(target_watch_url, params={"id": task_id}, headers=headers, stream=True)
+            
+            if req.status_code >= 400:
+                return f"Backend error: {req.status_code}", req.status_code
+
+            with open(av1_path, 'wb') as f:
+                for chunk in req.iter_content(chunk_size=128*1024):
+                    if chunk:
+                        f.write(chunk)
+
+            # 2. FFmpegでH.264に一括変換
+            # ストリーミングではないため、非常に安定して高品質なエンコードが可能です
+            ffmpeg_cmd = [
+                'ffmpeg',
+                '-y',                    # 同名ファイルがあれば上書き
+                '-i', av1_path,          # 入力ファイル
+                '-vcodec', 'libx264',    # H.264
+                '-crf', '23',            # 画質（18〜28、数字が小さいほど高画質）
+                '-preset', 'medium',     # ストリーミングではないため medium や fast で高画質化を狙える
+                '-acodec', 'aac',        # 音声
+                h264_path                # 出力ファイル
+            ]
+            
+            # 変換処理を実行（完了するまで待機）
+            result = subprocess.run(ffmpeg_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            if result.returncode != 0:
+                return f"FFmpeg Error: {result.stderr}", 500
+
+            # 3. 変換後のH.264動画をクライアントに返却
+            # Flaskのsend_fileは標準でRangeリクエスト（シーク）に対応しています
+            return send_file(
+                h264_path,
+                mimetype='video/mp4',
+                as_attachment=False,
+                conditional=True # これにより動画のシーク（部分読み込み）が有効になります
+            )
+
+        except Exception as e:
+            return f"Video Processing Error: {str(e)}", 502
+
+
+
+
+@app.route('/yt-dlps-watchsss', methods=['GET'])
+def relay_videos_stream():
     task_id = request.args.get('id')
     if not task_id:
         return "Task ID is required", 400
