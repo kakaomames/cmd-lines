@@ -181,6 +181,7 @@ import requests
 from flask import Flask, request, jsonify, render_template, Response
 
 
+
 # スマホ基地の最新URLが保管されている神のRawリンク
 RAW_URL_CONFIG = "https://raw.githubusercontent.com/kakaomames/yt-dlp-Xiaomi/refs/heads/main/url.json"
 
@@ -260,7 +261,7 @@ def relay_task_status():
         return jsonify({"error": "Internal server error in relay", "details": str(e), "status": "error"}), 200
 
 # ========================================================
-# 💥 🌟 新設: 爆破命令中継ルート: /yt-dlps-remove
+# 💥 爆破命令中継ルート: /yt-dlps-remove
 # ========================================================
 @app.route('/yt-dlps-remove', methods=['GET'])
 def relay_remove_command():
@@ -269,7 +270,6 @@ def relay_remove_command():
         base_proxy_url = get_base_proxy_url()
         target_remove_url = f"{base_proxy_url}/remove"
         
-        # Pythonが身代わりにスマホの /remove を叩きに行く！
         proxy_response = requests.get(target_remove_url, params={"t": os.urandom(4).hex()}, timeout=5)
         print(f"[LOG] SUCCESS [/yt-dlps-remove]: スマホ基地の焦土化に成功しました。ステータス: {proxy_response.status_code}")
         
@@ -279,7 +279,7 @@ def relay_remove_command():
         return jsonify({"success": False, "error": str(e)}), 502
 
 # ========================================================
-# 🎬 🌟 新設: 動画ストリーミング中継ルート: /yt-dlps-watch
+# 🎬 🌟 【バグ完全撃破】 動画ストリーミング透過中継ルート: /yt-dlps-watch
 # ========================================================
 @app.route('/yt-dlps-watch', methods=['GET'])
 def relay_video_stream():
@@ -287,23 +287,39 @@ def relay_video_stream():
     if not task_id:
         return "Task ID is required", 400
 
-    print(f"[LOG] ACTION [/yt-dlps-watch]: 動画ストリーム要求を受信。対象タスクID: {task_id}")
+    # ブラウザが要求してきたヘッダー（Rangeなど）をそのまま流用する
+    headers = {key: value for key, value in request.headers if key.lower() in ['range', 'user-agent', 'accept']}
+    print(f"[LOG] ACTION [/yt-dlps-watch]: 動画ストリーム中継要求。タスクID: {task_id} | Headers: {headers}")
+
     try:
         base_proxy_url = get_base_proxy_url()
         target_watch_url = f"{base_proxy_url}/watch"
         
-        # スマホ基地の /watch?id=xxx から動画データをストリーミング形式で引っ張ってくる
-        req = requests.get(target_watch_url, params={"id": task_id}, stream=True)
+        # 🌟 ブラウザの要求ヘッダー（Range）を乗せてスマホ基地へリクエスト！
+        req = requests.get(target_watch_url, params={"id": task_id}, headers=headers, stream=True)
         
-        # FlaskのResponseオブジェクトを使って、スマホから流れてくるバイナリデータをそのままブラウザにリアルタイム中継！
+        # スマホ基地から返ってきたヘッダーをブラウザ用にフィルタリングして完全コピー
+        excluded_headers = ['content-encoding', 'image/webp', 'name', 'transfer-encoding', 'connection']
+        response_headers = [
+            (name, value) for name, value in req.raw.headers.items()
+            if name.lower() not in excluded_headers
+        ]
+
+        # 🌟 スマホが「206 Partial Content (部分データ)」を返してきたら、そのまま206でブラウザに返す！
+        status_code = req.status_code
+        print(f"[LOG] INFO [/yt-dlps-watch]: スマホ基地からのデータ受信開始。ステータス: {status_code}")
+
         return Response(
-            req.iter_content(chunk_size=1024*1024), # 1MBずつ中継
+            req.iter_content(chunk_size=64*1024), # 64KBずつのバッファでスムーズに流す
+            status=status_code,
             content_type=req.headers.get('Content-Type', 'video/mp4'),
-            headers={"Accept-Ranges": "bytes"}
+            headers=response_headers
         )
     except Exception as e:
-        print(f"[LOG] ERROR [/yt-dlps-watch]: 動画ストリーム中継中にエラー。詳細: {str(e)}")
-        return "Video Streaming Error", 502
+        print(f"[LOG] ERROR [/yt-dlps-watch]: 動画ストリーム透過中継中に致命的エラー。詳細: {str(e)}")
+        return f"Video Streaming Proxy Error: {str(e)}", 502
+
+
 
 
 
