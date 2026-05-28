@@ -52,7 +52,13 @@ print("[LOG] SYSTEM: 🗺️  /yt-dlps?url=... -> GitHubからURLを自動解決
 print("[LOG] SYSTEM: ========================================================")
 
 class DummyRepo:
-    def __init__(self):
+
+
+
+
+
+
+def __init__(self):
         self.path = "pending.json"
         self.sha = "dummy_sha_12345"
     def get_contents(self, filename):
@@ -195,7 +201,7 @@ from flask import Flask, request, jsonify, render_template, Response
 
 
 # スマホ基地の最新URLが保管されている神のRawリンク
-RAW_URL_CONFIG = "https://raw.githubusercontent.com/kakaomames/yt-dlp-yt-dlp-s25/refs/heads/main/urls.json"
+RAW_URL_CONFIG = "https://raw.githubusercontent.com/kakaomames/yt-dlp-s25/refs/heads/main/urls.json"
 
 # Vercel環境で ffmpeg を動かすためのバイナリ調達関数
 def ensure_ffmpeg():
