@@ -12,5 +12,4 @@ def convert_av1_to_h264(input_file, output_file):
     except ffmpeg.Error as e:
         print(f"エラー発生: {e.stderr.decode()}")
 
-# 使用例
-convert_av1_to_h264('input_av1.mp4', 'output_h264.mp4')
+# 使用
