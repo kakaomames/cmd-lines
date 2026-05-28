@@ -3,36 +3,71 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="description" content="Gemini programming隊特製 - H.264直結再生システム">
+    <meta name="author" content="カカオマメ & Gemini programming隊">
+    <meta name="theme-color" content="#1a1a1a">
+    <meta property="og:title" content="Xiaomi yt-dlps 統合コントロールパネル">
+    <meta property="og:image" content="https://kakaomames.github.io/rei/logo.png">
+    
     <title>Gemini programming隊 - yt-dlps動画解決要塞</title>
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.compiled.js"></script>
+
     <style>
-        /* ...（既存のデザイン設定はそのまま維持！）... */
-        body { background-color: #121212; color: #e0e0e0; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
-        .container { background-color: #1e1e1e; border: 2px solid #333; border-radius: 12px; padding: 30px; width: 100%; max-width: 650px; text-align: center; }
-        .logo { width: 100px; margin-bottom: 15px; }
-        .log-box { width: 100%; height: 150px; background: #000; color: #00ff66; font-family: monospace; padding: 10px; overflow-y: auto; text-align: left; }
-        video { width: 100%; background: #000; border: 2px solid #ff3344; }
-        button { width: 100%; padding: 15px; background-color: #ff3344; color: #fff; border: none; border-radius: 8px; cursor: pointer; }
+        body {
+            background-color: #121212;
+            color: #e0e0e0;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            background-color: #1e1e1e;
+            border: 2px solid #333;
+            border-radius: 12px;
+            padding: 30px;
+            width: 100%;
+            max-width: 650px;
+            text-align: center;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+        }
+        .logo { width: 100px; height: auto; margin-bottom: 15px; }
+        h1 { font-size: 24px; color: #ffffff; margin-bottom: 5px; }
+        .subtitle { font-size: 13px; color: #ff3344; font-weight: bold; margin-bottom: 25px; }
+        .section { margin-top: 20px; padding: 20px; border-radius: 8px; background-color: #252525; border: 1px solid #444; }
+        .hidden { display: none !important; }
+        input[type="text"] { width: 100%; padding: 15px; border: 2px solid #444; border-radius: 8px; background-color: #2a2a2a; color: #fff; font-size: 16px; box-sizing: border-box; }
+        button { width: 100%; padding: 15px; border: none; border-radius: 8px; background-color: #ff3344; color: #fff; font-size: 16px; font-weight: bold; cursor: pointer; }
+        .log-box { width: 100%; height: 200px; background-color: #000; color: #00ff66; font-family: monospace; padding: 15px; border-radius: 6px; border: 1px solid #333; overflow-y: auto; white-space: pre-wrap; text-align: left; box-sizing: border-box; font-size: 12px; }
+        video { width: 100%; background-color: #000; border: 2px solid #ff3344; border-radius: 8px; }
+        .btn-danger { background-color: #333; border: 1px solid #ff3344; color: #ff3344; margin-top: 15px; }
     </style>
 </head>
 <body>
+
     <div class="container">
-        <img src="https://kakaomames.github.io/rei/logo.png" alt="logo" class="logo">
+        <img src="https://kakaomames.github.io/rei/logo.png" alt="Gemini programming隊" class="logo">
         <h1>Gemini programming隊</h1>
         <div class="subtitle">🎯 H.264 直結ストリーミングモード 🎯</div>
         
         <div id="inputSection" class="section">
-            <input type="text" id="videoUrl" placeholder="URLを貼り付け...">
-            <button id="btnStart">ミッション開始 🚀</button>
+            <input type="text" id="videoUrl" placeholder="https://www.youtube.com/shorts/..." autocomplete="off">
+            <button id="btnStart">ダウンロードミッション開始 🚀</button>
         </div>
-
+        
         <div id="progressSection" class="section hidden">
-            <div class="log-box" id="logBox">基地と通信中...</div>
+            <div class="log-box" id="logBox">基地からのログを待機中...</div>
         </div>
-
+        
         <div id="playerSection" class="section hidden">
             <video id="videoPlayer" controls autoplay playsinline></video>
-            <button id="btnRemove" style="margin-top:20px;">動画削除 ＆ 基地クリーンアップ 💥</button>
+            <button id="btnRemove" class="btn-danger">全削除 ＆ 基地クリーンアップ 💥</button>
         </div>
     </div>
 
@@ -40,28 +75,24 @@
         let currentTaskId = "";
         let shakaPlayer = null;
 
-        // 🌟 改造ポイント: 変換済みH.264なので、まずはブラウザネイティブ再生を優先！
-        async function loadVideo(url) {
+        // 🌟 ブラウザネイティブ再生を優先し、失敗時にShakaで補完
+        async function playVideo(url) {
             const video = document.getElementById('videoPlayer');
-            
-            // 変換済みmp4ならsrcを直接渡すのがスマホでは一番バッテリーに優しい！
             video.src = url;
-            video.load();
-            video.play().catch(() => {
-                // もしネイティブ再生でコケたらShaka PlayerのWASMにバトンタッチ！
-                console.log("ネイティブ再生失敗、Shaka Playerへ移行...");
-                initShaka(url);
-            });
-        }
-
-        async function initShaka(url) {
-            const video = document.getElementById('videoPlayer');
-            shakaPlayer = new shaka.Player(video);
-            await shakaPlayer.load(url);
+            try {
+                await video.play();
+                console.log("[LOG] SUCCESS: ブラウザネイティブデコードで再生開始！");
+            } catch (e) {
+                console.warn("[LOG] WARNING: ネイティブ再生失敗、Shaka Playerで強制展開します...");
+                if (!shakaPlayer) shakaPlayer = new shaka.Player(video);
+                await shakaPlayer.load(url);
+            }
         }
 
         document.getElementById('btnStart').addEventListener('click', async () => {
-            const url = document.getElementById('videoUrl').value;
+            const url = document.getElementById('videoUrl').value.trim();
+            if(!url) return;
+
             const res = await fetch(`/yt-dlps?url=${encodeURIComponent(url)}`);
             const data = await res.json();
             if(data.task_id) {
@@ -74,7 +105,7 @@
 
         function poll() {
             const interval = setInterval(async () => {
-                const res = await fetch(`/yt-dlps-status?id=${currentTaskId}`);
+                const res = await fetch(`/yt-dlps-status?id=${currentTaskId}&t=${Date.now()}`);
                 const data = await res.json();
                 document.getElementById('logBox').innerText = data.log;
                 
@@ -82,12 +113,15 @@
                     clearInterval(interval);
                     document.getElementById('progressSection').classList.add('hidden');
                     document.getElementById('playerSection').classList.remove('hidden');
-                    loadVideo(`/yt-dlps-watch?id=${currentTaskId}`);
+                    playVideo(`/yt-dlps-watch?id=${currentTaskId}`);
                 }
             }, 2000);
         }
-        
-        // 爆破ボタンは既存コードと同様でOK！
+
+        document.getElementById('btnRemove').addEventListener('click', async () => {
+            await fetch(`/yt-dlps-remove?t=${Date.now()}`);
+            location.reload(); // リセット
+        });
     </script>
 </body>
 </html>
