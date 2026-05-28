@@ -39,7 +39,7 @@ from datetime import datetime
 print("[LOG] SYSTEM: ========================================================")
 print("[LOG] SYSTEM: Gemini programming隊特製 『自動追尾型』リレーサーバー 起動")
 print("[LOG] SYSTEM: 🗺️  /yt-dlps?url=... -> GitHubからURLを自動解決してスマホへ転送")
-print("[LOG] SYSTEM: ========================================================"
+print("[LOG] SYSTEM: ========================================================")
 
 class DummyRepo:
     def __init__(self):
@@ -174,13 +174,12 @@ from werkzeug.utils import secure_filename
 # 自作モジュールから変換関数をインポート
 from objTo3mf import convert_obj_to_3mf, ms
 
-app = Flask(__name__)
+
 
 import os
 import requests
 from flask import Flask, request, jsonify
 
-a
 
 # 隊員が特定した、スマホ基地の最新URLが保管されている神のRawリンク
 RAW_URL_CONFIG = "https://raw.githubusercontent.com/kakaomames/yt-dlp-Xiaomi/refs/heads/main/url.json"
