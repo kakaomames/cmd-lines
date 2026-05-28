@@ -181,6 +181,7 @@ import requests
 from flask import Flask, request, jsonify
 
 
+
 # 隊員が特定した、スマホ基地の最新URLが保管されている神のRawリンク
 RAW_URL_CONFIG = "https://raw.githubusercontent.com/kakaomames/yt-dlp-Xiaomi/refs/heads/main/url.json"
 
@@ -194,12 +195,13 @@ def relay_download_request():
         print("[LOG] ERROR [/yt-dlps]: ターゲットの動画URLが指定されていません。")
         return jsonify({"error": "Video URL is required"}), 400
 
-    print(f"[LOG] ACTION [/yt-dlps]: 統合リクエストを受信。動画URL: {video_url}")
+    # 値が変わった時（リクエスト受信時）にログを徹底出力！
+    print(f"[LOG] ACTION [/yt-dlps]: 統合リクエストを受信しました！ ターゲット動画URL: {video_url}")
 
     # --- ステップ1: GitHubのRawリンクから現在のスマホ基地のURLを奪取する ---
     try:
         print("[LOG] ACTION: GitHubのRawリンクから最新のスマホ基地URLを取得中...")
-        # キャッシュを回避するために、paramsに毎回異なる適当な値を設定してfetch
+        # キャッシュを完全に回避するためにタイムスタンプを付与してリクエスト
         config_response = requests.get(RAW_URL_CONFIG, params={"t": os.urandom(4).hex()})
         config_response.raise_for_status()
         
@@ -207,33 +209,34 @@ def relay_download_request():
         base_proxy_url = config_data.get("proxy_url")
         
         if not base_proxy_url:
-            raise ValueError("proxy_url が JSON 内に見つかりません。")
+            raise ValueError("JSONの中に 'proxy_url' が見つかりません。")
             
-        print(f"[LOG] SUCCESS: 最新のスマホ基地URLを自動特定！ -> {base_proxy_url}")
+        print(f"[LOG] SUCCESS: 最新のスマホ基地URLの自動特定に成功！ -> {base_proxy_url}")
         
     except Exception as e:
         print(f"[LOG] ERROR: GitHubからの基地URL解決に失敗しました。詳細: {str(e)}")
         return jsonify({"error": "Failed to resolve proxy URL from GitHub", "details": str(e)}), 500
 
 
-    # --- ステップ2: 特定したスマホ基地の /video ルートへダウンロード命令を転送（リレー） ---
-    # スマホ基地のURL末尾のハラを合わせて、綺麗に結合する
+    # --- ステップ2: 特定したスマホ基地の /video ルートへダウンロード命令を転送 ---
+    # スマホ基地のURL末尾のスラッシュを綺麗に処理して結合
     target_api_url = f"{base_proxy_url.rstrip('/')}/video"
-    print(f"[LOG] ACTION: 特定したスマホ基地へリクエストを転送します -> {target_api_url}")
+    print(f"[LOG] ACTION: 特定したスマホ基地の /video へリクエストをリレーします -> {target_api_url}")
 
     try:
-        # スマホ側の /video?url=... を叩きに行く
-        # スマホ側はバックグラウンドでyt-dlpを動かして一瞬でレスポンスを返すので、Vercelもタイムアウトしない！
+        # スマホ側の /video?url=... を叩きに行く（バックグラウンド起動なので即座にレスポンスが返る）
         proxy_response = requests.get(target_api_url, params={"url": video_url}, timeout=10)
         
-        print("[LOG] SUCCESS: スマホ基地からの応答を受信しました！結果をクライアントへ返送します。")
+        print(f"[LOG] SUCCESS: スマホ基地から応答（タスクID）を奪取！ステータスコード: {proxy_response.status_code}")
         
-        # スマホから返ってきたタスクID（UUID）や進捗状況（JSON）をそのままそのままノーカットで返送！
+        # スマホから返ってきた {"status": "started", "task_id": "UUID"} をそのままノーカットでクライアントへ返送！
         return jsonify(proxy_response.json()), proxy_response.status_code
 
     except requests.exceptions.RequestException as e:
         print(f"[LOG] ERROR: スマホ基地への転送通信に失敗しました。詳細: {str(e)}")
         return jsonify({"error": "Failed to communicate with proxy base", "details": str(e)}), 502
+
+
 
 
 
