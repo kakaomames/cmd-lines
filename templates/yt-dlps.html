@@ -121,7 +121,7 @@
 
     try {
         // 3. GitHubから最新のURLデータをfetch
-        const response = await fetch("https://raw.githubusercontent.com/kakaomames/yt-dlp-yt-dlp-s25/refs/heads/main/urls.json");
+        const response = await fetch("https://raw.githubusercontent.com/kakaomames/yt-dlp-s25/refs/heads/main/urls.json");
         
         // 【修正ポイント①】json() でパースしてオブジェクトに変換する
         const url2s = await response.json();
