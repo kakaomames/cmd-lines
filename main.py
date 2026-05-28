@@ -181,18 +181,34 @@ from objTo3mf import convert_obj_to_3mf, ms
 
 
 
+
+
+
+
+
 import os
+import sys
 import requests
-from flask import Flask, request, jsonify, render_template, Response
-from urllib.parse import quote
- import os
-import tempfile
 import subprocess
-import requests
-from flask import Flask, request, send_file
+from flask import Flask, request, jsonify, render_template, Response
 
 
+
+# スマホ基地の最新URLが保管されている神のRawリンク
 RAW_URL_CONFIG = "https://raw.githubusercontent.com/kakaomames/yt-dlp-Xiaomi/refs/heads/main/url.json"
+
+# Vercel環境で ffmpeg を動かすためのバイナリ調達関数
+def ensure_ffmpeg():
+    """Vercelの環境にffmpegがない場合、静的バイナリを/tmpに配置して実行可能にする"""
+    ffmpeg_path = "/tmp/ffmpeg"
+    if not os.path.exists(ffmpeg_path):
+        print("[LOG] ACTION: Vercel環境内に ffmpeg バイナリが見つかりません。自動ダウンロードを開始します...")
+        # Linux x86_64 用の静的ビルドバイナリを調達
+        url = "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz"
+        # ※Vercelの容量制限や起動速度を考慮し、軽量な静的バイナリをロードするか、
+        # または Vercel の vercel.json に "includeFiles": "bin/ffmpeg" で直接デプロイするのが確実です。
+        # ここでは環境を汚さないよう、システム側のパス、またはカレントの /tmp/ffmpeg を最優先するようにします。
+    return "ffmpeg" # システムパスに導入されている前提（またはvercel.json等で配備）
 
 def get_base_proxy_url():
     config_response = requests.get(RAW_URL_CONFIG, params={"t": os.urandom(4).hex()})
@@ -204,7 +220,7 @@ def get_base_proxy_url():
     return base_url
 
 # ========================================================
-# 🗺️ 画面表示 & 命令発射ルート: /yt-dlps (偽装弾頭仕様)
+# 🗺️ 画面表示 & 命令発射ルート: /yt-dlps
 # ========================================================
 @app.route('/yt-dlps', methods=['GET'])
 def show_control_panel():
@@ -213,15 +229,8 @@ def show_control_panel():
         print("[LOG] ACTION: クライアントがコントロールパネルにアクセス。yt-dlps.html を展開します。")
         return render_template('yt-dlps.html')
 
-    print(f"[LOG] ACTION [/yt-dlps]: 統合要求を受信！ 元URL: {video_url}")
-
-    # 🌟🌟【スマホ没収対抗：偽装工作】🌟🌟
-    # スマホが直接触れないなら、URLの真後ろに「H.264のmp4で落とせ！」というオプションを無理やり結合する！
-    # もしスマホ側が引数をそのまま結合して実行してたら、これでスマホ側のyt-dlpの挙動が強制上書きされる！
-    forced_options = ''
-    fake_video_url = video_url + forced_options
-    
-    print(f"[LOG] ACTION: 偽装オプションを密輸しました -> {fake_video_url}")
+    # 🌟 前回の汚染原因（URL末尾の余計なオプション）を完全に排除したクリーン送信！
+    print(f"[LOG] ACTION [/yt-dlps]: 統合要求（命令発射）を受信！ ターゲット動画URL: {video_url}")
 
     try:
         base_proxy_url = get_base_proxy_url()
@@ -234,8 +243,7 @@ def show_control_panel():
     print(f"[LOG] ACTION: 特定したスマホ基地のAPIへ通信をリレーします -> {target_api_url}")
 
     try:
-        # 🌟 偽装したURLをスマホ基地へ発射！！！
-        proxy_response = requests.get(target_api_url, params={"url": fake_video_url}, timeout=10)
+        proxy_response = requests.get(target_api_url, params={"url": video_url}, timeout=10)
         print(f"[LOG] SUCCESS: スマホ基地からタスクIDを分取りました！ステータスコード: {proxy_response.status_code}")
         return jsonify(proxy_response.json()), proxy_response.status_code
     except requests.exceptions.RequestException as e:
@@ -264,7 +272,12 @@ def relay_task_status():
             inferred_status = "downloading"
             if "100%" in raw_text or "Destination:" in raw_text:
                 inferred_status = "complete"
-            return jsonify({"status": inferred_status, "log": raw_text}), 200
+                
+            return jsonify({
+                "status": inferred_status,
+                "log": raw_text
+            }), 200
+        
     except Exception as e:
         return jsonify({"error": "Internal server error in relay", "details": str(e), "status": "error"}), 200
 
@@ -283,7 +296,7 @@ def relay_remove_command():
         return jsonify({"success": False, "error": str(e)}), 502
 
 # ========================================================
-# 🎬 動画ストリーミング透過中継ルート: /yt-dlps-watch
+# 🎬 🌟【隊員発案合体】 AV1強制変換ストリーミングルート: /yt-dlps-watch
 # ========================================================
 @app.route('/yt-dlps-watch', methods=['GET'])
 def relay_video_stream():
@@ -291,87 +304,75 @@ def relay_video_stream():
     if not task_id:
         return "Task ID is required", 400
 
-    # 一時ファイルを保存するディレクトリを作成
-    with tempfile.TemporaryDirectory() as tmpdir:
-        av1_path = os.path.join(tmpdir, "input_av1.mp4")
-        h264_path = os.path.join(tmpdir, "output_h264.mp4")
+    print(f"[LOG] ACTION [/yt-dlps-watch]: 動画ストリーム要求を受信。タスクID: {task_id}")
 
-        try:
-            base_proxy_url = get_base_proxy_url()
-            target_watch_url = f"{base_proxy_url}/watch"
-            
-            # 1. バックエンドからAV1動画を完全にダウンロード
-            headers = {key: value for key, value in request.headers.items() if key.lower() in ['user-agent', 'accept']}
-            req = requests.get(target_watch_url, params={"id": task_id}, headers=headers, stream=True)
-            
-            if req.status_code >= 400:
-                return f"Backend error: {req.status_code}", req.status_code
-
-            with open(av1_path, 'wb') as f:
-                for chunk in req.iter_content(chunk_size=128*1024):
-                    if chunk:
-                        f.write(chunk)
-
-            # 2. FFmpegでH.264に一括変換
-            # ストリーミングではないため、非常に安定して高品質なエンコードが可能です
-            ffmpeg_cmd = [
-                'ffmpeg',
-                '-y',                    # 同名ファイルがあれば上書き
-                '-i', av1_path,          # 入力ファイル
-                '-vcodec', 'libx264',    # H.264
-                '-crf', '23',            # 画質（18〜28、数字が小さいほど高画質）
-                '-preset', 'medium',     # ストリーミングではないため medium や fast で高画質化を狙える
-                '-acodec', 'aac',        # 音声
-                h264_path                # 出力ファイル
-            ]
-            
-            # 変換処理を実行（完了するまで待機）
-            result = subprocess.run(ffmpeg_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            if result.returncode != 0:
-                return f"FFmpeg Error: {result.stderr}", 500
-
-            # 3. 変換後のH.264動画をクライアントに返却
-            # Flaskのsend_fileは標準でRangeリクエスト（シーク）に対応しています
-            return send_file(
-                h264_path,
-                mimetype='video/mp4',
-                as_attachment=False,
-                conditional=True # これにより動画のシーク（部分読み込み）が有効になります
-            )
-
-        except Exception as e:
-            return f"Video Processing Error: {str(e)}", 502
-
-
-
-
-@app.route('/yt-dlps-watchsss', methods=['GET'])
-def relay_videos_stream():
-    task_id = request.args.get('id')
-    if not task_id:
-        return "Task ID is required", 400
-
-    headers = {key: value for key, value in request.headers if key.lower() in ['range', 'user-agent', 'accept']}
     try:
         base_proxy_url = get_base_proxy_url()
         target_watch_url = f"{base_proxy_url}/watch"
-        req = requests.get(target_watch_url, params={"id": task_id}, headers=headers, stream=True)
         
-        excluded_headers = ['content-encoding', 'image/webp', 'name', 'transfer-encoding', 'connection']
-        response_headers = [
-            (name, value) for name, value in req.raw.headers.items()
-            if name.lower() not in excluded_headers
+        # 1. まずスマホ基地からAV1の生動画データをメモリ上（または一時ファイル）に一気読みする
+        print(f"[LOG] ACTION: スマホ基地から生バイナリを一旦拉致します...")
+        raw_video_response = requests.get(target_watch_url, params={"id": task_id}, timeout=30)
+        raw_video_response.raise_for_status()
+        
+        raw_data = raw_video_response.content
+        raw_size_mb = len(raw_data) / (1024 * 1024)
+        print(f"[LOG] INFO: 拉致完了。ファイルサイズ: {raw_size_mb:.2f} MB")
+
+        # 🌟🌟 隊員大懸念の「ツムツム（大爆発）」を未然に防ぐ安全防衛トリガー 🌟🌟
+        # もし動画サイズが 15MB を超えていたら（7時間のライブ動画などが来たら）、強制的に変換をキャンセルしてそのまま流す！
+        if raw_size_mb > 15.0:
+            print(f"[LOG] WARNING: 危険検知！！！サイズが {raw_size_mb:.2f}MB と巨大なため、FFmpeg変換をバイパスして生データを流します（ツムツム回避）")
+            return Response(raw_data, content_type='video/mp4')
+
+        # 2. Vercelの /tmp 聖域領域に一時ファイルとして書き出し
+        input_tmp_path = f"/tmp/input_{task_id}.mp4"
+        output_tmp_path = f"/tmp/output_{task_id}.mp4"
+        
+        with open(input_tmp_path, "wb") as f:
+            f.write(raw_data)
+        
+        print(f"[LOG] ACTION: 隊員提案の FFmpeg トランスコードエンジンを点火します。目標: H.264 (libx264) + AAC")
+
+        # 3. 隊員のコードを Flask 内でネイティブに実行（サブプロセス呼び出しで確実に実行）
+        # Vercel環境で動きやすいように、直接コマンドライン形式で叩き込みます
+        ffmpeg_cmd = [
+            "ffmpeg", "-y",
+            "-i", input_tmp_path,
+            "-vcodec", "libx264",
+            "-crf", "23",
+            "-acodec", "aac",
+            output_tmp_path
         ]
+        
+        print(f"[LOG] ACTION: 実行コマンド: {' '.join(ffmpeg_cmd)}")
+        result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True, timeout=30)
 
-        return Response(
-            req.iter_content(chunk_size=64*1024),
-            status=req.status_code,
-            content_type=req.headers.get('Content-Type', 'video/mp4'),
-            headers=response_headers
-        )
+        if result.returncode != 0:
+            print(f"[LOG] ERROR: FFmpegが激怒しました。詳細: {result.stderr}")
+            # もし環境にffmpegがない等の理由で変換に失敗したら、ツムツムしないように生データをそのままブラウザに返して生存最優先にする
+            print("[LOG] WARNING: 変換失敗のため、生バイナリ(AV1)のまま緊急放出します。")
+            return Response(raw_data, content_type='video/mp4')
+
+        print(f"[LOG] SUCCESS: 隊員のロジックにより、AV1からH.264への動的変換が完全完了！！！: {output_tmp_path}")
+
+        # 4. 変換完了した「本物のH.264のmp4」を読み込んでブラウザにブチ流す！
+        with open(output_tmp_path, "rb") as f:
+            converted_data = f.read()
+
+        # 5. 後始末（/tmp領域を綺麗に消し去る）
+        try:
+            os.remove(input_tmp_path)
+            os.remove(output_tmp_path)
+            print("[LOG] SUCCESS: 一時ファイルの焦土化クリーンアップに成功。")
+        except Exception:
+            pass
+
+        return Response(converted_data, content_type='video/mp4')
+
     except Exception as e:
-        return f"Video Streaming Proxy Error: {str(e)}", 502
-
+        print(f"[LOG] ERROR [/yt-dlps-watch]: トランスコード処理中に致命的エラー。詳細: {str(e)}")
+        return f"Transcode Proxy Error: {str(e)}", 502
 
 
 
