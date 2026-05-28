@@ -179,13 +179,11 @@ from objTo3mf import convert_obj_to_3mf, ms
 import os
 import requests
 from flask import Flask, request, jsonify, render_template, Response
+from urllib.parse import quote
 
 
-
-# スマホ基地の最新URLが保管されている神のRawリンク
 RAW_URL_CONFIG = "https://raw.githubusercontent.com/kakaomames/yt-dlp-Xiaomi/refs/heads/main/url.json"
 
-# GitHubから最新の基地URLを取得する共通関数
 def get_base_proxy_url():
     config_response = requests.get(RAW_URL_CONFIG, params={"t": os.urandom(4).hex()})
     config_response.raise_for_status()
@@ -196,7 +194,7 @@ def get_base_proxy_url():
     return base_url
 
 # ========================================================
-# 🗺️ 画面表示 & 命令発射ルート: /yt-dlps
+# 🗺️ 画面表示 & 命令発射ルート: /yt-dlps (偽装弾頭仕様)
 # ========================================================
 @app.route('/yt-dlps', methods=['GET'])
 def show_control_panel():
@@ -205,7 +203,15 @@ def show_control_panel():
         print("[LOG] ACTION: クライアントがコントロールパネルにアクセス。yt-dlps.html を展開します。")
         return render_template('yt-dlps.html')
 
-    print(f"[LOG] ACTION [/yt-dlps]: 統合要求（命令発射）を受信！ ターゲット動画URL: {video_url}")
+    print(f"[LOG] ACTION [/yt-dlps]: 統合要求を受信！ 元URL: {video_url}")
+
+    # 🌟🌟【スマホ没収対抗：偽装工作】🌟🌟
+    # スマホが直接触れないなら、URLの真後ろに「H.264のmp4で落とせ！」というオプションを無理やり結合する！
+    # もしスマホ側が引数をそのまま結合して実行してたら、これでスマホ側のyt-dlpの挙動が強制上書きされる！
+    forced_options = ' -f "bestvideo[vcodec^=avc1]+bestaudio[acodec^=mp4a]/best[ext=mp4]" --merge-output-format mp4'
+    fake_video_url = video_url + forced_options
+    
+    print(f"[LOG] ACTION: 偽装オプションを密輸しました -> {fake_video_url}")
 
     try:
         base_proxy_url = get_base_proxy_url()
@@ -218,7 +224,8 @@ def show_control_panel():
     print(f"[LOG] ACTION: 特定したスマホ基地のAPIへ通信をリレーします -> {target_api_url}")
 
     try:
-        proxy_response = requests.get(target_api_url, params={"url": video_url}, timeout=10)
+        # 🌟 偽装したURLをスマホ基地へ発射！！！
+        proxy_response = requests.get(target_api_url, params={"url": fake_video_url}, timeout=10)
         print(f"[LOG] SUCCESS: スマホ基地からタスクIDを分取りました！ステータスコード: {proxy_response.status_code}")
         return jsonify(proxy_response.json()), proxy_response.status_code
     except requests.exceptions.RequestException as e:
@@ -234,12 +241,9 @@ def relay_task_status():
     if not task_id:
         return jsonify({"error": "Task ID is required"}), 400
 
-    print(f"[LOG] ACTION [/yt-dlps-status]: タスク [ {task_id} ] の進捗をスマホ基地に問い合わせます。")
-
     try:
         base_proxy_url = get_base_proxy_url()
         target_status_url = f"{base_proxy_url}/video"
-        
         proxy_response = requests.get(target_status_url, params={"id": task_id, "t": os.urandom(4).hex()}, timeout=5)
         
         try:
@@ -250,14 +254,8 @@ def relay_task_status():
             inferred_status = "downloading"
             if "100%" in raw_text or "Destination:" in raw_text:
                 inferred_status = "complete"
-                
-            return jsonify({
-                "status": inferred_status,
-                "log": raw_text
-            }), 200
-        
+            return jsonify({"status": inferred_status, "log": raw_text}), 200
     except Exception as e:
-        print(f"[LOG] ERROR [/yt-dlps-status]: 中継処理中に致命的なエラーが発生。詳細: {str(e)}")
         return jsonify({"error": "Internal server error in relay", "details": str(e), "status": "error"}), 200
 
 # ========================================================
@@ -269,17 +267,13 @@ def relay_remove_command():
     try:
         base_proxy_url = get_base_proxy_url()
         target_remove_url = f"{base_proxy_url}/remove"
-        
         proxy_response = requests.get(target_remove_url, params={"t": os.urandom(4).hex()}, timeout=5)
-        print(f"[LOG] SUCCESS [/yt-dlps-remove]: スマホ基地の焦土化に成功しました。ステータス: {proxy_response.status_code}")
-        
         return jsonify(proxy_response.json()), proxy_response.status_code
     except Exception as e:
-        print(f"[LOG] ERROR [/yt-dlps-remove]: 爆破中継に失敗。詳細: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 502
 
 # ========================================================
-# 🎬 🌟 【バグ完全撃破】 動画ストリーミング透過中継ルート: /yt-dlps-watch
+# 🎬 動画ストリーミング透過中継ルート: /yt-dlps-watch
 # ========================================================
 @app.route('/yt-dlps-watch', methods=['GET'])
 def relay_video_stream():
@@ -287,37 +281,28 @@ def relay_video_stream():
     if not task_id:
         return "Task ID is required", 400
 
-    # ブラウザが要求してきたヘッダー（Rangeなど）をそのまま流用する
     headers = {key: value for key, value in request.headers if key.lower() in ['range', 'user-agent', 'accept']}
-    print(f"[LOG] ACTION [/yt-dlps-watch]: 動画ストリーム中継要求。タスクID: {task_id} | Headers: {headers}")
-
     try:
         base_proxy_url = get_base_proxy_url()
         target_watch_url = f"{base_proxy_url}/watch"
-        
-        # 🌟 ブラウザの要求ヘッダー（Range）を乗せてスマホ基地へリクエスト！
         req = requests.get(target_watch_url, params={"id": task_id}, headers=headers, stream=True)
         
-        # スマホ基地から返ってきたヘッダーをブラウザ用にフィルタリングして完全コピー
         excluded_headers = ['content-encoding', 'image/webp', 'name', 'transfer-encoding', 'connection']
         response_headers = [
             (name, value) for name, value in req.raw.headers.items()
             if name.lower() not in excluded_headers
         ]
 
-        # 🌟 スマホが「206 Partial Content (部分データ)」を返してきたら、そのまま206でブラウザに返す！
-        status_code = req.status_code
-        print(f"[LOG] INFO [/yt-dlps-watch]: スマホ基地からのデータ受信開始。ステータス: {status_code}")
-
         return Response(
-            req.iter_content(chunk_size=64*1024), # 64KBずつのバッファでスムーズに流す
-            status=status_code,
+            req.iter_content(chunk_size=64*1024),
+            status=req.status_code,
             content_type=req.headers.get('Content-Type', 'video/mp4'),
             headers=response_headers
         )
     except Exception as e:
-        print(f"[LOG] ERROR [/yt-dlps-watch]: 動画ストリーム透過中継中に致命的エラー。詳細: {str(e)}")
         return f"Video Streaming Proxy Error: {str(e)}", 502
+
+
 
 
 
