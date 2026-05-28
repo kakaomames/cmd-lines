@@ -137,7 +137,7 @@
 
         // 4. ビデオ再生関数を実行
         // 【修正ポイント②】2つ目のパラメータは「?」ではなく「&」で繋ぐ！
-        const videoProxyUrl = `/proxy?u=${encodeURIComponent(urlss)}&id=${currentTaskId}`;
+        const videoProxyUrl = `/proxy?u=${encodeURIComponent(urlss)}/watch?id=${currentTaskId}`;
         console.log("[LOG] ACTION: 動画再生を開始します。URL ->", videoProxyUrl);
         
         playVideo(videoProxyUrl);
