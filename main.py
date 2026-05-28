@@ -37,6 +37,13 @@ import urllib.request
 import subprocess
 from datetime import datetime
 
+app = Flask(__name__)
+app.config['SECRET_KEY'] = 'SECRET_KEY_TEST'
+socketio = SocketIO(app, cors_allowed_origins="*")
+
+# CORS許可
+CORS(app)
+
 print("[LOG] SYSTEM: ========================================================")
 print("[LOG] SYSTEM: Gemini programming隊特製 『自動追尾型』リレーサーバー 起動")
 print("[LOG] SYSTEM: 🗺️  /yt-dlps?url=... -> GitHubからURLを自動解決してスマホへ転送")
@@ -145,12 +152,7 @@ execute_tactical_setup()
 
 
 
-app = Flask(__name__)
-app.config['SECRET_KEY'] = 'SECRET_KEY_TEST'
-socketio = SocketIO(app, cors_allowed_origins="*")
 
-# CORS許可
-CORS(app)
 
 GITHUB_BASE_URL = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/"
 HEADERS = {
