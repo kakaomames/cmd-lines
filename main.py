@@ -1,8 +1,8 @@
 import flask
 from flask import Flask, request, render_template_string, render_template, send_file,redirect, url_for, jsonify, Response, send_from_directory # 正しい順序に並べ替えてもOK
 from flask_socketio import SocketIO, emit, join_room, leave_room
+app = Flask(__name__)
 from yt_dlp import yt_dlp_p
-from av01ToH254 import convert_av1_to_h264
 import subprocess
 import wasmtime
 import os
@@ -37,12 +37,14 @@ import urllib.request
 import subprocess
 from datetime import datetime
 
-app = Flask(__name__)
+
 app.config['SECRET_KEY'] = 'SECRET_KEY_TEST'
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # CORS許可
 CORS(app)
+
+from av01ToH254 import convert_av1_to_h264
 
 print("[LOG] SYSTEM: ========================================================")
 print("[LOG] SYSTEM: Gemini programming隊特製 『自動追尾型』リレーサーバー 起動")
