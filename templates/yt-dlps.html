@@ -2,19 +2,20 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
+    <!-- 隊員の教えを厳守：これでもかと大量に meta タグを配備！ -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="robots" content="noindex, nofollow">
-    <meta name="description" content="Gemini programming隊特製 - yt-dlp専用一画面解決システム">
+    <meta name="description" content="Gemini programming隊特製 - yt-dlps専用一画面解決システム">
     <meta name="author" content="カカオマメ & Gemini programming隊">
     <meta name="theme-color" content="#1a1a1a">
-    <meta property="og:title" content="Xiaomi yt-dlp 統合コントロールパネル">
+    <meta property="og:title" content="Xiaomi yt-dlps 統合コントロールパネル">
     <meta property="og:description" content="UUIDタスク管理・リアルタイムポーリング・ストリーミングプレイヤー内蔵">
     <meta property="og:image" content="https://kakaomames.github.io/rei/logo.png">
     <meta property="og:type" content="website">
     
-    <title>Gemini programming隊 - yt-dlp動画解決要塞</title>
+    <title>Gemini programming隊 - yt-dlps動画解決要塞</title>
     
     <style>
         /* 探検隊のワクワク感を刺激するサイバーダークデザイン */
@@ -52,7 +53,7 @@
         }
         .subtitle {
             font-size: 13px;
-            color: #ff3344; /* 探検隊の警告色：yt-dlp仕様 */
+            color: #ff3344;
             font-weight: bold;
             letter-spacing: 1px;
             margin-bottom: 25px;
@@ -95,7 +96,7 @@
             padding: 15px;
             border: none;
             border-radius: 8px;
-            background-color: #ff3344; /* ボタンも熱い赤に変更！ */
+            background-color: #ff3344;
             color: #fff;
             font-size: 16px;
             font-weight: bold;
@@ -159,11 +160,13 @@
 <body>
 
     <div class="container">
+        <!-- 隊員の公式ロゴマークをトップに配置 -->
         <img src="https://kakaomames.github.io/rei/logo.png" alt="カカオマメ隊員ロゴ" class="logo">
         
         <h1>Gemini programming隊</h1>
-        <div class="subtitle">🎯 YT-DLP CORE CONTROL PANEL 🎯</div>
+        <div class="subtitle">🎯 YT-DLPS CORE CONTROL PANEL 🎯</div>
         
+        <!-- 🛡️ ステップ①: URL入力セクション -->
         <div id="inputSection" class="section">
             <div class="input-group">
                 <input type="text" id="videoUrl" placeholder="https://www.youtube.com/watch?v=..." autocomplete="off">
@@ -171,24 +174,28 @@
             </div>
         </div>
         
+        <!-- 🛡️ ステップ②: ポーリング（進捗ログ監視）セクション -->
         <div id="progressSection" class="section hidden">
             <div class="task-info" id="taskIdDisplay">TASK ID: </div>
             <div class="task-info" id="taskStatusDisplay">STATUS: ダウンロード中... ⏳</div>
             <div class="log-box" id="logBox">スマホ基地からの生のログを待機中...</div>
         </div>
         
+        <!-- 🛡️ ステップ③: ビデオプレイヤーセクション -->
         <div id="playerSection" class="section hidden">
             <h3 style="margin-top:0; color:#fff;">🎬 完成動画プレイヤー</h3>
             <video id="videoPlayer" controls preload="auto"></video>
+            <!-- 視聴終了後の完全爆破義務化ボタン -->
             <button id="btnRemove" class="btn-danger">動画の全削除 ＆ 基地クリーンアップ（義務） 💥</button>
         </div>
         
+        <!-- 全体通知用メッセージ -->
         <div class="status-msg" id="globalStatus"></div>
     </div>
 
     <script>
         // 隊員ルール厳守：値やアクションの変化をログ徹底出力
-        console.log("[LOG] SYSTEM: yt-dlp.html 専用コントロールセンターが起動しました！");
+        console.log("[LOG] SYSTEM: yt-dlps.html 専用コントロールセンターが完全起動しました！");
 
         let currentTaskId = "";
         let pollingInterval = null;
@@ -223,7 +230,7 @@
             globalStatus.innerText = "📡 ネットワークを追尾中...";
 
             try {
-                // クラウド側の中継エンドポイントを叩く
+                // クラウド側の中継エンドポイント /yt-dlps を叩く！
                 const response = await fetch(`/yt-dlps?url=${encodeURIComponent(videoUrl)}`);
                 if (!response.ok) throw new Error(`サーバーエラー: ${response.status}`);
                 
