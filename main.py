@@ -178,20 +178,18 @@ from objTo3mf import convert_obj_to_3mf, ms
 
 import os
 import requests
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, Response
 
 
 # スマホ基地の最新URLが保管されている神のRawリンク
 RAW_URL_CONFIG = "https://raw.githubusercontent.com/kakaomames/yt-dlp-Xiaomi/refs/heads/main/url.json"
 
-# GitHubから最新の基地URLを取得する共通関数（エラーが起きないよう安全に処理）
+# GitHubから最新の基地URLを取得する共通関数
 def get_base_proxy_url():
     config_response = requests.get(RAW_URL_CONFIG, params={"t": os.urandom(4).hex()})
     config_response.raise_for_status()
     config_data = config_response.json()
     base_url = config_data.get("proxy_url", "")
-    
-    # Pythonの安全な文字列末尾スラッシュ削除
     if base_url.endswith('/'):
         base_url = base_url[:-1]
     return base_url
@@ -227,7 +225,7 @@ def show_control_panel():
         return jsonify({"error": "Failed to communicate with proxy base", "details": str(e)}), 502
 
 # ========================================================
-# 📡 🌟 修正パッチ: 進捗ログ中継ルート /yt-dlps-status (絶対死なない防御型)
+# 📡 進捗ログ中継ルート: /yt-dlps-status
 # ========================================================
 @app.route('/yt-dlps-status', methods=['GET'])
 def relay_task_status():
@@ -235,30 +233,19 @@ def relay_task_status():
     if not task_id:
         return jsonify({"error": "Task ID is required"}), 400
 
-    # 値が動くたびに中継ログを出力！
     print(f"[LOG] ACTION [/yt-dlps-status]: タスク [ {task_id} ] の進捗をスマホ基地に問い合わせます。")
 
     try:
         base_proxy_url = get_base_proxy_url()
         target_status_url = f"{base_proxy_url}/video"
         
-        # スマホ基地へログを回収しに行く
         proxy_response = requests.get(target_status_url, params={"id": task_id, "t": os.urandom(4).hex()}, timeout=5)
         
-        # 💡 【ここが超重要ガード！】
-        # スマホ基地がJSONではなく「生のテキストログ」を返してきた場合の爆発を回避！
         try:
-            # まずJSONとしてパースを試みる
             status_data = proxy_response.json()
-            print(f"[LOG] INFO: スマホ基地からJSON形式でログを回収しました。status: {status_data.get('status')}")
             return jsonify(status_data), proxy_response.status_code
         except Exception:
-            # JSONパースに失敗したら、それは生のテキストログ！
-            # フロントが困らないように、{"log": "スマホの生テキスト"} という綺麗なJSONに包んであげる！
             raw_text = proxy_response.text
-            print("[LOG] INFO: スマホ基地から生のテキストログを回収。JSONにラッピングしてフロントへ流します。")
-            
-            # もしテキストの中に「100%」とか「コンプリート」に相当する文字があればstatusをcompleteにする
             inferred_status = "downloading"
             if "100%" in raw_text or "Destination:" in raw_text:
                 inferred_status = "complete"
@@ -270,8 +257,54 @@ def relay_task_status():
         
     except Exception as e:
         print(f"[LOG] ERROR [/yt-dlps-status]: 中継処理中に致命的なエラーが発生。詳細: {str(e)}")
-        # 最悪エラーが起きても、500ではなく原因をJSONで優しく返すことでフロントのフリーズを防ぐ！
         return jsonify({"error": "Internal server error in relay", "details": str(e), "status": "error"}), 200
+
+# ========================================================
+# 💥 🌟 新設: 爆破命令中継ルート: /yt-dlps-remove
+# ========================================================
+@app.route('/yt-dlps-remove', methods=['GET'])
+def relay_remove_command():
+    print("[LOG] ACTION [/yt-dlps-remove]: フロントからの爆破要求を受信。スマホ基地へリレーします。")
+    try:
+        base_proxy_url = get_base_proxy_url()
+        target_remove_url = f"{base_proxy_url}/remove"
+        
+        # Pythonが身代わりにスマホの /remove を叩きに行く！
+        proxy_response = requests.get(target_remove_url, params={"t": os.urandom(4).hex()}, timeout=5)
+        print(f"[LOG] SUCCESS [/yt-dlps-remove]: スマホ基地の焦土化に成功しました。ステータス: {proxy_response.status_code}")
+        
+        return jsonify(proxy_response.json()), proxy_response.status_code
+    except Exception as e:
+        print(f"[LOG] ERROR [/yt-dlps-remove]: 爆破中継に失敗。詳細: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 502
+
+# ========================================================
+# 🎬 🌟 新設: 動画ストリーミング中継ルート: /yt-dlps-watch
+# ========================================================
+@app.route('/yt-dlps-watch', methods=['GET'])
+def relay_video_stream():
+    task_id = request.args.get('id')
+    if not task_id:
+        return "Task ID is required", 400
+
+    print(f"[LOG] ACTION [/yt-dlps-watch]: 動画ストリーム要求を受信。対象タスクID: {task_id}")
+    try:
+        base_proxy_url = get_base_proxy_url()
+        target_watch_url = f"{base_proxy_url}/watch"
+        
+        # スマホ基地の /watch?id=xxx から動画データをストリーミング形式で引っ張ってくる
+        req = requests.get(target_watch_url, params={"id": task_id}, stream=True)
+        
+        # FlaskのResponseオブジェクトを使って、スマホから流れてくるバイナリデータをそのままブラウザにリアルタイム中継！
+        return Response(
+            req.iter_content(chunk_size=1024*1024), # 1MBずつ中継
+            content_type=req.headers.get('Content-Type', 'video/mp4'),
+            headers={"Accept-Ranges": "bytes"}
+        )
+    except Exception as e:
+        print(f"[LOG] ERROR [/yt-dlps-watch]: 動画ストリーム中継中にエラー。詳細: {str(e)}")
+        return "Video Streaming Error", 502
+
 
 
 
