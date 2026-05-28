@@ -109,12 +109,43 @@
                 const data = await res.json();
                 document.getElementById('logBox').innerText = data.log;
                 
-                if(data.status === "complete") {
-                    clearInterval(interval);
-                    document.getElementById('progressSection').classList.add('hidden');
-                    document.getElementById('playerSection').classList.remove('hidden');
-                    playVideo(`/yt-dlps-watch?id=${currentTaskId}`);
-                }
+                if (data.status === "complete") {
+    // 1. 定期実行（ポーリング）を停止
+    clearInterval(interval);
+    console.log("[LOG] ACTION: ダウンロード完了を検知。ポーリングを停止しました。");
+
+    // 2. UIの切り替え（プログレス非表示 ➔ プレイヤー表示）
+    document.getElementById('progressSection').classList.add('hidden');
+    document.getElementById('playerSection').classList.remove('hidden');
+    console.log("[LOG] UI_CHANGED: プログレスバーを隠し、プレイヤーを表示しました。");
+
+    try {
+        // 3. GitHubから最新のURLデータをfetch
+        const response = await fetch("https://raw.githubusercontent.com/kakaomames/yt-dlp-Xiaomi/refs/heads/main/urls.json");
+        
+        // 【修正ポイント①】json() でパースしてオブジェクトに変換する
+        const url2s = await response.json();
+        console.log("[LOG] VALUE_CHANGED: GitHubから取得したJSONデータ ->", url2s);
+
+        // proxy_url をぶっこ抜く
+        const urlss = url2s.proxy_url;
+        console.log("[LOG] VALUE_CHANGED: 抽出した proxy_url ->", urlss);
+
+        if (!urlss) {
+            throw new Error("取得したJSON内に proxy_url が存在しません。");
+        }
+
+        // 4. ビデオ再生関数を実行
+        // 【修正ポイント②】2つ目のパラメータは「?」ではなく「&」で繋ぐ！
+        const videoProxyUrl = `/proxy?u=${encodeURIComponent(urlss)}&id=${currentTaskId}`;
+        console.log("[LOG] ACTION: 動画再生を開始します。URL ->", videoProxyUrl);
+        
+        playVideo(videoProxyUrl);
+
+    } catch (error) {
+        console.error("[LOG] ERROR: 完了後のURL取得または再生処理に失敗しました:", error);
+    }
+}
             }, 2000);
         }
 
