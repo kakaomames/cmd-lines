@@ -1,0 +1,328 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="description" content="Gemini programming隊特製 - yt-dlp専用一画面解決システム">
+    <meta name="author" content="カカオマメ & Gemini programming隊">
+    <meta name="theme-color" content="#1a1a1a">
+    <meta property="og:title" content="Xiaomi yt-dlp 統合コントロールパネル">
+    <meta property="og:description" content="UUIDタスク管理・リアルタイムポーリング・ストリーミングプレイヤー内蔵">
+    <meta property="og:image" content="https://kakaomames.github.io/rei/logo.png">
+    <meta property="og:type" content="website">
+    
+    <title>Gemini programming隊 - yt-dlp動画解決要塞</title>
+    
+    <style>
+        /* 探検隊のワクワク感を刺激するサイバーダークデザイン */
+        body {
+            background-color: #121212;
+            color: #e0e0e0;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            background-color: #1e1e1e;
+            border: 2px solid #333;
+            border-radius: 12px;
+            padding: 30px;
+            width: 100%;
+            max-width: 650px;
+            text-align: center;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+        }
+        .logo {
+            width: 100px;
+            height: auto;
+            margin-bottom: 15px;
+        }
+        h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+            color: #ffffff;
+        }
+        .subtitle {
+            font-size: 13px;
+            color: #ff3344; /* 探検隊の警告色：yt-dlp仕様 */
+            font-weight: bold;
+            letter-spacing: 1px;
+            margin-bottom: 25px;
+        }
+        
+        /* 各セクションの表示制御用 */
+        .section {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 8px;
+            background-color: #252525;
+            border: 1px solid #444;
+        }
+        .hidden {
+            display: none !important;
+        }
+        
+        /* 入力エリアのスタイル */
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #444;
+            border-radius: 8px;
+            background-color: #2a2a2a;
+            color: #fff;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        input[type="text"]:focus {
+            border-color: #ff3344;
+            outline: none;
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 8px;
+            background-color: #ff3344; /* ボタンも熱い赤に変更！ */
+            color: #fff;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #cc1122;
+        }
+        
+        /* ポーリング＆ログエリアのスタイル */
+        .task-info {
+            font-family: monospace;
+            color: #00ff66;
+            font-size: 14px;
+            margin-bottom: 10px;
+            text-align: left;
+        }
+        .log-box {
+            width: 100%;
+            height: 200px;
+            background-color: #000;
+            color: #00ff66;
+            font-family: monospace;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #333;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            text-align: left;
+            box-sizing: border-box;
+            font-size: 12px;
+        }
+        
+        /* ビデオプレイヤーエリアのスタイル */
+        video {
+            width: 100%;
+            border-radius: 8px;
+            border: 2px solid #ff3344;
+            background-color: #000;
+        }
+        .btn-danger {
+            background-color: #333;
+            border: 1px solid #ff3344;
+            color: #ff3344;
+            margin-top: 15px;
+        }
+        .btn-danger:hover {
+            background-color: #ff3344;
+            color: #fff;
+        }
+        
+        .status-msg {
+            margin-top: 15px;
+            font-size: 14px;
+            color: #00ff66;
+            min-height: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <img src="https://kakaomames.github.io/rei/logo.png" alt="カカオマメ隊員ロゴ" class="logo">
+        
+        <h1>Gemini programming隊</h1>
+        <div class="subtitle">🎯 YT-DLP CORE CONTROL PANEL 🎯</div>
+        
+        <div id="inputSection" class="section">
+            <div class="input-group">
+                <input type="text" id="videoUrl" placeholder="https://www.youtube.com/watch?v=..." autocomplete="off">
+                <button id="btnStart">ダウンロードミッション開始 🚀</button>
+            </div>
+        </div>
+        
+        <div id="progressSection" class="section hidden">
+            <div class="task-info" id="taskIdDisplay">TASK ID: </div>
+            <div class="task-info" id="taskStatusDisplay">STATUS: ダウンロード中... ⏳</div>
+            <div class="log-box" id="logBox">スマホ基地からの生のログを待機中...</div>
+        </div>
+        
+        <div id="playerSection" class="section hidden">
+            <h3 style="margin-top:0; color:#fff;">🎬 完成動画プレイヤー</h3>
+            <video id="videoPlayer" controls preload="auto"></video>
+            <button id="btnRemove" class="btn-danger">動画の全削除 ＆ 基地クリーンアップ（義務） 💥</button>
+        </div>
+        
+        <div class="status-msg" id="globalStatus"></div>
+    </div>
+
+    <script>
+        // 隊員ルール厳守：値やアクションの変化をログ徹底出力
+        console.log("[LOG] SYSTEM: yt-dlp.html 専用コントロールセンターが起動しました！");
+
+        let currentTaskId = "";
+        let pollingInterval = null;
+        let baseProxyUrl = ""; // GitHubのRawから取得する実際のスマホ基地URL
+
+        // GitHubのRawリンクから最新のスマホ基地のベースURLを特定する関数
+        async function resolveProxyUrl() {
+            const rawConfigUrl = "https://raw.githubusercontent.com/kakaomames/yt-dlp-Xiaomi/refs/heads/main/url.json";
+            console.log("[LOG] ACTION: GitHubから最新のスマホ基地URLを取得します...");
+            const res = await fetch(`${rawConfigUrl}?t=${Date.now()}`);
+            const data = await res.json();
+            baseProxyUrl = data.proxy_url;
+            if(baseProxyUrl.endsWith('/')) baseProxyUrl = baseProxyUrl.slice(0, -1);
+            console.log(`[LOG] SUCCESS: スマホ基地URLを特定しました -> ${baseProxyUrl}`);
+            return baseProxyUrl;
+        }
+
+        // 🌟 ボタンクリック：ダウンロード開始！
+        document.getElementById('btnStart').addEventListener('click', async function() {
+            const videoUrl = document.getElementById('videoUrl').value.trim();
+            const globalStatus = document.getElementById('globalStatus');
+            
+            if (!videoUrl) {
+                console.log("[LOG] WARNING: URLが空の状態で発射されました。");
+                globalStatus.style.color = "#ff3333";
+                globalStatus.innerText = "❌ URLを入力してください！";
+                return;
+            }
+
+            console.log(`[LOG] ACTION: 中継サーバーへ /yt-dlps リクエストを発射。ターゲット: ${videoUrl}`);
+            globalStatus.style.color = "#00ff66";
+            globalStatus.innerText = "📡 ネットワークを追尾中...";
+
+            try {
+                // クラウド側の中継エンドポイントを叩く
+                const response = await fetch(`/yt-dlps?url=${encodeURIComponent(videoUrl)}`);
+                if (!response.ok) throw new Error(`サーバーエラー: ${response.status}`);
+                
+                const data = await response.json();
+                console.log("[LOG] SUCCESS: 中継応答を受信しました。", data);
+
+                if (data.task_id) {
+                    currentTaskId = data.task_id;
+                    
+                    // 値が変わったので画面とログに出力！
+                    console.log(`[LOG] INFO: タスクID [ ${currentTaskId} ] をロックオンしました。`);
+                    document.getElementById('taskIdDisplay').innerText = `TASK ID: ${currentTaskId}`;
+                    
+                    // 画面表示をポーリングセクションへ切り替え！
+                    document.getElementById('inputSection').classList.add('hidden');
+                    document.getElementById('progressSection').classList.remove('hidden');
+                    globalStatus.innerText = "📥 スマホ基地側でyt-dlpが起動しました！進捗を監視します。";
+
+                    // 先にスマホ基地の直のURLをGitHubから解決しておく
+                    await resolveProxyUrl();
+
+                    // ポーリング（進捗ログの生中継）を開始！
+                    startPolling();
+                } else {
+                    globalStatus.style.color = "#ff3333";
+                    globalStatus.innerText = "❌ タスクIDが返ってきませんでした。";
+                }
+            } catch (error) {
+                console.error("[LOG] ERROR: リクエスト失敗。", error);
+                globalStatus.style.color = "#ff3333";
+                globalStatus.innerText = `❌ 通信失敗: ${error.message}`;
+            }
+        });
+
+        // 🌟 ポーリング処理：スマホ基地から生のログをぶんどって表示し続ける
+        function startPolling() {
+            console.log(`[LOG] ACTION: タスク [ ${currentTaskId} ] のポーリング（2秒間隔）を開始します。`);
+            const logBox = document.getElementById('logBox');
+            const taskStatusDisplay = document.getElementById('taskStatusDisplay');
+            const globalStatus = document.getElementById('globalStatus');
+
+            pollingInterval = setInterval(async () => {
+                try {
+                    const targetUrl = `${baseProxyUrl}/video?id=${currentTaskId}&t=${Date.now()}`;
+                    const res = await fetch(targetUrl);
+                    if (!res.ok) throw new Error(`ステータスコード: ${res.status}`);
+                    
+                    const data = await res.json();
+                    
+                    if (data.log) {
+                        logBox.innerText = data.log;
+                        logBox.scrollTop = logBox.scrollHeight;
+                    }
+
+                    // 🏁 「complete」になった瞬間を検知！！！
+                    if (data.status === "complete" || data.log.includes("100%")) {
+                        console.log(`[LOG] SUCCESS: タスク [ ${currentTaskId} ] のダウンロード＆結合が完了しました！`);
+                        clearInterval(pollingInterval);
+                        
+                        taskStatusDisplay.innerText = "STATUS: 結合完了！再生可能です！ 🎉";
+                        globalStatus.innerText = "🎬 動画プレイヤーを起動します！";
+
+                        const player = document.getElementById('videoPlayer');
+                        player.src = `${baseProxyUrl}/watch?id=${currentTaskId}`;
+                        
+                        document.getElementById('progressSection').classList.add('hidden');
+                        document.getElementById('playerSection').classList.remove('hidden');
+                    }
+                } catch (error) {
+                    console.error("[LOG] WARNING: ポーリング通信中にエラーが発生しました。", error);
+                }
+            }, 2000);
+        }
+
+        // 🌟 義務化：動画全削除 ＆ クリーンアップボタンの処理
+        document.getElementById('btnRemove').addEventListener('click', async function() {
+            const globalStatus = document.getElementById('globalStatus');
+            console.log("[LOG] ACTION: /remove 命令を発射します。基地を焦土と化します。");
+            
+            try {
+                const targetUrl = `${baseProxyUrl}/remove?t=${Date.now()}`;
+                const res = await fetch(targetUrl);
+                const data = await res.json();
+                
+                if (data.success) {
+                    console.log("[LOG] SUCCESS: スマホ基地の一時ファイル全爆破に成功しました！");
+                    alert("💥 爆破完了！すべての動画ファイルとログがスマホから完全消去されました。");
+                    
+                    document.getElementById('videoPlayer').src = "";
+                    document.getElementById('playerSection').classList.add('hidden');
+                    document.getElementById('inputSection').classList.remove('hidden');
+                    document.getElementById('videoUrl').value = "";
+                    globalStatus.innerText = "✨ 基地は完全にクリーンになりました。次のミッションを待機中。";
+                }
+            } catch (error) {
+                console.error("[LOG] ERROR: 爆破命令の送信に失敗しました。", error);
+                alert("❌ 爆破失敗。手動で確認してください。");
+            }
+        });
+    </script>
+</body>
+</html>
