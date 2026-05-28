@@ -20,6 +20,8 @@ import math
 from flask import Flask, request, Response, jsonify
 from datetime import datetime, timezone
 import base64
+# 既存の import datetime を、この形式に書き換えるか追加する！
+from datetime import datetime
  
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN") # Vercelの環境変数で設定
 GITHUB_OWNER = "kakaomames"        # あなたのGitHubユーザー名
