@@ -182,62 +182,59 @@ from flask import Flask, request, jsonify, render_template
 
 
 
-# 隊員が特定した、スマホ基地の最新URLが保管されている神のRawリンク
+# スマホ基地の最新URLが保管されている神のRawリンク
 RAW_URL_CONFIG = "https://raw.githubusercontent.com/kakaomames/yt-dlp-Xiaomi/refs/heads/main/url.json"
 
+# GitHubから最新の基地URLを取得する共通関数
+def get_base_proxy_url():
+    config_response = requests.get(RAW_URL_CONFIG, params={"t": os.urandom(4).hex()})
+    config_response.raise_for_status()
+    config_data = config_response.json()
+    base_url = config_data.get("proxy_url")
+    if not base_url:
+        raise ValueError("JSONデータ内に 'proxy_url' が見つかりません。")
+    return base_url.rstrip('/')
+
 # ========================================================
-# 🗺️ 画面表示ルート: /yt-dlps (要塞コントロールパネルを表示)
+# 🗺️ 画面表示 & 命令発射ルート: /yt-dlps
 # ========================================================
 @app.route('/yt-dlps', methods=['GET'])
 def show_control_panel():
-    # クエリパラメータに 'url' が無い場合は、統合UI画面（HTML）をレンダリングして返す！
     video_url = request.args.get('url')
     if not video_url:
         print("[LOG] ACTION: クライアントがコントロールパネルにアクセス。yt-dlps.html を展開します。")
-        # 隊員と約束した、s付きの完全一致テンプレート名！
         return render_template('yt-dlps.html')
 
-    # --- 💡 クエリパラメータ 'url' がある場合は、ダウンロード中継処理へ突入！ ---
     print(f"[LOG] ACTION [/yt-dlps]: 統合要求（命令発射）を受信！ ターゲット動画URL: {video_url}")
 
-    # --- ステップ1: GitHubのRawリンクから現在のスマホ基地のURLを奪取する ---
     try:
-        print("[LOG] ACTION: GitHubのRawリンクから最新のスマホ基地URLを取得中...")
-        # キャッシュを100%回避するために、ランダムな16進数をパラメータに付与してfetch
-        config_response = requests.get(RAW_URL_CONFIG, params={"t": os.urandom(4).hex()})
-        config_response.raise_for_status()
-        
-        config_data = config_response.json()
-        base_proxy_url = config_data.get("proxy_url")
-        
-        if not base_proxy_url:
-            raise ValueError("JSONデータ内に 'proxy_url' が見つかりません。")
-            
+        base_proxy_url = get_base_proxy_url()
         print(f"[LOG] SUCCESS: 最新のスマホ基地URLの自動特定に成功！ -> {base_proxy_url}")
-        
     except Exception as e:
         print(f"[LOG] ERROR: GitHubからの基地URL解決に失敗しました。詳細: {str(e)}")
         return jsonify({"error": "Failed to resolve proxy URL from GitHub", "details": str(e)}), 500
 
-
-    # --- ステップ2: 特定したスマホ基地の /video ルートへダウンロード命令を転送（リレー） ---
-    # スマホ基地のURL末尾のスラッシュを綺麗に削って /video と結合
-    target_api_url = f"{base_proxy_url.rstrip('/')}/video"
+    target_api_url = f"{base_proxy_url}/video"
     print(f"[LOG] ACTION: 特定したスマホ基地のAPIへ通信をリレーします -> {target_api_url}")
 
     try:
-        # スマホ側の /video?url=... を叩きに行く
-        # スマホ側は裏でyt-dlpを即座にバックグラウンド起動してレスポンスを返すため、タイムアウトを回避！
         proxy_response = requests.get(target_api_url, params={"url": video_url}, timeout=10)
-        
         print(f"[LOG] SUCCESS: スマホ基地からタスクIDを分取りました！ステータスコード: {proxy_response.status_code}")
-        
-        # スマホから返ってきた {"status": "started", "task_id": "UUID"} をノーカットでそのまま返送！
         return jsonify(proxy_response.json()), proxy_response.status_code
-
     except requests.exceptions.RequestException as e:
         print(f"[LOG] ERROR: スマホ基地への転送通信に失敗しました。詳細: {str(e)}")
         return jsonify({"error": "Failed to communicate with proxy base", "details": str(e)}), 502
+
+# ========================================================
+# 📡 🌟 新設パッチ: 進捗ログ中継ルート /yt-dlps-status
+# ========================================================
+@app.route('/yt-dlps-status', methods=['GET'])
+def relay_task_status():
+    task_id = request.args.get('id')
+    if not task_id:
+        return jsonify({"error": "Task ID is required"}), 400
+
+   
 
 
 
