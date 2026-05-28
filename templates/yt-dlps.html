@@ -10,12 +10,15 @@
     <meta name="author" content="カカオマメ & Gemini programming隊">
     <meta name="theme-color" content="#1a1a1a">
     <meta property="og:title" content="Xiaomi yt-dlps 統合コントロールパネル">
-    <meta property="og:description" content="UUIDタスク管理・リアルタイムポーリング・ストリーミングプレイヤー内蔵">
+    <meta property="og:description" content="WASMデコーダー内蔵・ストリーミングプレイヤー要塞">
     <meta property="og:image" content="https://kakaomames.github.io/rei/logo.png">
     <meta property="og:type" content="website">
     
     <title>Gemini programming隊 - yt-dlps動画解決要塞</title>
     
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.compiled.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/controls.css">
+
     <style>
         body {
             background-color: #121212;
@@ -122,10 +125,18 @@
             box-sizing: border-box;
             font-size: 12px;
         }
+        /* Shaka Player用のビデオコンテナ調整 */
+        .video-container {
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px solid #ff3344;
+        }
         video {
             width: 100%;
-            border-radius: 8px;
-            border: 2px solid #ff3344;
+            display: block;
             background-color: #000;
         }
         .btn-danger {
@@ -168,8 +179,10 @@
         </div>
         
         <div id="playerSection" class="section hidden">
-            <h3 style="margin-top:0; color:#fff;">🎬 完成動画プレイヤー (ブラウザ強制デコード仕様)</h3>
-            <video id="videoPlayer" controls preload="auto" playsinline></video>
+            <h3 style="margin-top:0; color:#fff;">🎬 完成動画プレイヤー (JS/WASMデコードエンジン駆動)</h3>
+            <div class="video-container" id="videoContainer">
+                <video id="videoPlayer" controls autoplay playsinline></video>
+            </div>
             <button id="btnRemove" class="btn-danger">動画の全削除 ＆ 基地クリーンアップ（義務） 💥</button>
         </div>
         
@@ -177,10 +190,42 @@
     </div>
 
     <script>
-        console.log("[LOG] SYSTEM: ブラウザ対応型コントロールセンター起動！");
+        console.log("[LOG] SYSTEM: WASMデコーダー内蔵コントロールセンター起動！");
 
         let currentTaskId = "";
         let pollingInterval = null;
+        let shakaPlayerInstance = null;
+
+        // Shaka Playerの初期化
+        async function initPlayer(videoSrc) {
+            const video = document.getElementById('videoPlayer');
+            const videoContainer = document.getElementById('videoContainer');
+            
+            // すでにインスタンスがあれば一旦破棄
+            if (shakaPlayerInstance) {
+                await shakaPlayerInstance.destroy();
+            }
+
+            // 新しいプレイヤーインスタンスを生成
+            shakaPlayerInstance = new shaka.Player(video);
+            
+            // UIコントロールを付与
+            const ui = new shaka.ui.Overlay(shakaPlayerInstance, videoContainer, video);
+
+            // エラーハンドリング
+            shakaPlayerInstance.addEventListener('error', (event) => {
+                console.error('[LOG] JS PLAYER ERROR:', event.detail);
+            });
+
+            try {
+                console.log(`[LOG] ACTION: JSデコーダー経由で生mp4(AV1)のロードを試みます: ${videoSrc}`);
+                // 生のMP4（プロキシ経由）をShaka Playerに直接食わせる（ポリフィルデコーダーの強制起動）
+                await shakaPlayerInstance.load(videoSrc, null, 'video/mp4');
+                console.log('[LOG] SUCCESS: JSデコーダーによる動画の強制展開に成功しました！');
+            } catch (e) {
+                console.error('[LOG] FATAL: JSデコーダーでも再生に失敗しました。詳細:', e);
+            }
+        }
 
         document.getElementById('btnStart').addEventListener('click', async function() {
             const videoUrl = document.getElementById('videoUrl').value.trim();
@@ -196,7 +241,6 @@
             globalStatus.innerText = "📡 ネットワークを追尾中...";
 
             try {
-                // 🌟 スマホを怒らせないよう、純粋なURLのまま中継へ発射！
                 const response = await fetch(`/yt-dlps?url=${encodeURIComponent(videoUrl)}`);
                 if (!response.ok) throw new Error(`サーバーエラー: ${response.status}`);
                 
@@ -241,22 +285,15 @@
                     if (data.status === "complete" || (data.log && data.log.includes("100%"))) {
                         clearInterval(pollingInterval);
                         
-                        taskStatusDisplay.innerText = "STATUS: 結合完了！ブラウザでの再生を強制します！ 🎉";
-                        globalStatus.innerText = "🎬 動画プレイヤーを起動します！";
+                        taskStatusDisplay.innerText = "STATUS: 結合完了！JSモジュールによる強制デコードを開始します！ 🎉";
+                        globalStatus.innerText = "🎬 外部デコードプレイヤー起動中...";
 
-                        const player = document.getElementById('videoPlayer');
-                        
-                        // 🌟🌟【ブラウザ強制覚醒】🌟🌟
-                        // 隊員がTXT引っこ抜きで突き止めた「av01 (AV1コーデック)」を
-                        // type属性のcodecsにガッツリ明示して、ブラウザの内蔵デコーダーを叩き起こす！
-                        const proxyStreamUrl = `/yt-dlps-watch?id=${currentTaskId}`;
-                        player.innerHTML = `<source src="${proxyStreamUrl}" type='video/mp4; codecs="av01.0.05M.08, mp4a.40.2"'>`;
-                        
-                        // プレイヤーのソース構造を再ロードさせて強制再生
-                        player.load();
-                        
                         document.getElementById('progressSection').classList.add('hidden');
                         document.getElementById('playerSection').classList.remove('hidden');
+
+                        // 🌟🌟【ここでGoogle Shaka Player起動！】🌟🌟
+                        const proxyStreamUrl = `/yt-dlps-watch?id=${currentTaskId}`;
+                        await initPlayer(proxyStreamUrl);
                     }
                 } catch (error) {
                     console.error("[LOG] WARNING: ポーリング中に一時的エラー", error);
@@ -272,7 +309,10 @@
                 
                 if (data.success) {
                     alert("💥 爆破完了！スマホ基地内の一時ファイルがクリーンアップされました。");
-                    document.getElementById('videoPlayer').innerHTML = "";
+                    if (shakaPlayerInstance) {
+                        await shakaPlayerInstance.destroy();
+                        shakaPlayerInstance = null;
+                    }
                     document.getElementById('playerSection').classList.add('hidden');
                     document.getElementById('inputSection').classList.remove('hidden');
                     document.getElementById('videoUrl').value = "";
@@ -282,6 +322,9 @@
                 alert("❌ 爆破中継に失敗しました。");
             }
         });
+
+        // Shaka Playerのポリフィル（ブラウザ互換性向上）を事前に適用
+        shaka.polyfill.installAll();
     </script>
 </body>
 </html>
