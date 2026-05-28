@@ -195,7 +195,7 @@ from flask import Flask, request, jsonify, render_template, Response
 
 
 # スマホ基地の最新URLが保管されている神のRawリンク
-RAW_URL_CONFIG = "https://raw.githubusercontent.com/kakaomames/yt-dlp-Xiaomi/refs/heads/main/url.json"
+RAW_URL_CONFIG = "https://raw.githubusercontent.com/kakaomames/yt-dlp-Xiaomi/refs/heads/main/urls.json"
 
 # Vercel環境で ffmpeg を動かすためのバイナリ調達関数
 def ensure_ffmpeg():
