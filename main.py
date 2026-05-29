@@ -23,7 +23,7 @@ from datetime import datetime, timezone
 import base64
 # 既存の import datetime を、この形式に書き換えるか追加する！
 from datetime import datetime
-import datetime
+# import datetime
 import sys
 import ctypes
 from werkzeug.utils import secure_filename
