@@ -175,12 +175,23 @@ print("aaaaaaa")
 
 
 
+from datetime import datetime, timezone, timedelta
 
+# 日本標準時（JST: UTC+9）を設定
+JST = timezone(timedelta(hours=9))
 
+# 現在時刻（JST）を取得
+now = datetime.now(JST)
 
+# 数字のみの文字列を作成（例: 20260529141025）
+timestamp = now.strftime('%Y%m%d%H%M%S')
+
+missionLog("INFO", f"現在時刻（JST）: {timestamp}")
+
+timess = "?time=" + timestamp
 # スマホ基地の最新URLが保管されている神のRawリンク
-RAW_URL_CONFIG = "https://raw.githubusercontent.com/kakaomames/yt-dlp-s25/refs/heads/main/urls.json"
-
+RAW_URL_CONFIGS = "https://raw.githubusercontent.com/kakaomames/yt-dlp-s25/refs/heads/main/urls.json"
+RAW_URL_CONFIG = RAW_URL_CONFIGS + timess
 # Vercel環境で ffmpeg を動かすためのバイナリ調達関数
 def ensure_ffmpeg():
     """Vercelの環境にffmpegがない場合、静的バイナリを/tmpに配置して実行可能にする"""
