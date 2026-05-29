@@ -213,7 +213,7 @@ def get_base_proxy_url():
     config_data = config_response.json()
     base_url = config_data.get("proxy_url", "").rstrip('/')
     
-    missionLog("INFO", f"URL取得成功: {base_url}")
+    mission_log("INFO", f"URL取得成功: {base_url}")
     return base_url
 
 def get_base_proxy_urlhhhh():
