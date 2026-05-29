@@ -149,9 +149,9 @@
                     if (window.shaka && shaka.Player.isBrowserSupported()) {
                         try {
                             console.log("[LOG] ACTION: Shaka Playerでのバックアップ展開を並行試行...");
-                            if (!shakaPlayer) shakaPlayer = new shaka.Player(video);
-                            await shakaPlayer.load(url);
-                            statusBox.classList.add('hidden'); // Shakaでいけたら消す
+                            // if (!shakaPlayer) shakaPlayer = new shaka.Player(video);
+                            // await shakaPlayer.load(url);
+                            // statusBox.classList.add('hidden'); // Shakaでいけたら消す
                         } catch (shakaError) {
                             console.error("[LOG] ERROR: Shaka Playerでも展開できませんでした。", shakaError);
                         }
