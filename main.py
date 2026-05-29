@@ -2,7 +2,7 @@ import flask
 from flask import Flask, request, render_template_string, render_template, send_file,redirect, url_for, jsonify, Response, send_from_directory # 正しい順序に並べ替えてもOK
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask import Flask, request, Response, jsonify
-app = Flask(__name__)
+
 # from yt_dlp import yt_dlp_p
 import subprocess
 import wasmtime
@@ -33,20 +33,9 @@ import subprocess
 import shutil
 import tarfile
 import urllib.request
- 
-GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN") # Vercelの環境変数で設定
-GITHUB_OWNER = "kakaomames"        # あなたのGitHubユーザー名
-GITHUB_REPO = "backup"            # データ保存用のリポジトリ名
-GAME_FOLDER = "pokeque"
 
 
 
-
-app.config['SECRET_KEY'] = 'SECRET_KEY_TEST'
-socketio = SocketIO(app, cors_allowed_origins="*")
-
-# CORS許可
-CORS(app)
 
 from av01ToH254 import convert_av1_to_h264
 
@@ -165,7 +154,15 @@ execute_tactical_setup()
 
 
 
-
+app = Flask(__name__)
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN") # Vercelの環境変数で設定
+GITHUB_OWNER = "kakaomames"        # あなたのGitHubユーザー名
+GITHUB_REPO = "backup"            # データ保存用のリポジトリ名
+GAME_FOLDER = "pokeque"
+app.config['SECRET_KEY'] = 'SECRET_KEY_TEST'
+socketio = SocketIO(app, cors_allowed_origins="*")
+# CORS許可
+CORS(app)
 GITHUB_BASE_URL = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/"
 HEADERS = {
     "Authorization": f"token {GITHUB_TOKEN}",
