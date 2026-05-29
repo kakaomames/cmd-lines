@@ -84,13 +84,14 @@
     </div>
 
     <script>
+        const timestamp = new Date().getTime();
         let currentTaskId = "";
 
         document.getElementById('btnStart').addEventListener('click', async () => {
             const url = document.getElementById('videoUrl').value.trim();
             if(!url) return;
 
-            const res = await fetch(`/yt-dlps?url=${encodeURIComponent(url)}`);
+            const res = await fetch(`/yt-dlps?url=${encodeURIComponent(url)}&time=${timestamp}`);
             const data = await res.json();
             if(data.task_id) {
                 currentTaskId = data.task_id;
@@ -102,7 +103,7 @@
 
         function poll() {
             const interval = setInterval(async () => {
-                const res = await fetch(`/yt-dlps-status?id=${currentTaskId}&t=${Date.now()}`);
+                const res = await fetch(`/yt-dlps-status?id=${currentTaskId}&t=${Date.now()}&time=${timestamp}`);
                 const data = await res.json();
                 document.getElementById('logBox').innerText = data.log;
                 
@@ -116,7 +117,7 @@
 
                     try {
                         // GitHubからURLを取得
-                        const response = await fetch("https://raw.githubusercontent.com/kakaomames/yt-dlp-s25/refs/heads/main/urls.json");
+                        const response = await fetch(`https://raw.githubusercontent.com/kakaomames/yt-dlp-s25/refs/heads/main/urls.json?time=${timestamp}`);
                         const url2s = await response.json();
                         const urlss = url2s.proxy_url;
 
@@ -148,7 +149,7 @@
         }
 
         document.getElementById('btnRemove').addEventListener('click', async () => {
-            await fetch(`/yt-dlps-remove?t=${Date.now()}`);
+            await fetch(`/yt-dlps-remove?t=${Date.now()}&time=${timestamp}`);
             location.reload();
         });
     </script>
