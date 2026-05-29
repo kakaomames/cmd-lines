@@ -51,7 +51,7 @@ class DummyRepo:
 
 
 
-def __init__(self):
+    def __init__(self):
         self.path = "pending.json"
         self.sha = "dummy_sha_12345"
     def get_contents(self, filename):
