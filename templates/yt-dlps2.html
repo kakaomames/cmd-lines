@@ -131,21 +131,20 @@
                 
                 console.log("[LOG] ACTION: 二次再生アタック（リトライ）を開始...");
                 try {
-                    // sourceタグ構造なので、video.load()を呼ぶことで安全に再読込されます！
-                    video.load();
                     await video.play();
                     console.log("[LOG] SUCCESS: リトライ成功！再生が開始されました。");
                     statusBox.classList.add('hidden'); // 成功したら消す
+                    // 📥 最終手段：Aタグのダウンロード属性＋新しいタブ（target="_blank"）で救済
+                    downloadLink.href = url;
+                    downloadLink.target = "_blank"; // 新しいタブで開く
+                    downloadLink.classList.remove('hidden');
                 } catch (retryError) {
                     console.error("[LOG] CRITICAL: リトライも失敗しました。再生不可フェーズへ移行します。", retryError);
                     
                     // ステータスを「再生不可」に更新
                     statusBox.innerText = "❌ ブラウザでのストリーミング再生が不可能です。";
                     
-                    // 📥 最終手段：Aタグのダウンロード属性＋新しいタブ（target="_blank"）で救済
-                    downloadLink.href = url;
-                    downloadLink.target = "_blank"; // 新しいタブで開く
-                    downloadLink.classList.remove('hidden');
+
                     
                     if (window.shaka && shaka.Player.isBrowserSupported()) {
                         try {
