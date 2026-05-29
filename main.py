@@ -175,24 +175,7 @@ print("aaaaaaa")
 
 
 
-from datetime import datetime, timezone, timedelta
 
-# 日本標準時（JST: UTC+9）を設定
-JST = timezone(timedelta(hours=9))
-
-# 現在時刻（JST）を取得
-now = datetime.now(JST)
-
-# 数字のみの文字列を作成（例: 20260529141025）
-timestamp = now.strftime('%Y%m%d%H%M%S')
-
-missionLog("INFO", f"現在時刻（JST）: {timestamp}")
-
-timess = "?time=" + timestamp
-# スマホ基地の最新URLが保管されている神のRawリンク
-RAW_URL_CONFIGS = "https://raw.githubusercontent.com/kakaomames/yt-dlp-s25/refs/heads/main/urls.json"
-RAW_URL_CONFIG = RAW_URL_CONFIGS + timess
-# Vercel環境で ffmpeg を動かすためのバイナリ調達関数
 def ensure_ffmpeg():
     """Vercelの環境にffmpegがない場合、静的バイナリを/tmpに配置して実行可能にする"""
     ffmpeg_path = "/tmp/ffmpeg"
@@ -205,7 +188,35 @@ def ensure_ffmpeg():
         # ここでは環境を汚さないよう、システム側のパス、またはカレントの /tmp/ffmpeg を最優先するようにします。
     return "ffmpeg" # システムパスに導入されている前提（またはvercel.json等で配備）
 
+
+from datetime import datetime, timezone, timedelta
+import requests
+import os
+
+# タイムスタンプ生成
+JST = timezone(timedelta(hours=9))
+timestamp = datetime.now(JST).strftime('%Y%m%d%H%M%S')
+
+# ベースURLはシンプルに
+RAW_URL_CONFIGS = "https://raw.githubusercontent.com/kakaomames/yt-dlp-s25/refs/heads/main/urls.json"
+
 def get_base_proxy_url():
+    # パラメータを辞書でまとめる（timeとランダムなtをセット）
+    params = {
+        "time": timestamp,
+        "t": os.urandom(4).hex()
+    }
+    
+    config_response = requests.get(RAW_URL_CONFIGS, params=params)
+    config_response.raise_for_status()
+    
+    config_data = config_response.json()
+    base_url = config_data.get("proxy_url", "").rstrip('/')
+    
+    missionLog("INFO", f"URL取得成功: {base_url}")
+    return base_url
+
+def get_base_proxy_urlhhhh():
     config_response = requests.get(RAW_URL_CONFIG, params={"t": os.urandom(4).hex()})
     config_response.raise_for_status()
     config_data = config_response.json()
