@@ -12,8 +12,6 @@
     <meta property="og:image" content="https://kakaomames.github.io/rei/logo.png">
     
     <title>Gemini programming隊 - yt-dlps動画解決要塞</title>
-    
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.compiled.js"></script>
 
     <style>
         body {
@@ -82,6 +80,7 @@
         <div id="playerSection" class="section">
             <div id="playbackStatus" class="status-overlay hidden"></div>
             
+            <!-- 🎬 Shakaに破壊されない純粋なビデオプレイヤー -->
             <video id="videoPlayer" controls playsinline>
                 <source id="videoSource" type="video/mp4">
             </video>
@@ -94,11 +93,9 @@
 
     <script>
         let currentTaskId = "";
-        let shakaPlayer = null;
-
         const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-        // 🌟 誤判定を徹底ガードする新・再生アルゴリズム
+        // 🌟 純ネイティブ専用・再生管制システム
         async function playVideo(url) {
             const video = document.getElementById('videoPlayer');
             const source = document.getElementById('videoSource');
@@ -108,68 +105,58 @@
             statusBox.classList.add('hidden');
             downloadLink.classList.add('hidden');
             
-            // 1. ストリームをセットしてロード
+            // 1. ソースを注入してリロード
             source.src = url;
             video.load();
 
-            // 2. 初回ネイティブ再生アタック（プロミスのエラーを安全に受け流す）
+            // 2. 初回再生アタック（Autoplayポリシーの拒否を安全にスルー）
             try {
                 await video.play();
-                console.log("[LOG] SUCCESS: 初回アタックで再生トリガー成功！");
+                console.log("[LOG] SUCCESS: ネイティブ再生アタック成功！");
             } catch (e) {
-                console.warn("[LOG] NOTICE: play()プロミスが拒否されましたが、実際の再生状態を検証します...", e);
+                console.warn("[LOG] NOTICE: play()のプロミスが拒否されましたが、実際の動作状況をチェックします...", e);
             }
 
-            // 🕰️ ブラウザの内部状態が確定するまでわずかに待機（100ms）
-            await sleep(100);
+            // ブラウザのステータス確定を少しだけ待つ
+            await sleep(150);
 
-            // 3. 【超重要】「本当に止まっているか？」で判定する（自爆防止ライン）
+            // 3. 【防衛ライン】現時点で動いているなら即終了！
             if (!video.paused) {
-                console.log("[LOG] SUCCESS: 動画は正常に動いています！誤判定エラーを回避しました。");
-                return; // 正常に動いているので、ここで処理を終了！(Shakaを起動させない)
+                console.log("[LOG] SUCCESS: 動画は正常にストリーミング再生されています！");
+                return;
             }
 
-            // 4. 本当に動いていない場合のみ、リトライフェーズへ
-            console.warn("[LOG] WARNING: 動画が停止状態です。2秒待機して二次リトライを実行します...");
+            // 4. 万が一動いていない場合の、2秒後リトライ処理
+            console.warn("[LOG] WARNING: 動画が停止しています。2秒後に再取得リトライを試みます...");
             statusBox.classList.remove('hidden');
             statusBox.innerText = "🌀 動画ストリーム再取得中... しばらくお待ちください";
             
             await sleep(2000);
             
-            console.log("[LOG] ACTION: 二次再生アタック（リトライ）を開始...");
+            console.log("[LOG] ACTION: 二次再生リトライを開始...");
             try {
+                // タグが消されることはもうないので、安全に再ロード
                 video.load();
                 try {
                     await video.play();
                 } catch(pError) { /* 無視 */ }
                 
-                await sleep(100);
+                await sleep(150);
                 if (!video.paused) {
                     console.log("[LOG] SUCCESS: 二次リトライ成功！再生が開始されました。");
                     statusBox.classList.add('hidden');
                     return;
                 }
-                throw new Error("ネイティブ再生が完全に停止しています。");
+                throw new Error("リトライ後も再生状態に移行しませんでした。");
                 
             } catch (retryError) {
-                console.error("[LOG] CRITICAL: ネイティブ再生全滅。フォールバックを展開します。", retryError);
+                console.error("[LOG] CRITICAL: ネイティブ再生全滅。ダウンロードボタンを配備します。", retryError);
                 statusBox.innerText = "❌ ブラウザでのストリーミング再生が不可能です。";
                 
+                // ダウンロードリンクを活性化
                 downloadLink.href = url;
                 downloadLink.target = "_blank";
                 downloadLink.classList.remove('hidden');
-                
-                // 最終防衛：Shaka Player
-                if (window.shaka && shaka.Player.isBrowserSupported()) {
-                    try {
-                        console.log("[LOG] ACTION: Shaka Playerでのバックアップ展開を並行試行...");
-                        if (!shakaPlayer) shakaPlayer = new shaka.Player(video);
-                        await shakaPlayer.load(url);
-                        statusBox.classList.add('hidden');
-                    } catch (shakaError) {
-                        console.error("[LOG] ERROR: Shaka Playerでも展開できませんでした。", shakaError);
-                    }
-                }
             }
         }
 
