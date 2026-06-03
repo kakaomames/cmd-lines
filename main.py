@@ -2,6 +2,7 @@ import flask
 from flask import Flask, request, render_template_string, render_template, send_file,redirect, url_for, jsonify, Response, send_from_directory # 正しい順序に並べ替えてもOK
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask import Flask, request, Response, jsonify
+from flask import Flask, request, send_file, render_template_string
 
 # from yt_dlp import yt_dlp_p
 import subprocess
@@ -349,6 +350,101 @@ def relay_video_stream():
 
 
 
+
+import os
+import trimesh
+from shapely.geometry import Polygon
+
+
+
+# ログ出力用関数（隊の規律：値の変化やアクションを必ずログに残す！）
+def mission_log(log_type, message):
+    print(f"[{log_type}] {message}")
+
+# 日本語フォントのパス（環境に合わせて書き換えてね！）
+# 例: 'NotoSansJP-Regular.ttf' や Windowsなら 'C:/Windows/Fonts/msgothic.ttc' など
+FONT_PATH = "NotoSansJP-Regular.ttf" 
+
+HTMLhh_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="文字を3D OBJに変換するシステム">
+    <meta name="author" content="Gemini programming隊">
+    <title>文字3D OBJジェネレーター</title>
+    <style>
+        body { font-family: sans-serif; background: #f0f0f0; padding: 20px; text-align: center; }
+        .container { background: white; padding: 30px; border-radius: 10px; display: inline-block; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        input[type="text"] { font-size: 18px; padding: 5px; width: 50px; text-align: center; }
+        input[type="submit"] { font-size: 18px; padding: 5px 15px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>文字3D OBJジェネレーター 🚀</h1>
+        <p>立体化したいひらがなや漢字を一文字入力してね！</p>
+        <form action="/generate" method="GET">
+            <input type="text" name="text" value="あ" maxlength="1" required>
+            <br><br>
+            <input type="submit" value="OBJファイルを生成してダウンロード">
+        </form>
+    </div>
+</body>
+</html>
+"""
+
+@app.route('/moji')
+def index():
+    return render_template_string(HTMLhh_TEMPLATE)
+
+@app.route('/generate')
+def generate_obj():
+    # クエリパラメータから文字を取得（デフォルトは「あ」）
+    target_text = request.args.get('text', 'あ')
+    mission_log("ACTION", f"3D化リクエストを受信: 文字 = '{target_text}'")
+
+    # バリデーション
+    if not target_text:
+        mission_log("ERROR", "文字が指定されていません。")
+        return "文字を指定してください。", 400
+
+    if not os.path.exists(FONT_PATH):
+        mission_log("ERROR", f"フォントファイルが見つかりません: {FONT_PATH}")
+        return f"サーバー側にフォントファイル ({FONT_PATH}) が見つかりません。配置してください。", 500
+
+    output_filename = f"text_{target_text}.obj"
+
+    try:
+        mission_log("PROCESS", f"フォント '{FONT_PATH}' から2Dアウトラインを抽出中...")
+        
+        # trimeshのフォント機能を使って、文字の2Dパス（輪郭）を作成
+        # 内部的にmatplotlibやfontToolsを使用してフォントからパスを抽出します
+        mesh_2d = trimesh.creation.text_to_path(target_text, font=FONT_PATH)
+        
+        mission_log("PROCESS", "2Dパスの抽出成功。立体化（押し出し厚み: 10.0）を実行中...")
+        
+        # 2Dの輪郭をZ軸方向に「押し出し(extrude)」して3Dメッシュにする
+        # 厚み（height）は 10.0 に設定
+        mesh_3d = mesh_2d.extrude(height=10.0)
+        
+        # 座標の重心を原点(0, 0, 0)に移動させて扱いやすくする
+        mesh_3d.vertices -= mesh_3d.center_mass
+        
+        mission_log("PROCESS", f"3Dメッシュ生成完了。ファイルを書き込み中: {output_filename}")
+        
+        # OBJ形式で一時保存
+        mesh_3d.export(output_filename, file_type='obj')
+        
+        mission_log("SUCCESS", f"OBJファイルの書き出しに成功しました！ 隊員へ転送します。")
+        
+        # 生成したファイルをユーザーにダウンロードさせる
+        return send_file(output_filename, as_attachment=True)
+
+    except Exception as e:
+        mission_log("FATAL_ERROR", f"3Dオブジェクト生成中に致命的なエラーが発生: {str(e)}")
+        return f"エラーが発生しました: {str(e)}", 500
 
 
 
