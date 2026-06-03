@@ -13,3 +13,6 @@ networkx
 yt-dlp
 ffmpeg-python
 moviepy
+trimesh
+shapely
+matplotlib
