@@ -4159,6 +4159,16 @@ def page_not_found(e):
 def fish():
     """fishを表示"""
     return render_template('fish.html')
+
+
+@app.route('/aa', methods=['GET'])
+def asciiart():
+    """fishを表示"""
+    return render_template('AA.html')
+
+
+
+
 @app.route('/monkeymart', methods=['GET'])
 def monkeymart():
     """monkeymartを表示"""
