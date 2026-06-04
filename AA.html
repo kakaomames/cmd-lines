@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Reverse Contrast AA Converter</title>
+    <style>
+        body { background-color: #000; color: #fff; margin: 20px; }
+        #output { 
+            font-family: "MS Gothic", monospace; 
+            font-size: 6px; /* 密度を高めるために小さく */
+            line-height: 6px; 
+            white-space: pre; 
+            cursor: text;
+        }
+    </style>
+</head>
+<body>
+    <input type="file" id="upload" accept="image/*">
+    <div id="output">画像を読み込むとここにテキストが出力されます...</div>
+
+    <script>
+        const upload = document.getElementById('upload');
+        const output = document.getElementById('output');
+        // 白（明るい）を「 」、黒（暗い）を濃い文字にするために反転
+        const charMap = "@#%*+=-:. "; 
+
+        upload.addEventListener('change', function(e) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    
+                    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+                    let ascii = "";
+                    for (let i = 0; i < data.length; i += 4) {
+                        // 輝度を計算
+                        const brightness = (data[i] * 0.2126 + data[i+1] * 0.7152 + data[i+2] * 0.0722) / 255;
+                        // 明るいほど charMap の後ろ（空白に近い）、暗いほど前（濃い文字）を使う
+                        ascii += charMap[Math.floor(brightness * (charMap.length - 1))];
+                        if ((i / 4 + 1) % canvas.width === 0) ascii += "\n";
+                    }
+                    output.textContent = ascii;
+                    missionLog("ACTION", "白空白・濃文字変換完了！これでくっきり見えるはず！");
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(e.target.files[0]);
+        });
+    </script>
+</body>
+</html>
+
