@@ -4067,11 +4067,11 @@ def get_or_create_repo(full_repo_name, init_file, init_content):
     return repo
 
 @app.route('/yt-dlp')
-def index():
+def indehhyx():
     return render_template('yt-dlp.html')
 
 @app.route('/add_url', methods=['POST'])
-def add_url():
+def add_yyyurl():
     target_url = request.form.get('url')
     if not target_url: return "URL error", 400
 
