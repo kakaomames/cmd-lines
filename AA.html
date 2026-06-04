@@ -22,7 +22,15 @@
     </style>
 </head>
 <body>
-    <li><a href="./home">ホーム🏠</li>
+    <header>
+        <h1>ぽけもぐプロジェクト</h1>
+        <nav>
+            <ul>
+                <li><a href="./home">ホーム🏠</li>
+            </ul>
+        </nav>
+    </header>
+    <main>
  
     <input type="file" id="upload" accept="image/*">
     <div id="output">画像を読み込むとここにテキストが出力されます...</div>
@@ -61,6 +69,7 @@
             reader.readAsDataURL(e.target.files[0]);
         });
     </script>
+    </main>
 </body>
 </html>
 
