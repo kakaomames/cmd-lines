@@ -3,6 +3,198 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="description" content="ぽけもぐプロジェクト - Reverse Contrast AA Converter">
+    <meta name="keywords" content="Minecraft, WE, WebEdition, ポケモン, AA, アスキーアート, 変換">
+    <meta name="author" content="カカオマメ">
+    <meta name="robots" content="index, follow">
+    <meta name="theme-color" content="#000000">
+    
+    <meta property="og:title" content="Reverse Contrast AA Converter">
+    <meta property="og:description" content="画像を読み込んでくっきり見えるアスキーアートに変換！">
+    <meta property="og:image" content="https://kakaomames.github.io/rei/logo.png">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://kakaomames.github.io/Minecraft-flask-app/">
+    
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Reverse Contrast AA Converter">
+    <meta name="twitter:description" content="画像を読み込んでくっきり見えるアスキーアートに変換！">
+    <meta name="twitter:image" content="https://kakaomames.github.io/rei/logo.png">
+
+    <link rel="apple-touch-icon" sizes="180x180" href="https://kakaomames.github.io/rei/logo.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="https://kakaomames.github.io/rei/logo.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="https://kakaomames.github.io/rei/logo.png">
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="https://kakaomames.github.io/Minecraft-flask-app/static/style.css">
+    
+    <title>Reverse Contrast AA Converter</title>
+    <style>
+        body { background-color: #000; color: #fff; margin: 20px; }
+        main { background-color: #000; color: #fff; margin: 20px; }
+        #output { 
+            font-family: "MS Gothic", monospace; 
+            font-size: 6px; /* 密度を高めるために小さく */
+            line-height: 6px; 
+            white-space: pre; 
+            cursor: text;
+            background-color: #111;
+            padding: 10px;
+            border: 1px solid #333;
+            margin-top: 10px;
+        }
+        .btn-container {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+        }
+        .action-btn {
+            background-color: #222;
+            color: #fff;
+            border: 1px solid #555;
+            padding: 8px 16px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+        .action-btn:hover {
+            background-color: #444;
+        }
+        .action-btn:active {
+            background-color: #333;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>ぽけもぐプロジェクト</h1>
+        <nav>
+            <ul>
+                <li><a href="./home">ホーム🏠</a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+ 
+    <input type="file" id="upload" accept="image/*">
+
+    <div class="btn-container">
+        <button id="copy-btn" class="action-btn">📋 コピーする</button>
+        <button id="download-btn" class="action-btn">💾 .txtでダウンロード</button>
+    </div>
+
+    <pre id="output">画像を読み込むとここにテキストが出力されます...</pre>
+
+    <script>
+        // 探検隊専用ミッションログ関数
+        function missionLog(type, message) {
+            const timestamp = new Date().toISOString();
+            console.log(`[${timestamp}] [${type}] ${message}`);
+        }
+
+        const upload = document.getElementById('upload');
+        const output = document.getElementById('output');
+        const copyBtn = document.getElementById('copy-btn');
+        const downloadBtn = document.getElementById('download-btn');
+        
+        // 白（明るい）を「 」、黒（暗い）を濃い文字にするために反転
+        const charMap = "@#%*+=-:. "; 
+        let generatedAscii = ""; // 生成されたAAを保持する変数
+
+        upload.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            missionLog("CHANGE", `ファイルが選択されました: ${file.name} (${file.size} bytes)`);
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    missionLog("ACTION", `画像読み込み成功: ${img.width}x${img.height}`);
+
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    
+                    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+                    let ascii = "";
+                    for (let i = 0; i < data.length; i += 4) {
+                        // 輝度を計算
+                        const brightness = (data[i] * 0.2126 + data[i+1] * 0.7152 + data[i+2] * 0.0722) / 255;
+                        // 明るいほど charMap の後ろ（空白に近い）、暗いほど前（濃い文字）を使う
+                        ascii += charMap[Math.floor(brightness * (charMap.length - 1))];
+                        if ((i / 4 + 1) % canvas.width === 0) ascii += "\n";
+                    }
+                    generatedAscii = ascii; // 変数に保存
+                    output.textContent = ascii;
+                    missionLog("ACTION", "白空白・濃文字変換完了！これでくっきり見えるはず！");
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // 📋 クリップボードにコピーする機能
+        copyBtn.addEventListener('click', function() {
+            if (!generatedAscii) {
+                missionLog("WARNING", "コピーに失敗: AAがまだ生成されていません。");
+                alert("まずは画像を読み込んでAAを生成してください！");
+                return;
+            }
+
+            navigator.clipboard.writeText(generatedAscii).then(() => {
+                missionLog("ACTION", "AAがクリップボードにコピーされました！");
+                const originalText = copyBtn.textContent;
+                copyBtn.textContent = "✔️ コピーしました！";
+                setTimeout(() => {
+                    copyBtn.textContent = originalText;
+                }, 2000);
+            }).catch(err => {
+                missionLog("ERROR", `コピー失敗: ${err}`);
+                alert("コピーに失敗しました。ブラウザの設定を確認してください。");
+            });
+        });
+
+        // 💾 .txtファイルとしてダウンロードする機能
+        downloadBtn.addEventListener('click', function() {
+            if (!generatedAscii) {
+                missionLog("WARNING", "ダウンロードに失敗: AAがまだ生成されていません。");
+                alert("まずは画像を読み込んでAAを生成してください！");
+                return;
+            }
+
+            missionLog("ACTION", "AAの.txtファイルダウンロード処理を開始します。");
+            
+            // テキストデータをBlobに変換
+            const blob = new Blob([generatedAscii], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            
+            // 一時的なリンクを作ってクリックイベントを発生させる
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'aa_output.txt';
+            document.body.appendChild(a);
+            a.click();
+            
+            // 後片付け
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            missionLog("ACTION", "aa_output.txt のダウンロードが完了しました！");
+        });
+    </script>
+    </main>
+</body>
+</html>
+
+<!--<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="apple-touch-icon" sizes="180x180" href="/logo.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/logo.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/logo.png">
@@ -72,5 +264,5 @@
     </script>
     </main>
 </body>
-</html>
+</html>-->
 
