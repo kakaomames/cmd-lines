@@ -1,0 +1,27 @@
+name: WASM Factory Build
+
+on:
+  workflow_dispatch: # 手動実行用
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install Emscripten
+        run: |
+          git clone https://github.com/emscripten-core/emsdk.git
+
+      - name: Compile C++ to WASM
+        run: |
+          git clone https://github.com/yt-dlp/yt-dlp.git
+            
+      - name: Cleanup and Commit
+        run: |
+          git config user.name "Gemini-Bot"
+          git config user.email "bot@example.com"
+          git add .
+          git commit -m "yt-dlp cleaned ✨"
+          git push
