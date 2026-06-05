@@ -4154,6 +4154,12 @@ def page_not_found(e):
     return "404 Not Found", 404
 
 
+@app.route('/taiko', methods=['GET'])
+def taiko():
+    """survivalraceを表示"""
+    return render_template('taiko.html')
+
+
 
 @app.route('/fish', methods=['GET'])
 def fish():
