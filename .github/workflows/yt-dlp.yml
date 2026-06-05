@@ -1,4 +1,4 @@
-name: WASM Factory Build
+name: YT-DLP
 
 on:
   workflow_dispatch: # 手動実行用
