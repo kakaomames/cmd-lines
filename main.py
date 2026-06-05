@@ -46,76 +46,84 @@ print("[LOG] SYSTEM: 🗺️  /yt-dlps?url=... -> GitHubからURLを自動解決
 print("[LOG] SYSTEM: ========================================================")
 
 
-import os
-import shutil
-import subprocess
+
+import json
+import base64
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError
 
 def sync_urls_json(github_token):
     """
-    yt-dlp-s25 から urls.json を取得し、cmd-lines にコピーしてGitHubへPushする関数。
+    gitコマンドを一切使わず、GitHub API経由で urls.json を取得し、
+    cmd-lines リポジトリに直接書き込み（コミット）する関数。
     """
-    # 1. 一時作業用ディレクトリの設定
-    base_dir = "/tmp/github_sync"
-    repo_src_dir = os.path.join(base_dir, "yt-dlp-s25")
-    repo_dest_dir = os.path.join(base_dir, "cmd-lines")
-    
-    # 過去のゴミが残っていれば削除して初期化
-    if os.path.exists(base_dir):
-        shutil.rmtree(base_dir)
-    os.makedirs(base_dir, exist_ok=True)
-
-    # 2. 認証付きURLの作成
-    # ※パブリックリポジトリでも、Push（書き込み）を行う側のURLにはトークンが必須です
-    src_url = f"https://x-access-token:{github_token}@://github.com"
-    dest_url = f"https://x-access-token:{github_token}@://github.com"
+    headers = {
+        "Authorization": f"token {github_token}",
+        "Accept": "application/vnd.github.v3+json",
+        "User-Agent": "Flask-App-Sync"
+    }
 
     try:
-        # 3. 両方のリポジトリをクローン
-        print("リポジトリをクローン中...")
-        subprocess.run(["git", "clone", src_url, repo_src_dir], check=True, capture_output=True)
-        subprocess.run(["git", "clone", dest_url, repo_dest_dir], check=True, capture_output=True)
-
-        # 4. urls.json のパスを特定してコピー
-        src_file = os.path.join(repo_src_dir, "urls.json")
-        dest_file = os.path.join(repo_dest_dir, "urls.json")
-
-        if not os.path.exists(src_file):
-            print(f"エラー: コピー元の {src_file} が見つかりません。")
-            return False
-
-        print("urls.json をコピー中...")
-        shutil.copy2(src_file, dest_file)
-
-        # 5. コピー先リポジトリ（cmd-lines）で Git Push を実行
-        print("変更を GitHub へ Push 中...")
+        # 1. yt-dlp-s25 から urls.json の「中身」を取得する
+        print("yt-dlp-s25 から urls.json をダウンロード中...")
+        src_url = "https://github.com"
+        req_src = Request(src_url, headers=headers)
         
-        # Git操作用のユーザー名とメールアドレスの一時設定（未設定エラー防止）
-        subprocess.run(["git", "config", "user.name", "Automated Sync"], cwd=repo_dest_dir, check=True)
-        subprocess.run(["git", "config", "user.email", "sync@example.com"], cwd=repo_dest_dir, check=True)
+        with urlopen(req_src) as response:
+            src_data = json.loads(response.read().decode("utf-8"))
+            # GitHub APIはファイル中身をBase64で返すためデコードする
+            urls_json_content = base64.b64decode(src_data["content"]).decode("utf-8")
 
-        # ステージングに追加
-        subprocess.run(["git", "add", "urls.json"], cwd=repo_dest_dir, check=True)
+        # 2. cmd-lines にある現在の urls.json の「SHA（ファイルの識別子）」を取得する
+        # ※GitHub APIでファイルを上書きするには、現在のファイルのSHAコードが必要です
+        print("cmd-lines の現在のファイル状態を確認中...")
+        dest_url = "https://github.com"
+        req_dest_get = Request(dest_url, headers=headers)
+        
+        sha = None
+        try:
+            with urlopen(req_dest_get) as response:
+                dest_data = json.loads(response.read().decode("utf-8"))
+                sha = dest_data["sha"]
+                # 差分チェック: 中身が全く同じなら更新しない
+                current_dest_content = base64.b64decode(dest_data["content"]).decode("utf-8")
+                if urls_json_content == current_dest_content:
+                    print("ファイルに変更はありません。処理をスキップします。")
+                    return True
+        except HTTPError as e:
+            if e.code == 404:
+                print("cmd-lines 側に urls.json が存在しません。新規作成します。")
+            else:
+                raise e
 
-        # 変更があるか確認（差分がない場合は正常終了させる）
-        status_check = subprocess.run(["git", "status", "--porcelain"], cwd=repo_dest_dir, capture_output=True, text=True)
-        if not status_check.stdout.strip():
-            print("ファイルに変更はありませんでした。終了します。")
-            return True
+        # 3. cmd-lines へ新しくエンコードした内容を直接コミット（Push）する
+        print("cmd-lines へ urls.json をコミット中...")
+        updated_content_b64 = base64.b64encode(urls_json_content.encode("utf-8")).decode("utf-8")
+        
+        # APIに送るデータ（コミットメッセージ、中身、SHA）
+        payload = {
+            "message": "Update urls.json from yt-dlp-s25 via API",
+            "content": updated_content_b64
+        }
+        if sha:
+            payload["sha"] = sha  # 既存ファイルの更新には必須
 
-        # コミットとPush
-        subprocess.run(["git", "commit", "-m", "Update urls.json from yt-dlp-s25"], cwd=repo_dest_dir, check=True)
-        subprocess.run(["git", "push", "origin", "main"], cwd=repo_dest_dir, check=True) # mainブランチの場合
+        # PUTリクエストで送信
+        req_dest_put = Request(
+            dest_url, 
+            data=json.dumps(payload).encode("utf-8"), 
+            headers=headers, 
+            method="PUT"
+        )
+        
+        with urlopen(req_dest_put) as response:
+            if response.status in [200, 201]:
+                print("GitHub API経由での同期が正常に完了しました！")
+                return True
 
-        print("同期が正常に完了しました！")
-        return True
-
-    except subprocess.CalledProcessError as e:
-        print(f"Git操作中にエラーが発生しました:\n{e.stderr.decode('utf-8')}")
+    except Exception as e:
+        print(f"同期中にエラーが発生しました: {str(e)}")
         return False
-    finally:
-        # 6. 使い終わった一時フォルダをきれいに削除
-        if os.path.exists(base_dir):
-            shutil.rmtree(base_dir)
 
 
 
