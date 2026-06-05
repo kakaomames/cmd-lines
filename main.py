@@ -260,6 +260,64 @@ def show_control_panel():
 # ========================================================
 # 📡 進捗ログ中継ルート: /yt-dlps-status
 # ========================================================
+def extractss_video_id(url):
+    # 隊員が提示してくれた正規表現パターン（11桁のIDをキャプチャするグループ）
+    pattern = r'(?:https?:\/\/(?:www\.|m\.)?(?:youtube\.com|youtu\.be|youtubeeducation\.com)\/(?:(?:watch\?v=|embed\/|v\/|shorts\/|live\/)|(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=))|https?:\/\/youtu\.be\/)([a-zA-Z0-9_-]{11})'
+    
+    # 正規表現で検索
+    match = re.search(pattern, url)
+    
+    if match:
+        # キャプチャグループの1番目（最後のカッコ部分）からIDを取得
+        video_id = match.group(1)
+        # 値が変わる・決まるタイミングなのでmissionLog風に出力！
+        print(f"[missionLog] ACTION: 動画IDの抽出に成功しました！ URL: {url} -> ID: {video_id} 🎯")
+        return video_id
+    else:
+        print(f"[missionLog] WARNING: 動画IDが見つかりませんでした。 URL: {url} ❓")
+        return None
+
+@app.route('/yt-dlps-j', methods=['GET'])
+def yt_json_command():
+    video_id = request.args.get('v')
+    Ural = request.args.get('url')
+    
+    # 【修正箇所1】video_id も Ural も両方ない場合のバリデーション
+    if not video_id:
+        if not Ural:
+            print("[missionLog] WARNING: 引数(v, url)がどちらも不足しています。 ❌")
+            return jsonify({"error": "Video ID or yt-url is required"}), 400
+        
+        # 【修正箇所2】urlがある場合は、正規表現で動画IDを抽出して変数に代入する！
+        video_id = extractss_video_id(Ural)
+        if not video_id:
+            print(f"[missionLog] WARNING: 指定されたURLから動画IDを特定できませんでした。 URL: {Ural} ❌")
+            return jsonify({"error": "Invalid YouTube URL"}), 400
+
+    print("[LOG] ACTION [/yt-dlps-json]: フロントからの爆破要求を受信。スマホ基地へリレーします。 🔥")
+    
+    # 【修正箇所3】変数の命名を video_id に統一（videoIdになっていたのを修正）
+    # 値が新しく決まるタイミングなのでログに出力！
+    URL = f"https://www.youtube.com/watch?v={video_id}"
+    print(f"[missionLog] ACTION: リレー用URLを生成しました。 URL: {URL} 🔗")
+    
+    try:
+        base_proxy_url = get_base_proxy_url()
+        target_remove_url = f"{base_proxy_url}/j?url={URL}"
+        
+        # スマホ基地へリレー送信（キャッシュ対策のタイムスタンプパラメータ付き）
+        proxy_response = requests.get(target_remove_url, params={"t": os.urandom(4).hex()}, timeout=5)
+        
+        print(f"[missionLog] ACTION: スマホ基地からの応答を受信。 ステータス: {proxy_response.status_code} ✅")
+        return jsonify(proxy_response.json()), proxy_response.status_code
+        
+    except Exception as e:
+        print(f"[missionLog] ERROR: スマホ基地へのリレー中に通信エラーが発生しました。 原因: {str(e)} 💥")
+        return jsonify({"success": False, "error": str(e)}), 502
+
+
+
+
 @app.route('/yt-dlps-status', methods=['GET'])
 def relay_task_status():
     task_id = request.args.get('id')
