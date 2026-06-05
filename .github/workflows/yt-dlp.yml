@@ -13,7 +13,7 @@ jobs:
       - name: Install Emscripten
         run: |
           git clone https://github.com/emscripten-core/emsdk.git
-          cp -frm emsdk/ emsdk2/
+          cp -fr emsdk/ emsdk2/
       - name: Install yt-dlp
         run: |
           git clone https://github.com/yt-dlp/yt-dlp.git
