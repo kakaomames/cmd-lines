@@ -13,11 +13,11 @@ jobs:
       - name: Install Emscripten
         run: |
           git clone https://github.com/emscripten-core/emsdk.git
-          cp
+          cp -frm emsdk/ emsdk2/
       - name: Install yt-dlp
         run: |
           git clone https://github.com/yt-dlp/yt-dlp.git
-          cp -rm yt-dlp/ ytdlp/
+          cp -fr yt-dlp/ ytdlp/
       - name: Cleanup and Commit
         run: |
           git config user.name "Gemini-Bot"
