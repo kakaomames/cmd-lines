@@ -303,7 +303,7 @@ def yt_json_command():
     
     try:
         base_proxy_url = get_base_proxy_url()
-        target_remove_url = f"{base_proxy_url}/j?url={URL}"
+        target_remove_url = f"{base_proxy_url}/json?url={URL}"
         
         # スマホ基地へリレー送信（キャッシュ対策のタイムスタンプパラメータ付き）
         proxy_response = requests.get(target_remove_url, params={"t": os.urandom(4).hex()}, timeout=35)
