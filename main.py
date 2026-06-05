@@ -282,38 +282,46 @@ def yt_json_command():
     video_id = request.args.get('v')
     Ural = request.args.get('url')
     
-    # 【修正箇所1】video_id も Ural も両方ない場合のバリデーション
     if not video_id:
         if not Ural:
-            print("[missionLog] WARNING: 引数(v, url)がどちらも不足しています。 ❌")
             return jsonify({"error": "Video ID or yt-url is required"}), 400
-        
-        # 【修正箇所2】urlがある場合は、正規表現で動画IDを抽出して変数に代入する！
         video_id = extractss_video_id(Ural)
         if not video_id:
-            print(f"[missionLog] WARNING: 指定されたURLから動画IDを特定できませんでした。 URL: {Ural} ❌")
             return jsonify({"error": "Invalid YouTube URL"}), 400
 
     print("[LOG] ACTION [/yt-dlps-json]: フロントからの爆破要求を受信。スマホ基地へリレーします。 🔥")
-    
-    # 【修正箇所3】変数の命名を video_id に統一（videoIdになっていたのを修正）
-    # 値が新しく決まるタイミングなのでログに出力！
     URL = f"https://www.youtube.com/watch?v={video_id}"
-    print(f"[missionLog] ACTION: リレー用URLを生成しました。 URL: {URL} 🔗")
     
     try:
         base_proxy_url = get_base_proxy_url()
+        # パスを /json に修正！
         target_remove_url = f"{base_proxy_url}/json?url={URL}"
+        print(f"[missionLog] ACTION: リクエストを送信します -> {target_remove_url} 🚀")
         
-        # スマホ基地へリレー送信（キャッシュ対策のタイムスタンプパラメータ付き）
-        proxy_response = requests.get(target_remove_url, params={"t": os.urandom(4).hex()}, timeout=35)
+        # タイムアウトも念のため30秒に延長！
+        proxy_response = requests.get(target_remove_url, params={"t": os.urandom(4).hex()}, timeout=30)
         
-        print(f"[missionLog] ACTION: スマホ基地からの応答を受信。 ステータス: {proxy_response.status_code} ✅")
-        return jsonify(proxy_response.json()), proxy_response.status_code
+        # 値（レスポンスの生テキスト）をログに出力して中身を暴く！
+        print(f"[missionLog] STATUS: スマホ基地からのステータスコード: {proxy_response.status_code} 📊")
+        print(f"[missionLog] TEXT: スマホ基地からの生の返答内容 ↓\n{proxy_response.text}\n▲ここまで")
+
+        # 相手が正常（200番代）かつ、JSONを返してきているかチェック
+        try:
+            response_json = proxy_response.json()
+            return jsonify(response_json), proxy_response.status_code
+        except Exception as json_err:
+            print(f"[missionLog] ERROR: JSONとしての解析に失敗しました。生テキストを確認してください。 ❌")
+            return jsonify({
+                "success": False, 
+                "error": "スマホ基地からの返答がJSONではありませんでした。",
+                "raw_response": proxy_response.text[:200] # 最初の200文字だけフロントに返す
+            }), 502
         
     except Exception as e:
-        print(f"[missionLog] ERROR: スマホ基地へのリレー中に通信エラーが発生しました。 原因: {str(e)} 💥")
+        print(f"[missionLog] ERROR: 通信エラーが発生しました。 原因: {str(e)} 💥")
         return jsonify({"success": False, "error": str(e)}), 502
+
+
 
 
 
