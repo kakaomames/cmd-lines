@@ -306,7 +306,7 @@ def yt_json_command():
         target_remove_url = f"{base_proxy_url}/j?url={URL}"
         
         # スマホ基地へリレー送信（キャッシュ対策のタイムスタンプパラメータ付き）
-        proxy_response = requests.get(target_remove_url, params={"t": os.urandom(4).hex()}, timeout=5)
+        proxy_response = requests.get(target_remove_url, params={"t": os.urandom(4).hex()}, timeout=35)
         
         print(f"[missionLog] ACTION: スマホ基地からの応答を受信。 ステータス: {proxy_response.status_code} ✅")
         return jsonify(proxy_response.json()), proxy_response.status_code
