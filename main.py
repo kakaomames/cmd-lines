@@ -55,27 +55,36 @@ from urllib.error import HTTPError
 
 def sync_urls_json(github_token):
     """
-    GitHub API経由で urls.json を取得し、cmd-lines リポジトリに直接書き込み（コミット）する関数。
-    (406エラー対策修正版)
+    1MB以上の大容量ファイルにも対応した、GitHub API経由の urls.json 同期関数。
     """
-    # 🌟 406エラーを防ぐため、Acceptを一般的な汎用JSONに変更
+    # 共通ヘッダー（書き込み側の cmd-lines はプライベートの可能性があるためトークンを使用）
     base_headers = {
-        "Authorization": f"Bearer {github_token}", # token から Bearer に推奨形式へ変更
+        "Authorization": f"Bearer {github_token}",
         "Accept": "application/json",
         "User-Agent": "Flask-App-Sync"
     }
 
     try:
-        # 1. yt-dlp-s25 から urls.json の「中身」を取得する
-        print("yt-dlp-s25 から urls.json をダウンロード中...")
-        src_url = "https://github.com"
-        req_src = Request(src_url, headers=base_headers)
+        # 1. 大容量ファイル対応：://githubusercontent.com から直接テキストを落とす
+        print("yt-dlp-s25 から urls.json をダウンロード中(Raw方式)...")
+        src_raw_url = "https://://githubusercontent.com/kakaomames/yt-dlp-s25/main/urls.json"
+        
+        # パブリックリポジトリなのでトークンなしのシンプルなリクエストで取得可能
+        req_src = Request(src_raw_url, headers={"User-Agent": "Flask-App-Sync"})
         
         with urlopen(req_src) as response:
-            src_data = json.loads(response.read().decode("utf-8"))
-            urls_json_content = base64.b64decode(src_data["content"]).decode("utf-8")
+            # Base64デコードの手間なく、そのままテキストとして読み込めます
+            urls_json_content = response.read().decode("utf-8")
+
+        # jsonとして正しいフォーマットか念のためチェック
+        try:
+            json.loads(urls_json_content)
+        except json.JSONDecodeError:
+            print("エラー: 取得した urls.json の形式が正しいJSONではありません。")
+            return False
 
         # 2. cmd-lines にある現在の urls.json の状態（SHA）を取得する
+        # ※書き込み時は上書き確認のため、既存ファイルのSHA（識別子）がどうしても必要になります
         print("cmd-lines の現在のファイル状態を確認中...")
         dest_url = "https://github.com"
         req_dest_get = Request(dest_url, headers=base_headers)
@@ -84,12 +93,20 @@ def sync_urls_json(github_token):
         try:
             with urlopen(req_dest_get) as response:
                 dest_data = json.loads(response.read().decode("utf-8"))
-                sha = dest_data["sha"]
-                # 差分チェック: 中身が全く同じなら更新しない
-                current_dest_content = base64.b64decode(dest_data["content"]).decode("utf-8")
-                if urls_json_content == current_dest_content:
-                    print("ファイルに変更はありません。処理をスキップします。")
-                    return True
+                
+                # もし宛先側も1MBを超えていたら 'sha' が取れないので、その対策
+                if "sha" in dest_data:
+                    sha = dest_data["sha"]
+                else:
+                    # 宛先もデカい場合は別のAPI(Commits API)から取る必要がありますが、一旦通常ルートで保持
+                    print("警告: 宛先ファイルのメタデータ構造が通常と異なります。")
+                
+                # 差分チェック (contentがある場合のみ)
+                if "content" in dest_data:
+                    current_dest_content = base64.b64decode(dest_data["content"]).decode("utf-8")
+                    if urls_json_content == current_dest_content:
+                        print("ファイルに変更はありません。処理をスキップします。")
+                        return True
         except HTTPError as e:
             if e.code == 404:
                 print("cmd-lines 側に urls.json が存在しません。新規作成します。")
@@ -107,7 +124,6 @@ def sync_urls_json(github_token):
         if sha:
             payload["sha"] = sha
 
-        # 🌟 PUT（書き込み）用のヘッダーには Content-Type も厳密に追加する
         put_headers = base_headers.copy()
         put_headers["Content-Type"] = "application/json"
 
@@ -120,17 +136,17 @@ def sync_urls_json(github_token):
         
         with urlopen(req_dest_put) as response:
             if response.status in [200, 201]:
-                print("GitHub API経由での同期が正常に完了しました！")
+                print("GitHub API(Raw)経由での同期が正常に完了しました！")
                 return True
 
     except HTTPError as e:
-        # 詳細なエラー原因を特定しやすくするためにHTTPエラーの中身を出力
         error_body = e.read().decode("utf-8") if e.readable() else ""
         print(f"同期中にHTTPエラーが発生しました: {e.code} {e.reason}\n詳細: {error_body}")
         return False
     except Exception as e:
         print(f"同期中に予期せぬエラーが発生しました: {str(e)}")
         return False
+
 
 
 
