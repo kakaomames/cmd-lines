@@ -47,6 +47,7 @@ print("[LOG] SYSTEM: ========================================================")
 
 
 
+
 import json
 import base64
 from urllib.request import Request, urlopen
@@ -54,12 +55,13 @@ from urllib.error import HTTPError
 
 def sync_urls_json(github_token):
     """
-    gitコマンドを一切使わず、GitHub API経由で urls.json を取得し、
-    cmd-lines リポジトリに直接書き込み（コミット）する関数。
+    GitHub API経由で urls.json を取得し、cmd-lines リポジトリに直接書き込み（コミット）する関数。
+    (406エラー対策修正版)
     """
-    headers = {
-        "Authorization": f"token {github_token}",
-        "Accept": "application/vnd.github.v3+json",
+    # 🌟 406エラーを防ぐため、Acceptを一般的な汎用JSONに変更
+    base_headers = {
+        "Authorization": f"Bearer {github_token}", # token から Bearer に推奨形式へ変更
+        "Accept": "application/json",
         "User-Agent": "Flask-App-Sync"
     }
 
@@ -67,18 +69,16 @@ def sync_urls_json(github_token):
         # 1. yt-dlp-s25 から urls.json の「中身」を取得する
         print("yt-dlp-s25 から urls.json をダウンロード中...")
         src_url = "https://github.com"
-        req_src = Request(src_url, headers=headers)
+        req_src = Request(src_url, headers=base_headers)
         
         with urlopen(req_src) as response:
             src_data = json.loads(response.read().decode("utf-8"))
-            # GitHub APIはファイル中身をBase64で返すためデコードする
             urls_json_content = base64.b64decode(src_data["content"]).decode("utf-8")
 
-        # 2. cmd-lines にある現在の urls.json の「SHA（ファイルの識別子）」を取得する
-        # ※GitHub APIでファイルを上書きするには、現在のファイルのSHAコードが必要です
+        # 2. cmd-lines にある現在の urls.json の状態（SHA）を取得する
         print("cmd-lines の現在のファイル状態を確認中...")
         dest_url = "https://github.com"
-        req_dest_get = Request(dest_url, headers=headers)
+        req_dest_get = Request(dest_url, headers=base_headers)
         
         sha = None
         try:
@@ -96,23 +96,25 @@ def sync_urls_json(github_token):
             else:
                 raise e
 
-        # 3. cmd-lines へ新しくエンコードした内容を直接コミット（Push）する
+        # 3. cmd-lines へ新しくエンコードした内容を直接コミットする
         print("cmd-lines へ urls.json をコミット中...")
         updated_content_b64 = base64.b64encode(urls_json_content.encode("utf-8")).decode("utf-8")
         
-        # APIに送るデータ（コミットメッセージ、中身、SHA）
         payload = {
             "message": "Update urls.json from yt-dlp-s25 via API",
             "content": updated_content_b64
         }
         if sha:
-            payload["sha"] = sha  # 既存ファイルの更新には必須
+            payload["sha"] = sha
 
-        # PUTリクエストで送信
+        # 🌟 PUT（書き込み）用のヘッダーには Content-Type も厳密に追加する
+        put_headers = base_headers.copy()
+        put_headers["Content-Type"] = "application/json"
+
         req_dest_put = Request(
             dest_url, 
             data=json.dumps(payload).encode("utf-8"), 
-            headers=headers, 
+            headers=put_headers, 
             method="PUT"
         )
         
@@ -121,9 +123,15 @@ def sync_urls_json(github_token):
                 print("GitHub API経由での同期が正常に完了しました！")
                 return True
 
-    except Exception as e:
-        print(f"同期中にエラーが発生しました: {str(e)}")
+    except HTTPError as e:
+        # 詳細なエラー原因を特定しやすくするためにHTTPエラーの中身を出力
+        error_body = e.read().decode("utf-8") if e.readable() else ""
+        print(f"同期中にHTTPエラーが発生しました: {e.code} {e.reason}\n詳細: {error_body}")
         return False
+    except Exception as e:
+        print(f"同期中に予期せぬエラーが発生しました: {str(e)}")
+        return False
+
 
 
 
