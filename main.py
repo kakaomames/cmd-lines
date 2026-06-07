@@ -65,87 +65,44 @@ def sync_urls_json(github_token):
     }
 
     try:
-        # 1. 大容量ファイル対応：://githubusercontent.com から直接テキストを落とす
-        print("yt-dlp-s25 から urls.json をダウンロード中(Raw方式)...")
-        src_raw_url = "https://://githubusercontent.com/kakaomames/yt-dlp-s25/main/urls.json"
+        # 1. GitHub APIを使用してキャッシュを回避し最新のurls.jsonを取得
+        print("GitHub API経由で urls.json を取得中...")
+        api_url = "https://api.github.com/repos/kakaomames/yt-dlp-s25/contents/urls.json"
         
-        # パブリックリポジトリなのでトークンなしのシンプルなリクエストで取得可能
-        req_src = Request(src_raw_url, headers={"User-Agent": "Flask-App-Sync"})
+        req_src = Request(
+            api_url, 
+            headers={
+                "User-Agent": "Flask-App-Sync",
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache"
+            }
+        )
         
         with urlopen(req_src) as response:
-            # Base64デコードの手間なく、そのままテキストとして読み込めます
-            urls_json_content = response.read().decode("utf-8")
+            data = json.loads(response.read().decode("utf-8"))
+            content_b64 = data.get("content")
+            if not content_b64:
+                print("エラー: コンテンツが取得できませんでした。")
+                return False
+            urls_json_content = base64.b64decode(content_b64).decode("utf-8")
 
-        # jsonとして正しいフォーマットか念のためチェック
+        # jsonとして正しいフォーマットかチェック
         try:
             json.loads(urls_json_content)
+            print("最新の urls.json を正常に取得しました。")
+            return True
         except json.JSONDecodeError:
             print("エラー: 取得した urls.json の形式が正しいJSONではありません。")
             return False
 
-        # 2. cmd-lines にある現在の urls.json の状態（SHA）を取得する
-        # ※書き込み時は上書き確認のため、既存ファイルのSHA（識別子）がどうしても必要になります
-        print("cmd-lines の現在のファイル状態を確認中...")
-        dest_url = "https://github.com"
-        req_dest_get = Request(dest_url, headers=base_headers)
-        
-        sha = None
-        try:
-            with urlopen(req_dest_get) as response:
-                dest_data = json.loads(response.read().decode("utf-8"))
-                
-                # もし宛先側も1MBを超えていたら 'sha' が取れないので、その対策
-                if "sha" in dest_data:
-                    sha = dest_data["sha"]
-                else:
-                    # 宛先もデカい場合は別のAPI(Commits API)から取る必要がありますが、一旦通常ルートで保持
-                    print("警告: 宛先ファイルのメタデータ構造が通常と異なります。")
-                
-                # 差分チェック (contentがある場合のみ)
-                if "content" in dest_data:
-                    current_dest_content = base64.b64decode(dest_data["content"]).decode("utf-8")
-                    if urls_json_content == current_dest_content:
-                        print("ファイルに変更はありません。処理をスキップします。")
-                        return True
-        except HTTPError as e:
-            if e.code == 404:
-                print("cmd-lines 側に urls.json が存在しません。新規作成します。")
-            else:
-                raise e
-
-        # 3. cmd-lines へ新しくエンコードした内容を直接コミットする
-        print("cmd-lines へ urls.json をコミット中...")
-        updated_content_b64 = base64.b64encode(urls_json_content.encode("utf-8")).decode("utf-8")
-        
-        payload = {
-            "message": "Update urls.json from yt-dlp-s25 via API",
-            "content": updated_content_b64
-        }
-        if sha:
-            payload["sha"] = sha
-
-        put_headers = base_headers.copy()
-        put_headers["Content-Type"] = "application/json"
-
-        req_dest_put = Request(
-            dest_url, 
-            data=json.dumps(payload).encode("utf-8"), 
-            headers=put_headers, 
-            method="PUT"
-        )
-        
-        with urlopen(req_dest_put) as response:
-            if response.status in [200, 201]:
-                print("GitHub API(Raw)経由での同期が正常に完了しました！")
-                return True
-
     except HTTPError as e:
         error_body = e.read().decode("utf-8") if e.readable() else ""
-        print(f"同期中にHTTPエラーが発生しました: {e.code} {e.reason}\n詳細: {error_body}")
+        print(f"取得中にHTTPエラーが発生しました: {e.code} {e.reason}\n詳細: {error_body}")
         return False
     except Exception as e:
         print(f"同期中に予期せぬエラーが発生しました: {str(e)}")
         return False
+
 
 
 
@@ -320,7 +277,7 @@ JST = timezone(timedelta(hours=9))
 timestamp = datetime.now(JST).strftime('%Y%m%d%H%M%S')
 
 # ベースURLはシンプルに
-RAW_URL_CONFIGS = "https://raw.githubusercontent.com/kakaomames/yt-dlp-s25/refs/heads/main/urls.json"
+RAW_URL_CONFIGS = "https://api.github.com/repos/kakaomames/yt-dlp-s25/contents/urls.json"
 
 def get_base_proxy_url():
     # パラメータを辞書でまとめる（timeとランダムなtをセット）
