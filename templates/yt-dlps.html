@@ -83,7 +83,7 @@
         </div>
     </div>
 
-    <script>
+    <!-- <script>
         const timestamp = new Date().getTime();
         let currentTaskId = "";
 
@@ -152,6 +152,59 @@
             await fetch(`/yt-dlps-remove?t=${Date.now()}&time=${timestamp}`);
             location.reload();
         });
+    </script>-->
+    <script>
+        document.getElementById('btnStart').addEventListener('click', async () => {
+    const url = document.getElementById('videoUrl').value.trim();
+    if(!url) return;
+
+    // UIを操作中モードへ
+    const btn = document.getElementById('btnStart');
+    btn.innerText = "データ強奪中...";
+
+    try {
+        // 1. FlaskにURLを投げる（Flaskが基地からJSONを強奪して返してくる）
+        const res = await fetch(`/yt-dlps?url=${encodeURIComponent(url)}&time=${Date.now()}`);
+        const data = await res.json();
+        
+        // 2. data に解析済みのJSON（title, thumbnail_url, manifest_urls など）が入っている
+        if (data && !data.error) {
+            console.log("基地データ強奪成功:", data);
+            
+            // 画面の切り替え
+            document.getElementById('inputSection').classList.add('hidden');
+            document.getElementById('progressSection').classList.add('hidden');
+            document.getElementById('playerSection').classList.remove('hidden');
+            
+            // 3. 動画タグの生成（dataの中身を直接参照）
+            const container = document.getElementById('videoContainer');
+            // manifest_urlsが存在する場合、最初のURLをソースにする
+            const videoUrl = (data.manifest_urls && data.manifest_urls.length > 0) ? data.manifest_urls[0] : "";
+            
+            container.innerHTML = `
+                <div style="margin-bottom:15px;">
+                    <h3 style="color:#fff;">${data.title || "動画タイトル"}</h3>
+                    <p>チャンネル: ${data.channel || "不明"}</p>
+                </div>
+                <video controls autoplay playsinline style="width:100%;">
+                    <source src="${videoUrl}" type="video/mp4">
+                    お使いのブラウザは動画タグをサポートしていません。
+                </video>
+                <a class="download-link" href="${videoUrl}" download target="_blank">
+                    動画を直接ダウンロード 📥
+                </a>
+            `;
+        } else {
+            alert("データ強奪失敗: " + (data.error || "詳細不明"));
+            btn.innerText = "ダウンロードミッション開始 🚀";
+        }
+    } catch (err) {
+        console.error("通信エラー:", err);
+        alert("探検隊エラー: 通信に失敗しました。");
+        btn.innerText = "ダウンロードミッション開始 🚀";
+    }
+});
+
     </script>
 </body>
 </html>
