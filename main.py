@@ -279,21 +279,35 @@ timestamp = datetime.now(JST).strftime('%Y%m%d%H%M%S')
 # ベースURLはシンプルに
 RAW_URL_CONFIGS = "https://api.github.com/repos/kakaomames/yt-dlp-s25/contents/urls.json"
 
+
+
 def get_base_proxy_url():
-    # パラメータを辞書でまとめる（timeとランダムなtをセット）
-    params = {
-        "time": timestamp,
-        "t": os.urandom(4).hex()
+    # ヘッダーにキャッシュ無効化の命令を詰め込む
+    headers = {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0",
+        "User-Agent": "yt-dlp-s25-sync"
     }
     
-    config_response = requests.get(RAW_URL_CONFIGS, params=params)
+    # APIリクエスト時にヘッダーを渡す（paramsはそのまま生かしても良いが、ヘッダーが主役だ）
+    config_response = requests.get(RAW_URL_CONFIGS, headers=headers)
     config_response.raise_for_status()
     
     config_data = config_response.json()
-    base_url = config_data.get("proxy_url", "").rstrip('/')
+    
+    # Base64デコード処理を忘れるな（GitHub APIは内容をBase64で返すため）
+    import base64
+    decoded_content = base64.b64decode(config_data.get("content")).decode("utf-8")
+    actual_data = json.loads(decoded_content)
+    
+    base_url = actual_data.get("proxy_url", "").rstrip('/')
     
     mission_log("INFO", f"URL取得成功: {base_url}")
     return base_url
+
+
+
 
 def get_base_proxy_urlhhhh():
     config_response = requests.get(RAW_URL_CONFIG, params={"t": os.urandom(4).hex()})
@@ -309,6 +323,48 @@ def get_base_proxy_urlhhhh():
 # ========================================================
 @app.route('/yt-dlps', methods=['GET'])
 def show_control_panel():
+    # 既存の初期化処理
+    # hkkkk() 
+    
+    video_url = request.args.get('url')
+    if not video_url:
+        print("[LOG] ACTION: コントロールパネルへ接続。yt-dlps.html を展開。")
+        return render_template('yt-dlps.html')
+
+    print(f"[LOG] ACTION: 統合要求を受信！ ターゲット: {video_url}")
+
+    try:
+        # 最新のURLをGitHub APIから取得（キャッシュレス）
+        base_proxy_url = get_base_proxy_url()
+        print(f"[LOG] SUCCESS: スマホ基地の現在地を特定 -> {base_proxy_url}")
+    except Exception as e:
+        print(f"[LOG] ERROR: 基地解決失敗。詳細: {str(e)}")
+        return jsonify({"error": "Failed to resolve proxy URL", "details": str(e)}), 500
+
+    # JSONデータを直接取得するためのエンドポイント
+    target_api_url = f"{base_proxy_url}/json"
+    
+    try:
+        # 基地へ動画URLを投げ、帰ってきたJSONをそのまま保持する
+        proxy_response = requests.get(target_api_url, params={"url": video_url}, timeout=15)
+        proxy_response.raise_for_status()
+        
+        # 基地から帰ってきた生のJSONデータ
+        data = proxy_response.json()
+        
+        print(f"[LOG] SUCCESS: スマホ基地からデータを強奪しました！")
+        
+        # HTML（またはJS側）で表示するためにJSONをそのまま返す
+        # これにより、フロントエンド側で受け取ったデータを即座にDOMに流し込める
+        return jsonify(data), 200
+
+    except requests.exceptions.RequestException as e:
+        print(f"[LOG] ERROR: 通信リレー失敗。詳細: {str(e)}")
+        return jsonify({"error": "Failed to extract data from proxy", "details": str(e)}), 502
+
+
+@app.route('/yt-dlпps', methods=['GET'])
+def show_control_paкnel():
     hkkkk()
     video_url = request.args.get('url')
     if not video_url:
@@ -325,7 +381,7 @@ def show_control_panel():
         print(f"[LOG] ERROR: GitHubからの基地URL解決に失敗しました。詳細: {str(e)}")
         return jsonify({"error": "Failed to resolve proxy URL from GitHub", "details": str(e)}), 500
 
-    target_api_url = f"{base_proxy_url}/video"
+    target_api_url = f"{base_proxy_url}/json"
     print(f"[LOG] ACTION: 特定したスマホ基地のAPIへ通信をリレーします -> {target_api_url}")
 
     try:
@@ -355,6 +411,10 @@ def extractss_video_id(url):
     else:
         print(f"[missionLog] WARNING: 動画IDが見つかりませんでした。 URL: {url} ❓")
         return None
+
+
+
+
 
 @app.route('/yt-dlps-j', methods=['GET'])
 def yt_json_command():
