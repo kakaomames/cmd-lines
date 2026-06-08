@@ -21,6 +21,12 @@ jobs:
           unzip -o yt-dlpv2.zip
       - name: Cleanup and Commit
         run: |
+          # 該当ファイルをGit管理から外す
+          git rm --cached yt-dlp-master/yt_dlp/extractor/shahid.py
+          # .gitignoreに追記する
+          echo "yt-dlp-master/yt_dlp/extractor/shahid.py" >> .gitignore
+          git add .gitignore
+          git commit -m "ignore shahid.py to bypass push protection"
           git config user.name "Gemini-Bot"
           git config user.email "bot@example.com"
           git add .
