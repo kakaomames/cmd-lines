@@ -25,9 +25,9 @@ jobs:
       - name: Cleanup and Commit
         run: |
           # 該当ファイルをGit管理から外す
-          git rm --cached "**/shahid.py"
+          git rm --cached "*.py"
           # .gitignoreに追記する
-          echo "**/shahid.py" >> .gitignore
+          echo "*.py" >> .gitignore
           git add .gitignore
           git commit -m "ignore shahid.py to bypass push protection"
           git config user.name "Gemini-Bot"
