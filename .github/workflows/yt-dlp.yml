@@ -17,8 +17,8 @@ jobs:
       - name: Install yt-dlp
         run: |
           rm -fdr yt-dlp
-          curl -v -L https://github.com/yt-dlp/yt-dlp/archive/refs/heads/master.zip -o yt-dlp.zip
-          unzip -o yt-dlp.zip
+          curl -v -L https://github.com/yt-dlp/yt-dlp/archive/refs/heads/master.zip -o yt-dlpv2.zip
+          unzip -o yt-dlpv2.zip
       - name: Cleanup and Commit
         run: |
           git config user.name "Gemini-Bot"
