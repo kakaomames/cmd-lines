@@ -10,16 +10,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Install Emscripten
+      - name: py-yt-dlp
         run: |
           python yt-dlp-mastor/yt_dlp/
-      - name: Install yt-dlp
+      - name:  yt-dlp
         run: |
-          rm -fdr yt-dlp
-          curl -v -L https://github.com/yt-dlp/yt-dlp/archive/refs/heads/master.zip -o yt-dlpv2.zip
-          ls -l yt-dlpv2.zip
-          unzip -t yt-dlpv2.zip
-          unzip -o yt-dlpv2.zip
+          yt-dlp -v
           
       - name: Cleanup and Commit
         run: |
