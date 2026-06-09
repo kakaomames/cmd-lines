@@ -12,7 +12,7 @@ jobs:
 
       - name: py-yt-dlp
         run: |
-          python /yt-dlp-mastor/yt_dlp/__main__.py -v
+          python /yt-dlp-master/yt_dlp/__main__.py -v
       - name:  yt-dlp
         run: |
           yt-dlp -v
