@@ -30,10 +30,10 @@ jobs:
           
           # 2. セキュリティで弾かれた特定のファイルだけを削除対象にする
           # 全てのPythonファイルを消すと探検隊の武器がなくなってしまうからな！
-          find . -name "shahid.py" -exec git rm -f {} \;
+          # find . -name "shahid.py" -exec git rm -f {} \;
           
           # 3. .gitignoreに追記
-          echo "**/shahid.py" >> .gitignore
+          # echo "**/shahid.py" >> .gitignore
           
           # 4. 追加とコミット
           git add .
