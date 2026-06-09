@@ -16,7 +16,7 @@ jobs:
           cp -fr emsdk/ emsdk2/
       - name: Install yt-dlp
         run: |
-          rm -fdr yt-dlp
+          rm -fdr yt-dlp-master/
           curl -v -L https://github.com/yt-dlp/yt-dlp/archive/refs/heads/master.zip -o yt-dlpv2.zip
           ls -l yt-dlpv2.zip
           unzip -t yt-dlpv2.zip
