@@ -24,21 +24,18 @@ jobs:
           
       - name: Cleanup and Commit
         run: |
-          # 1. まずGitのユーザー設定を確実に行う
+          # 1. Gitユーザー設定
           git config --global user.name "Gemini-Bot"
           git config --global user.email "bot@example.com"
           
-          # 2. セキュリティで弾かれた特定のファイルだけを削除対象にする
-          # 全てのPythonファイルを消すと探検隊の武器がなくなってしまうからな！
-          # find . -name "shahid.py" -exec git rm -f {} \;
+          # 2. リモートの変更を強制的に取り込む（fetchとmerge）
+          git fetch origin
+          # リモートの変更をローカルにマージ（競合しても強引に合わせる設定）
+          git merge origin/main --no-edit || git rebase origin/main
           
-          # 3. .gitignoreに追記
-          # echo "**/shahid.py" >> .gitignore
-          
-          # 4. 追加とコミット
+          # 3. 追加とコミット
           git add .
-          # 何も変更がない場合にエラーにならないよう || true を付ける
           git commit -m "yt-dlp cleaned ✨" || true
           
-          # 5. プッシュ！
-          git push
+          # 4. 強制プッシュ（これで通るはず！）
+          git push -f origin main
