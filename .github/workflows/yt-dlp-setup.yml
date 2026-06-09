@@ -1,4 +1,4 @@
-name: YT-DLP
+name: YT-DLP-SETUP
 
 on:
   workflow_dispatch: # 手動実行用
