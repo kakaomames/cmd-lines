@@ -10,9 +10,25 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: py-yt-dlp
+      - name: Run py-yt-dlp
         run: |
-          python /yt-dlp-master/yt_dlp/__main__.py -v
+          # 1. どこに本体があるか探す（ログに出力して確認）
+          echo "ファイル位置を探索中..."
+          find . -name "__main__.py"
+          
+          # 2. 本体を見つけたらそのパスで実行する
+          # findで見つけたパスを変数に入れる
+          MAIN_PATH=$(find . -name "__main__.py" | head -n 1)
+          
+          if [ -z "$MAIN_PATH" ]; then
+            echo "エラー: __main__.py が見つかりません！"
+            ls -R  # 念のため全構造を表示
+            exit 1
+          fi
+          
+          echo "本体を発見: $MAIN_PATH"
+          python "$MAIN_PATH" -v
+          
       - name:  yt-dlp
         run: |
           yt-dlp -v
