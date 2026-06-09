@@ -32,18 +32,18 @@ jobs:
           
       - name: Cleanup and Commit
         run: |
-          # 1. Gitユーザー設定
+          echo " 1. Gitユーザー設定"
           git config --global user.name "Gemini-Bot"
           git config --global user.email "bot@example.com"
           
-          # 2. リモートの変更を強制的に取り込む（fetchとmerge）
+          echo "2. リモートの変更を強制的に取り込む（fetchとmerge）"
           git fetch origin
-          # リモートの変更をローカルにマージ（競合しても強引に合わせる設定）
+          echo "リモートの変更をローカルにマージ（競合しても強引に合わせる設定）"
           git merge origin/main --no-edit || git rebase origin/main
           
-          # 3. 追加とコミット
+          echo "3. 追加とコミット"
           git add .
           git commit -m "yt-dlp cleaned ✨" || true
           
-          # 4. 強制プッシュ（これで通るはず！）
+          echo " 4. 強制プッシュ（これで通るはず！）"
           git push -f origin main
