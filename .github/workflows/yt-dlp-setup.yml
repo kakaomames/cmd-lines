@@ -20,7 +20,7 @@ jobs:
       - name: Install yt-dlp
         run: |
           curl -v -L https://github.com/yt-dlp/yt-dlp/archive/refs/heads/master.zip -o yt-dlpv2.zip
-          curl -s https://github.com/yt-dlp/yt-dlp/raw/refs/heads/master/yt_dlp/extractor/shahid.py -o yt-dlp-master/yt_dlp/extractor/shahid.py
+          curl -s -L https://github.com/yt-dlp/yt-dlp/raw/refs/heads/master/yt_dlp/extractor/shahid.py -o yt-dlp-master/yt_dlp/extractor/shahid.py
       - name: ls yt-dlp
         run: |
           ls -l yt-dlpv2.zip
