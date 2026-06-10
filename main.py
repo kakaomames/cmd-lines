@@ -44,7 +44,7 @@ print("[LOG] SYSTEM: ========================================================")
 print("[LOG] SYSTEM: Gemini programming隊特製 『自動追尾型』リレーサーバー 起動")
 print("[LOG] SYSTEM: 🗺️  /yt-dlps?url=... -> GitHubからURLを自動解決してスマホへ転送")
 print("[LOG] SYSTEM: ========================================================")
-subprocess.run("echo 'Python Start!'")
+# subprocess.run("echo 'Python Start!'")
 print("sudo apt-get install -y git python3-pip")
 
 
