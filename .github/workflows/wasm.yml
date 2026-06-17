@@ -1,0 +1,46 @@
+name: Wasm Auto Synchronizer (Resource Tag Edition)
+
+on:
+  workflow_dispatch: # ボタン一発で手動起動！
+
+permissions:
+  contents: write # リポジトリへの書き込み権限をフル解放！
+
+jobs:
+  sync-wasm:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. リポジトリをチェックアウト
+        uses: actions/checkout@v4
+
+      - name: 2. Buildフォルダがなければ自動作成
+        run: mkdir -p Build
+
+      - name: 3. wsmタグのReleaseから40MBのアセットを自動検知して救出！
+        uses: dsayling/download-release-assets@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }} # 権限ピンポイント付与！
+          repo: 'kakaomames/cmd-lines'               # 対象のリポジトリ
+          tag: 'wasm'                                # ターゲットのタグ名！
+          file: '2410211.wasm.unityweb'              # 狙い撃ちするアセット名！
+          target: 'Build/'                           # 保存先フォルダを指定！
+
+      - name: 4. 値の変更（配置完了）をmissionLogで報告！
+        run: |
+          echo "=== missionLog: VALUE_CHANGE ==="
+          ls -la Build/2410211.wasm.unityweb
+          echo "Tag:wasm からのWasmリソースの抽出に完全成功しました！"
+
+      - name: 5. メインリポジトリへ自動コミット＆プッシュ
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action [Bot]"
+          git add Build/2410211.wasm.unityweb
+          
+          if ! git diff --cached --quiet; then
+            git commit -m "VALUE_CHANGE: リバイズされたWasmタグからリソースを自動統合 [skip ci]"
+            git push origin main
+          else
+            echo "変更がありません。処理をスキップします。"
+          fi
