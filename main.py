@@ -4398,6 +4398,12 @@ def survivalrace():
     """survivalraceを表示"""
     return render_template('survivalrace.html')
 # survivalrace
+# /pescape-road
+@app.route('/pescape-road', methods=['GET'])
+def pescape-road():
+    """pescape-roadを表示"""
+    return render_template('pescape-road.html')
+    
  
 @app.route('/pokemonquest', methods=['GET'])
 def pokeque():
