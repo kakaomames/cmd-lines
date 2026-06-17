@@ -39,7 +39,7 @@ print("[LOG] SYSTEM: 🗺️  /yt-dlps?url=... -> GitHubからURLを自動解決
 print("[LOG] SYSTEM: ========================================================")
 print("sudo apt-get install -y git python3-pip")
 
-
+app = Flask(__name__)
 
 
 from urllib.request import Request, urlopen
@@ -212,7 +212,7 @@ execute_tactical_setup()
 
 
 
-app = Flask(__name__)
+
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN") # Vercelの環境変数で設定
 GITHUB_OWNER = "kakaomames"        # あなたのGitHubユーザー名
 GITHUB_REPO = "backup"            # データ保存用のリポジトリ名
