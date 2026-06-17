@@ -8,7 +8,7 @@ window.fetch = function(...args) {
     
     // 1. リクエストが文字列であり、かつ「2410211.wasm.unityweb」をターゲットにしている場合
     // 2. すでにGitHubのURLに書き換え済みの場合はループを防ぐために除外する
-    if (typeof url === 'string' && url.includes('2410211.wasm.unityweb') && !url.includes('github.com')) {
+    if (typeof url === 'string' && url.includes('wasm/2410211.wasm.unityweb') && !url.includes('github.com')) {
         
         // 隊長リポート：Wasmのフェッチを検知して外部ストレージにバイパス開始！
         console.log(`[Gemini Mission Log] Unity Wasmの要求を検知しました。対象URL: ${url}`);
