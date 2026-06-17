@@ -1,4 +1,4 @@
-name: Wasm Auto Synchronizer (Resource Tag Edition)
+name: Wasm Auto Synchronizer (GitHub CLI Edition)
 
 on:
   workflow_dispatch: # ボタン一発で手動起動！
@@ -17,20 +17,18 @@ jobs:
       - name: 2. Buildフォルダがなければ自動作成
         run: mkdir -p Build
 
-      - name: 3. wsmタグのReleaseから40MBのアセットを自動検知して救出！
-        uses: dsayling/download-release-assets@v1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }} # 権限ピンポイント付与！
-          repo: 'kakaomames/cmd-lines'               # 対象のリポジトリ
-          tag: 'wasm'                                # ターゲットのタグ名！
-          file: '2410211.wasm.unityweb'              # 狙い撃ちするアセット名！
-          target: 'Build/'                           # 保存先フォルダを指定！
+      - name: 3. GitHub公式CLIでタグからWasmリソースを直接救出！
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # 公式CLIにトークンを叩き込む！
+        run: |
+          # gh release download [タグ名] --repo [リポジトリ名] --pattern [ファイル名] --dir [保存先]
+          gh release download wasm --repo "kakaomames/cmd-lines" --pattern "2410211.wasm.unityweb" --dir "Build/"
 
       - name: 4. 値の変更（配置完了）をmissionLogで報告！
         run: |
           echo "=== missionLog: VALUE_CHANGE ==="
           ls -la Build/2410211.wasm.unityweb
-          echo "Tag:wasm からのWasmリソースの抽出に完全成功しました！"
+          echo "GitHub CLI を使用して、wasmタグからの抽出に完全成功しました！"
 
       - name: 5. メインリポジトリへ自動コミット＆プッシュ
         run: |
@@ -39,7 +37,7 @@ jobs:
           git add Build/2410211.wasm.unityweb
           
           if ! git diff --cached --quiet; then
-            git commit -m "VALUE_CHANGE: リバイズされたWasmタグからリソースを自動統合 [skip ci]"
+            git commit -m "VALUE_CHANGE: GitHub CLIによりWasmタグからリソースを自動統合 [skip ci]"
             git push origin main
           else
             echo "変更がありません。処理をスキップします。"
