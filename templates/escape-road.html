@@ -1,25 +1,33 @@
 <html lang="en-us"><head>
       <meta charset="utf-8">
       <script>
-// 巨大JSが動く前に、fetchの挙動を完全にハックするぞ！
-const originalFetch = window.fetch;
-window.fetch = function(...args) {
-    let url = args[0];
-    
-    // 1. リクエストが文字列であり、かつ「2410211.wasm.unityweb」をターゲットにしている場合
-    // 2. すでにGitHubのURLに書き換え済みの場合はループを防ぐために除外する
-    if (typeof url === 'string' && url.includes('wasm/2410211.wasm.unityweb') && !url.includes('github.com')) {
-        
-        // 隊長リポート：Wasmのフェッチを検知して外部ストレージにバイパス開始！
-        console.log(`[Gemini Mission Log] Unity Wasmの要求を検知しました。対象URL: ${url}`);
-        
-        // GitHub Releasesの直リンクへ差し替え
-        args[0] = 'https://github.com/kakaomames/cmd-lines/releases/download/wasm/2410211.wasm.unityweb';
-        
-        console.log(`[Gemini Mission Log] 読み込み先をGitHub Releasesへ変更完了: ${args[0]}`);
-    }
-    return originalFetch.apply(this, args);
-};
+(function() {
+    const targetWasm = '2410211.wasm.unityweb';
+    const remoteWasmUrl = 'https://github.com/kakaomames/cmd-lines/releases/download/wasm/2410211.wasm.unityweb';
+
+    console.log("[Gemini Mission Log] ネットワークジャックシステム、起動完了！");
+
+    // === 1. fetchのジャック ===
+    const originalFetch = window.fetch;
+    window.fetch = function(...args) {
+        let url = args[0];
+        if (typeof url === 'string' && url.includes(targetWasm) && !url.includes('github.com')) {
+            console.log(`[Gemini Log: fetch] Wasm要求を検知！URLを書き換えます: ${url}`);
+            args[0] = remoteWasmUrl;
+        }
+        return originalFetch.apply(this, args);
+    };
+
+    // === 2. XMLHttpRequest (XHR) のジャック ===
+    const originalOpen = XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open = function(method, url, ...args) {
+        if (typeof url === 'string' && url.includes(targetWasm) && !url.includes('github.com')) {
+            console.log(`[Gemini Log: XHR] Wasm要求を検知！URLを書き換えます: ${url}`);
+            url = remoteWasmUrl;
+        }
+        return originalOpen.apply(this, [method, url, ...args]);
+    };
+})();
 </script>
       <meta name="robots" content="noindex, nofollow">
       <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
