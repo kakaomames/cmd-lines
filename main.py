@@ -1,10 +1,7 @@
 import flask
-from flask import Flask, request, render_template_string, render_template, send_file,redirect, url_for, jsonify, Response, send_from_directory # 正しい順序に並べ替えてもOK
 from flask_socketio import SocketIO, emit, join_room, leave_room
-from flask import Flask, request, Response, jsonify
-from flask import Flask, request, send_file, render_template_string
+from flask import Flask, request, send_file, render_template_string, jsonify, Response, render_template, redirect, url_for, send_from_directory
 import re
-# from yt_dlp import yt_dlp_p
 import subprocess
 import wasmtime
 import os
@@ -22,9 +19,7 @@ from flask_cors import CORS
 import math
 from datetime import datetime, timezone
 import base64
-# 既存の import datetime を、この形式に書き換えるか追加する！
 from datetime import datetime
-# import datetime
 import sys
 import ctypes
 from werkzeug.utils import secure_filename
@@ -34,23 +29,19 @@ import subprocess
 import shutil
 import tarfile
 import urllib.request
-
-
-
-
 from av01ToH254 import convert_av1_to_h264
+
+
 
 print("[LOG] SYSTEM: ========================================================")
 print("[LOG] SYSTEM: Gemini programming隊特製 『自動追尾型』リレーサーバー 起動")
 print("[LOG] SYSTEM: 🗺️  /yt-dlps?url=... -> GitHubからURLを自動解決してスマホへ転送")
 print("[LOG] SYSTEM: ========================================================")
-# subprocess.run("echo 'Python Start!'")
 print("sudo apt-get install -y git python3-pip")
 
 
 
-import json
-import base64
+
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 
@@ -3270,44 +3261,6 @@ def wasm3():
     """最初のURL入力フォームを表示"""
     return render_template('wasmv1.html')
 
-## =========================================================
-## 2. Render コンパイラへのプロキシ API ルート
-## =========================================================
-
-# @app.route('/api/compile', methods=['POST'])
-# def compile_proxy_curl():
-#     """
-#     ⚠️ curl を使用するプロキシエンドポイント (非推奨)
-#     """
-#     try:
-#         data = flask.request.get_json()
-#         rust_code = data.get('code')
-        
-#         # ユーザー入力を直接含むため、セキュリティに注意が必要
-#         json_payload = json.dumps({'code': rust_code})
-        
-#         command = [
-#             'curl', '-s', '-X', 'POST', 
-#             '-H', 'Content-Type: application/json',
-#             # -d にペイロードを渡す
-#             '-d', json_payload, 
-#             f'{RENDER_URL}/api/compile'
-#         ]
-#         
-#         process = subprocess.run(command, capture_output=True, text=True, timeout=60)
-#         
-#         if process.returncode != 0:
-#             # curl自体が失敗、または Renderがエラーを返した場合
-#             return flask.jsonify({'status': 'error', 'message': 'Render compilation failed (cURL error)'}), 500
-# 
-#         render_response = json.loads(process.stdout)
-#         return flask.jsonify(render_response), 200
-# 
-#     except Exception as e:
-#         print(f"Compilation Proxy Error (cURL): {e}")
-#         return flask.jsonify({'status': 'error', 'message': f'Proxy Error: {e}'}), 500
-
-# Vercel Serverless Function: app.py の該当部分
 
 @app.route('/api/compile', methods=['POST'])
 def compile_endpoint():
