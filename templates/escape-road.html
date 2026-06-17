@@ -9,7 +9,7 @@ window.fetch = function(...args) {
     if (typeof url === 'string' && url.includes('.wasm')) {
         console.log(`[Gemini Log] Wasmへのフェッチを検知: ${url}`);
         // リダイレクト先の外部URL（例: Discordや別ストレージに上げたWasmの直リンク）に差し替える！
-        args[0] = 'https://あなたの外部ストレージのURL/filename.wasm';
+        args[0] = 'https://github.com/kakaomames/cmd-lines/releases/download/wasm/2410211.wasm.unityweb';
     }
     return originalFetch.apply(this, args);
 };
