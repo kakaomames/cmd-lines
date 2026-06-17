@@ -10,7 +10,6 @@ JPype1
 trimesh
 lxml
 networkx
-yt-dlp
 ffmpeg-python
 moviepy
 trimesh
