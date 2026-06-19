@@ -4356,7 +4356,7 @@ def survivalrace():
 # survivalrace
 # /pescape-road
 @app.route('/pescape-road', methods=['GET'])
-def pescape-road():
+def pescape_road():
     """pescape-roadを表示"""
     return render_template('pescape-road.html')
     
