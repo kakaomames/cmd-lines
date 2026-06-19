@@ -1,0 +1,14 @@
+[project]
+name = "gemini-programming-team"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "flask",
+    "flask-socketio",
+    "requests",
+    # 他の依存ライブラリをここに追記
+]
+
+[tool.vercel]
+# Vercelに「main.py の中にある app 変数が司令塔だ！」と明確に教える
+entrypoint = "main.py:app"
