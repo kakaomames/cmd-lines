@@ -2,6 +2,8 @@ import flask
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask import Flask, request, send_file, render_template_string, jsonify, Response, render_template, redirect, url_for, send_from_directory
 app = Flask(__name__)
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError
 import re
 import subprocess
 import wasmtime
@@ -43,8 +45,6 @@ print("sudo apt-get install -y git python3-pip")
 pokemogukunns = app
 IS_VERCEL = os.environ.get("VERCEL") == "1"
 
-from urllib.request import Request, urlopen
-from urllib.error import HTTPError
 
 def sync_urls_json(github_token):
     """
@@ -129,7 +129,8 @@ def get_or_create_repo(repo_name, filename, default_content):
 
 REPO_A = "my-repo"
 
-
+app = Flask(__name__)
+print(app)
 # --- 🛰️ Gemini programming隊 専用 ログユニット ---
 def mission_log(log_type, message):
     """値を監視し、変化があったときやエラー時に即座に格納庫へログを払い出す"""
@@ -264,7 +265,7 @@ def ensure_ffmpeg():
 from datetime import datetime, timezone, timedelta
 import requests
 import os
-
+app = Flask(__name__)
 # タイムスタンプ生成
 JST = timezone(timedelta(hours=9))
 timestamp = datetime.now(JST).strftime('%Y%m%d%H%M%S')
