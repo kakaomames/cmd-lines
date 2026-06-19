@@ -41,7 +41,7 @@ print("[LOG] SYSTEM: ========================================================")
 print("sudo apt-get install -y git python3-pip")
 
 pokemogukunns = app
-
+IS_VERCEL = os.environ.get("VERCEL") == "1"
 
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
@@ -208,7 +208,7 @@ def execute_tactical_setupn():
     mission_log("SUCCESS", f"🗺️ LD_LIBRARY_PATH を聖域結合: {os.environ['LD_LIBRARY_PATH']}")
 
 # 💥 main.py が読み込まれた瞬間に最優先で作戦を発動
-execute_tactical_setup()
+# execute_tactical_setup()
 
 
 
