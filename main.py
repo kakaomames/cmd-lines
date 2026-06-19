@@ -4414,4 +4414,6 @@ if __name__ == '__main__':
         print(f"port_val: {port_val}")
         
         # SocketIOで起動（allow_unsafe_werkzeug=Trueを忘れずに！）
+        # app.run(app, ...) ではなくこちら！
+        app.run(debug=True, host='0.0.0.0', port=port_val)
         socketio.run(app, debug=True, host='0.0.0.0', port=port_val, allow_unsafe_werkzeug=True)
