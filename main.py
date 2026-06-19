@@ -1,6 +1,7 @@
 import flask
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask import Flask, request, send_file, render_template_string, jsonify, Response, render_template, redirect, url_for, send_from_directory
+app = Flask(__name__)
 import re
 import subprocess
 import wasmtime
@@ -39,7 +40,7 @@ print("[LOG] SYSTEM: 🗺️  /yt-dlps?url=... -> GitHubからURLを自動解決
 print("[LOG] SYSTEM: ========================================================")
 print("sudo apt-get install -y git python3-pip")
 
-app = Flask(__name__)
+pokemogukunns = app
 
 
 from urllib.request import Request, urlopen
