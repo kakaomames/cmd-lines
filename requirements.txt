@@ -6,4 +6,12 @@ flask-cors
 wasmtime
 Flask-SocketIO
 PyGithub
-
+JPype1
+trimesh
+lxml
+networkx
+ffmpeg-python
+moviepy
+trimesh
+shapely
+matplotlib

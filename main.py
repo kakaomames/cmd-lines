@@ -1,6 +1,7 @@
 import flask
-from flask import Flask, request, render_template_string, render_template, send_file,redirect, url_for, jsonify, Response, send_from_directory # 正しい順序に並べ替えてもOK
 from flask_socketio import SocketIO, emit, join_room, leave_room
+from flask import Flask, request, send_file, render_template_string, jsonify, Response, render_template, redirect, url_for, send_from_directory
+import re
 import subprocess
 import wasmtime
 import os
@@ -16,24 +17,210 @@ from io import BytesIO
 from urllib.parse import urlparse
 from flask_cors import CORS
 import math
-from flask import Flask, request, Response, jsonify
 from datetime import datetime, timezone
 import base64
+from datetime import datetime
+import sys
+import ctypes
+from werkzeug.utils import secure_filename
+from objTo3mf import convert_obj_to_3mf, ms
+import requests
+import subprocess
+import shutil
+import tarfile
+import urllib.request
+from av01ToH254 import convert_av1_to_h264
+
+
+
+print("[LOG] SYSTEM: ========================================================")
+print("[LOG] SYSTEM: Gemini programming隊特製 『自動追尾型』リレーサーバー 起動")
+print("[LOG] SYSTEM: 🗺️  /yt-dlps?url=... -> GitHubからURLを自動解決してスマホへ転送")
+print("[LOG] SYSTEM: ========================================================")
+print("sudo apt-get install -y git python3-pip")
+
+app = Flask(__name__)
+
+
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError
+
+def sync_urls_json(github_token):
+    """
+    1MB以上の大容量ファイルにも対応した、GitHub API経由の urls.json 同期関数。
+    """
+    # 共通ヘッダー（書き込み側の cmd-lines はプライベートの可能性があるためトークンを使用）
+    base_headers = {
+        "Authorization": f"Bearer {github_token}",
+        "Accept": "application/json",
+        "User-Agent": "Flask-App-Sync"
+    }
+
+    try:
+        # 1. GitHub APIを使用してキャッシュを回避し最新のurls.jsonを取得
+        print("GitHub API経由で urls.json を取得中...")
+        api_url = "https://api.github.com/repos/kakaomames/yt-dlp-s25/contents/urls.json"
+        
+        req_src = Request(
+            api_url, 
+            headers={
+                "User-Agent": "Flask-App-Sync",
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache"
+            }
+        )
+        
+        with urlopen(req_src) as response:
+            data = json.loads(response.read().decode("utf-8"))
+            content_b64 = data.get("content")
+            if not content_b64:
+                print("エラー: コンテンツが取得できませんでした。")
+                return False
+            urls_json_content = base64.b64decode(content_b64).decode("utf-8")
+
+        # jsonとして正しいフォーマットかチェック
+        try:
+            json.loads(urls_json_content)
+            print("最新の urls.json を正常に取得しました。")
+            return True
+        except json.JSONDecodeError:
+            print("エラー: 取得した urls.json の形式が正しいJSONではありません。")
+            return False
+
+    except HTTPError as e:
+        error_body = e.read().decode("utf-8") if e.readable() else ""
+        print(f"取得中にHTTPエラーが発生しました: {e.code} {e.reason}\n詳細: {error_body}")
+        return False
+    except Exception as e:
+        print(f"同期中に予期せぬエラーが発生しました: {str(e)}")
+        return False
+
+
+
+
+
+
+
+
+class DummyRepo:
+
+
+
+
+
+
+    def __init__(self):
+        self.path = "pending.json"
+        self.sha = "dummy_sha_12345"
+    def get_contents(self, filename):
+        class Content:
+            def __init__(self):
+                self.path = "pending.json"
+                self.decoded_content = b"[]"
+                self.sha = "dummy_sha_12345"
+        return Content()
+    def update_file(self, path, message, content, sha):
+        # コミットログとして出力
+        print(f"[GitHub Commit] {message}")
+
+def get_or_create_repo(repo_name, filename, default_content):
+    return DummyRepo()
+
+REPO_A = "my-repo"
+
+
+# --- 🛰️ Gemini programming隊 専用 ログユニット ---
+def mission_log(log_type, message):
+    """値を監視し、変化があったときやエラー時に即座に格納庫へログを払い出す"""
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+    color_code = "\033[1;31m" if log_type == "ERROR" else "\033[1;32m"
+    reset_code = "\033[0m"
+    print(f"{timestamp} [{color_code}{log_type}{reset_code}] {message}", flush=True)
+
+# --- 🚀 【新・作戦発動】ポータブルJava自動爆撃・展開シーケンス ---
+def execute_tactical_setup():
+    mission_log("INFO","v7.3.5")
  
+def execute_tactical_setupn():
+    mission_log("INFO", "🪪 作戦バージョン: v7.3.5 - ポータブルJava聖域展開シェル起動")
+    
+    # 🗺️ Vercelの書き込み可能聖域 `/tmp` をベース陣地にする
+    target_tmp_dir = "/tmp/portable_env"
+    java_dest_dir = os.path.join(target_tmp_dir, "jdk")
+    
+    # Linux x86_64 用 OpenJDK 17 バイナリの直撃ダウンロードURL (Adoptium公式)
+    jdk_url = "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.10%2B7/OpenJDK17U-jre_x64_linux_hotspot_17.0.10_7.tar.gz"
+    tar_path = os.path.join(target_tmp_dir, "openjdk.tar.gz")
+
+    # 🚨 既に聖域に展開済みかチェック
+    if os.path.exists(os.path.join(java_dest_dir, "bin/java")):
+        mission_log("SUCCESS", "🎯 聖域内にポータブルJavaが既に展開されています。")
+    else:
+        mission_log("WARN", "⚠️ サーバーレス環境内にJavaを発見できません。聖域(/tmp)への空中投下を開始します...")
+        try:
+            if not os.path.exists(target_tmp_dir):
+                os.makedirs(target_tmp_dir)
+                
+            # 1. 高速ダウンロード
+            mission_log("EXEC", f"Javaバイナリを空中投下中 (URL: {jdk_url}) ...")
+            urllib.request.urlretrieve(jdk_url, tar_path)
+            mission_log("SUCCESS", "📦 空中投下（ダウンロード）完了。")
+
+            # 2. 聖域内での解凍
+            mission_log("EXEC", "聖域内でのアーカイブ解凍シーケンスを開始...")
+            with tarfile.open(tar_path, "r:gz") as tar:
+                tar.extractall(path=target_tmp_dir)
+            
+            # 解凍されたフォルダ（通常 jdk-17.0.10+7-jre のような名前）を固定位置にリネーム
+            extracted_folder = [f for f in os.listdir(target_tmp_dir) if os.path.isdir(os.path.join(target_tmp_dir, f)) and f != "jdk"][0]
+            shutil.move(os.path.join(target_tmp_dir, extracted_folder), java_dest_dir)
+            
+            # ゴミの撤去
+            if os.path.exists(tar_path):
+                os.remove(tar_path)
+                
+            mission_log("SUCCESS", "⚡️ 聖域内へのポータブルJava展開が完全完了しました！")
+        except Exception as e:
+            mission_log("ERROR", f"ポータブルJava展開中に致命的システム例外: {str(e)}")
+            return
+
+    # --- 🗺️ 3. 聖域ルートを Python 環境変数へ強制結合（完全上書き乗っ取り） ---
+    mission_log("INFO", "🗺️ システムリンカーの隠れみのルート（LD_LIBRARY_PATH/JAVA_HOME）を聖域に精密同期中...")
+    
+    # 展開したポータブルJavaの絶対パスを強制注入
+    os.environ["JAVA_HOME"] = java_dest_dir
+    
+    # libjvm.so の正確な格納位置（JREは lib/server 内に心臓部がある）
+    jvm_lib_server = os.path.join(java_dest_dir, "lib/server")
+    current_ld = os.environ.get("LD_LIBRARY_PATH", "")
+    
+    # 既存のパスの最先頭に叩き込むことで、システム標準より最優先で読み込ませる
+    os.environ["LD_LIBRARY_PATH"] = f"{jvm_lib_server}:{current_ld}" if current_ld else jvm_lib_server
+
+    # パスが本当に通ったか、ログで完全勝利宣言
+    if os.path.exists(os.path.join(jvm_lib_server, "libjvm.so")):
+        mission_log("SUCCESS", f"🔥 🚀 [CONFIRMED] 聖域の libjvm.so の存在を確認！: {os.path.join(jvm_lib_server, 'libjvm.so')}")
+    else:
+        mission_log("ERROR", "❌ [CRITICAL] 展開されたはずの libjvm.so が見つかりません！")
+
+    mission_log("SUCCESS", f"🎯 JAVA_HOME を聖域パスに完全注入: {os.environ['JAVA_HOME']}")
+    mission_log("SUCCESS", f"🗺️ LD_LIBRARY_PATH を聖域結合: {os.environ['LD_LIBRARY_PATH']}")
+
+# 💥 main.py が読み込まれた瞬間に最優先で作戦を発動
+execute_tactical_setup()
+
+
+
+
+
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN") # Vercelの環境変数で設定
 GITHUB_OWNER = "kakaomames"        # あなたのGitHubユーザー名
 GITHUB_REPO = "backup"            # データ保存用のリポジトリ名
 GAME_FOLDER = "pokeque"
-
-
-
-app = Flask(__name__)
 app.config['SECRET_KEY'] = 'SECRET_KEY_TEST'
 socketio = SocketIO(app, cors_allowed_origins="*")
-
 # CORS許可
 CORS(app)
-
 GITHUB_BASE_URL = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/"
 HEADERS = {
     "Authorization": f"token {GITHUB_TOKEN}",
@@ -46,7 +233,687 @@ print("aaaaaaa")
 
 
 
+# ==========================================
+# 別の関数から呼び出す例
+# ==========================================
+def hkkkk():
+    # 実際のGitHubトークンを入力（環境変数などから取るのが安全です）
+    YOUR_GITHUB_TOKEN = GITHUB_TOKEN
+    
+    success = sync_urls_json(YOUR_GITHUB_TOKEN)
+    if success:
+        return "同期成功"
+    else:
+        return "同期失敗"
 
+
+def ensure_ffmpeg():
+    """Vercelの環境にffmpegがない場合、静的バイナリを/tmpに配置して実行可能にする"""
+    ffmpeg_path = "/tmp/ffmpeg"
+    if not os.path.exists(ffmpeg_path):
+        print("[LOG] ACTION: Vercel環境内に ffmpeg バイナリが見つかりません。自動ダウンロードを開始します...")
+        # Linux x86_64 用の静的ビルドバイナリを調達
+        url = "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz"
+        # ※Vercelの容量制限や起動速度を考慮し、軽量な静的バイナリをロードするか、
+        # または Vercel の vercel.json に "includeFiles": "bin/ffmpeg" で直接デプロイするのが確実です。
+        # ここでは環境を汚さないよう、システム側のパス、またはカレントの /tmp/ffmpeg を最優先するようにします。
+    return "ffmpeg" # システムパスに導入されている前提（またはvercel.json等で配備）
+
+
+from datetime import datetime, timezone, timedelta
+import requests
+import os
+
+# タイムスタンプ生成
+JST = timezone(timedelta(hours=9))
+timestamp = datetime.now(JST).strftime('%Y%m%d%H%M%S')
+
+# ベースURLはシンプルに
+RAW_URL_CONFIGS = "https://api.github.com/repos/kakaomames/yt-dlp-s25/contents/urls.json"
+
+
+
+def get_base_proxy_url():
+    # ヘッダーにキャッシュ無効化の命令を詰め込む
+    headers = {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0",
+        "User-Agent": "yt-dlp-s25-sync"
+    }
+    
+    # APIリクエスト時にヘッダーを渡す（paramsはそのまま生かしても良いが、ヘッダーが主役だ）
+    config_response = requests.get(RAW_URL_CONFIGS, headers=headers)
+    config_response.raise_for_status()
+    
+    config_data = config_response.json()
+    
+    # Base64デコード処理を忘れるな（GitHub APIは内容をBase64で返すため）
+    import base64
+    decoded_content = base64.b64decode(config_data.get("content")).decode("utf-8")
+    actual_data = json.loads(decoded_content)
+    
+    base_url = actual_data.get("proxy_url", "").rstrip('/')
+    
+    mission_log("INFO", f"URL取得成功: {base_url}")
+    return base_url
+
+
+
+
+def get_base_proxy_urlhhhh():
+    config_response = requests.get(RAW_URL_CONFIG, params={"t": os.urandom(4).hex()})
+    config_response.raise_for_status()
+    config_data = config_response.json()
+    base_url = config_data.get("proxy_url", "")
+    if base_url.endswith('/'):
+        base_url = base_url[:-1]
+    return base_url
+
+# ========================================================
+# 🗺️ 画面表示 & 命令発射ルート: /yt-dlps
+# ========================================================
+@app.route('/yt-dlps', methods=['GET'])
+def show_control_panel():
+    # 既存の初期化処理
+    # hkkkk() 
+    
+    video_url = request.args.get('url')
+    if not video_url:
+        print("[LOG] ACTION: コントロールパネルへ接続。yt-dlps.html を展開。")
+        return render_template('yt-dlps.html')
+
+    print(f"[LOG] ACTION: 統合要求を受信！ ターゲット: {video_url}")
+
+    try:
+        # 最新のURLをGitHub APIから取得（キャッシュレス）
+        base_proxy_url = get_base_proxy_url()
+        print(f"[LOG] SUCCESS: スマホ基地の現在地を特定 -> {base_proxy_url}")
+    except Exception as e:
+        print(f"[LOG] ERROR: 基地解決失敗。詳細: {str(e)}")
+        return jsonify({"error": "Failed to resolve proxy URL", "details": str(e)}), 500
+
+    # JSONデータを直接取得するためのエンドポイント
+    target_api_url = f"{base_proxy_url}/json"
+    
+    try:
+        # 基地へ動画URLを投げ、帰ってきたJSONをそのまま保持する
+        proxy_response = requests.get(target_api_url, params={"url": video_url}, timeout=15)
+        proxy_response.raise_for_status()
+        
+        # 基地から帰ってきた生のJSONデータ
+        data = proxy_response.json()
+        
+        print(f"[LOG] SUCCESS: スマホ基地からデータを強奪しました！")
+        
+        # HTML（またはJS側）で表示するためにJSONをそのまま返す
+        # これにより、フロントエンド側で受け取ったデータを即座にDOMに流し込める
+        return jsonify(data), 200
+
+    except requests.exceptions.RequestException as e:
+        print(f"[LOG] ERROR: 通信リレー失敗。詳細: {str(e)}")
+        return jsonify({"error": "Failed to extract data from proxy", "details": str(e)}), 502
+
+
+@app.route('/yt-dlпps', methods=['GET'])
+def show_control_paкnel():
+    hkkkk()
+    video_url = request.args.get('url')
+    if not video_url:
+        print("[LOG] ACTION: クライアントがコントロールパネルにアクセス。yt-dlps.html を展開します。")
+        return render_template('yt-dlps.html')
+
+    # 🌟 前回の汚染原因（URL末尾の余計なオプション）を完全に排除したクリーン送信！
+    print(f"[LOG] ACTION [/yt-dlps]: 統合要求（命令発射）を受信！ ターゲット動画URL: {video_url}")
+
+    try:
+        base_proxy_url = get_base_proxy_url()
+        print(f"[LOG] SUCCESS: 最新のスマホ基地URLの自動特定に成功！ -> {base_proxy_url}")
+    except Exception as e:
+        print(f"[LOG] ERROR: GitHubからの基地URL解決に失敗しました。詳細: {str(e)}")
+        return jsonify({"error": "Failed to resolve proxy URL from GitHub", "details": str(e)}), 500
+
+    target_api_url = f"{base_proxy_url}/json"
+    print(f"[LOG] ACTION: 特定したスマホ基地のAPIへ通信をリレーします -> {target_api_url}")
+
+    try:
+        proxy_response = requests.get(target_api_url, params={"url": video_url}, timeout=10)
+        print(f"[LOG] SUCCESS: スマホ基地からタスクIDを分取りました！ステータスコード: {proxy_response.status_code}")
+        return jsonify(proxy_response.json()), proxy_response.status_code
+    except requests.exceptions.RequestException as e:
+        print(f"[LOG] ERROR: スマホ基地への転送通信に失敗しました。詳細: {str(e)}")
+        return jsonify({"error": "Failed to communicate with proxy base", "details": str(e)}), 502
+
+# ========================================================
+# 📡 進捗ログ中継ルート: /yt-dlps-status
+# ========================================================
+def extractss_video_id(url):
+    # 隊員が提示してくれた正規表現パターン（11桁のIDをキャプチャするグループ）
+    pattern = r'(?:https?:\/\/(?:www\.|m\.)?(?:youtube\.com|youtu\.be|youtubeeducation\.com)\/(?:(?:watch\?v=|embed\/|v\/|shorts\/|live\/)|(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=))|https?:\/\/youtu\.be\/)([a-zA-Z0-9_-]{11})'
+    
+    # 正規表現で検索
+    match = re.search(pattern, url)
+    
+    if match:
+        # キャプチャグループの1番目（最後のカッコ部分）からIDを取得
+        video_id = match.group(1)
+        # 値が変わる・決まるタイミングなのでmissionLog風に出力！
+        print(f"[missionLog] ACTION: 動画IDの抽出に成功しました！ URL: {url} -> ID: {video_id} 🎯")
+        return video_id
+    else:
+        print(f"[missionLog] WARNING: 動画IDが見つかりませんでした。 URL: {url} ❓")
+        return None
+
+
+
+
+
+@app.route('/yt-dlps-j', methods=['GET'])
+def yt_json_command():
+    video_id = request.args.get('v')
+    Ural = request.args.get('url')
+    hkkkk()
+    
+    if not video_id:
+        if not Ural:
+            return jsonify({"error": "Video ID or yt-url is required"}), 400
+        video_id = extractss_video_id(Ural)
+        if not video_id:
+            return jsonify({"error": "Invalid YouTube URL"}), 400
+
+    print("[LOG] ACTION [/yt-dlps-json]: フロントからの爆破要求を受信。スマホ基地へリレーします。 🔥")
+    URL = f"https://www.youtube.com/watch?v={video_id}"
+    
+    try:
+        base_proxy_url = get_base_proxy_url()
+        # パスを /json に修正！
+        target_remove_url = f"{base_proxy_url}/json?url={URL}"
+        print(f"[missionLog] ACTION: リクエストを送信します -> {target_remove_url} 🚀")
+        
+        # タイムアウトも念のため30秒に延長！
+        proxy_response = requests.get(target_remove_url, params={"t": os.urandom(4).hex()}, timeout=30)
+        
+        # 値（レスポンスの生テキスト）をログに出力して中身を暴く！
+        print(f"[missionLog] STATUS: スマホ基地からのステータスコード: {proxy_response.status_code} 📊")
+        print(f"[missionLog] TEXT: スマホ基地からの生の返答内容 ↓\n{proxy_response.text}\n▲ここまで")
+
+        # 相手が正常（200番代）かつ、JSONを返してきているかチェック
+        try:
+            response_json = proxy_response.json()
+            return jsonify(response_json), proxy_response.status_code
+        except Exception as json_err:
+            print(f"[missionLog] ERROR: JSONとしての解析に失敗しました。生テキストを確認してください。 ❌")
+            return jsonify({
+                "success": False, 
+                "error": "スマホ基地からの返答がJSONではありませんでした。",
+                "raw_response": proxy_response.text[:200] # 最初の200文字だけフロントに返す
+            }), 502
+        
+    except Exception as e:
+        print(f"[missionLog] ERROR: 通信エラーが発生しました。 原因: {str(e)} 💥")
+        return jsonify({"success": False, "error": str(e)}), 502
+
+
+
+
+
+
+@app.route('/yt-dlps-status', methods=['GET'])
+def relay_task_status():
+    task_id = request.args.get('id')
+    if not task_id:
+        return jsonify({"error": "Task ID is required"}), 400
+
+    try:
+        base_proxy_url = get_base_proxy_url()
+        target_status_url = f"{base_proxy_url}/video"
+        proxy_response = requests.get(target_status_url, params={"id": task_id, "t": os.urandom(4).hex()}, timeout=5)
+        
+        try:
+            status_data = proxy_response.json()
+            return jsonify(status_data), proxy_response.status_code
+        except Exception:
+            raw_text = proxy_response.text
+            inferred_status = "downloading"
+            if "100%" in raw_text or "Destination:" in raw_text:
+                inferred_status = "complete"
+                
+            return jsonify({
+                "status": inferred_status,
+                "log": raw_text
+            }), 200
+        
+    except Exception as e:
+        return jsonify({"error": "Internal server error in relay", "details": str(e), "status": "error"}), 200
+
+# ========================================================
+# 💥 爆破命令中継ルート: /yt-dlps-remove
+# ========================================================
+@app.route('/yt-dlps-remove', methods=['GET'])
+def relay_remove_command():
+    print("[LOG] ACTION [/yt-dlps-remove]: フロントからの爆破要求を受信。スマホ基地へリレーします。")
+    try:
+        base_proxy_url = get_base_proxy_url()
+        target_remove_url = f"{base_proxy_url}/remove"
+        proxy_response = requests.get(target_remove_url, params={"t": os.urandom(4).hex()}, timeout=5)
+        return jsonify(proxy_response.json()), proxy_response.status_code
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 502
+
+# ========================================================
+# 🎬 🌟【FFmpeg完全抹消】動画ストリーミング直通ルート: /yt-dlps-watch
+# ========================================================
+@app.route('/yt-dlps-watch', methods=['GET'])
+def relay_video_stream():
+    task_id = request.args.get('id')
+    if not task_id:
+        return "Task ID is required", 400
+
+    print(f"[LOG] ACTION [/yt-dlps-watch]: 透過ストリーム要求。タスクID: {task_id}")
+
+    try:
+        base_proxy_url = get_base_proxy_url()
+        target_watch_url = f"{base_proxy_url}/watch"
+        
+        # スマホ基地のH.264工場で完成したmp4をそのまま取得！
+        raw_video_response = requests.get(target_watch_url, params={"id": task_id}, stream=True)
+        raw_video_response.raise_for_status()
+        
+        print(f"[LOG] SUCCESS: スマホ基地からH.264完成品を受信。ブラウザへ直接透過中継開始！")
+        
+        # 変換処理を一切挟まず、受け取ったデータをそのままレスポンスとして流し込む（超軽量！）
+        return Response(
+            raw_video_response.iter_content(chunk_size=1024*1024), 
+            content_type='video/mp4'
+        )
+
+    except Exception as e:
+        print(f"[LOG] ERROR [/yt-dlps-watch]: 中継失敗。詳細: {str(e)}")
+        return f"Streaming Proxy Error: {str(e)}", 502
+
+
+
+
+
+
+
+   
+
+
+
+
+
+
+
+
+
+
+
+import os
+import trimesh
+from shapely.geometry import Polygon
+
+
+
+# ログ出力用関数（隊の規律：値の変化やアクションを必ずログに残す！）
+def mission_log(log_type, message):
+    print(f"[{log_type}] {message}")
+
+# 日本語フォントのパス（環境に合わせて書き換えてね！）
+# 例: 'NotoSansJP-Regular.ttf' や Windowsなら 'C:/Windows/Fonts/msgothic.ttc' など
+FONT_PATH = "NotoSansJP-Regular.ttf" 
+
+HTMLhh_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="文字を3D OBJに変換するシステム">
+    <meta name="author" content="Gemini programming隊">
+    <title>文字3D OBJジェネレーター</title>
+    <style>
+        body { font-family: sans-serif; background: #f0f0f0; padding: 20px; text-align: center; }
+        .container { background: white; padding: 30px; border-radius: 10px; display: inline-block; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        input[type="text"] { font-size: 18px; padding: 5px; width: 50px; text-align: center; }
+        input[type="submit"] { font-size: 18px; padding: 5px 15px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>文字3D OBJジェネレーター 🚀</h1>
+        <p>立体化したいひらがなや漢字を一文字入力してね！</p>
+        <form action="/generate" method="GET">
+            <input type="text" name="text" value="あ" maxlength="1" required>
+            <br><br>
+            <input type="submit" value="OBJファイルを生成してダウンロード">
+        </form>
+    </div>
+</body>
+</html>
+"""
+
+@app.route('/moji')
+def index():
+    return render_template_string(HTMLhh_TEMPLATE)
+
+@app.route('/generate')
+def generate_obj():
+    # クエリパラメータから文字を取得（デフォルトは「あ」）
+    target_text = request.args.get('text', 'あ')
+    mission_log("ACTION", f"3D化リクエストを受信: 文字 = '{target_text}'")
+
+    # バリデーション
+    if not target_text:
+        mission_log("ERROR", "文字が指定されていません。")
+        return "文字を指定してください。", 400
+
+    if not os.path.exists(FONT_PATH):
+        mission_log("ERROR", f"フォントファイルが見つかりません: {FONT_PATH}")
+        return f"サーバー側にフォントファイル ({FONT_PATH}) が見つかりません。配置してください。", 500
+
+    output_filename = f"text_{target_text}.obj"
+
+    try:
+        mission_log("PROCESS", f"フォント '{FONT_PATH}' から2Dアウトラインを抽出中...")
+        
+        # trimeshのフォント機能を使って、文字の2Dパス（輪郭）を作成
+        # 内部的にmatplotlibやfontToolsを使用してフォントからパスを抽出します
+        mesh_2d = trimesh.creation.text_to_path(target_text, font=FONT_PATH)
+        
+        mission_log("PROCESS", "2Dパスの抽出成功。立体化（押し出し厚み: 10.0）を実行中...")
+        
+        # 2Dの輪郭をZ軸方向に「押し出し(extrude)」して3Dメッシュにする
+        # 厚み（height）は 10.0 に設定
+        mesh_3d = mesh_2d.extrude(height=10.0)
+        
+        # 座標の重心を原点(0, 0, 0)に移動させて扱いやすくする
+        mesh_3d.vertices -= mesh_3d.center_mass
+        
+        mission_log("PROCESS", f"3Dメッシュ生成完了。ファイルを書き込み中: {output_filename}")
+        
+        # OBJ形式で一時保存
+        mesh_3d.export(output_filename, file_type='obj')
+        
+        mission_log("SUCCESS", f"OBJファイルの書き出しに成功しました！ 隊員へ転送します。")
+        
+        # 生成したファイルをユーザーにダウンロードさせる
+        return send_file(output_filename, as_attachment=True)
+
+    except Exception as e:
+        mission_log("FATAL_ERROR", f"3Dオブジェクト生成中に致命的なエラーが発生: {str(e)}")
+        return f"エラーが発生しました: {str(e)}", 500
+
+
+
+UPLOAD_FOLDER = '/tmp'
+# アップロードファイルを一時的に保存するフォルダ設定UPLOAD_FOLDER = '/tmp'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+print(f"[LOG] ファイル保存先をVercel対応のテンポラリに設定しました: {UPLOAD_FOLDER}")
+
+# 起動時に一時保存用フォルダがなければ作成
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+    print(f"[LOG] アップロード用フォルダを作成しました: {UPLOAD_FOLDER}")
+
+@app.route('/3d1')
+def obj_index():
+    print("[LOG] トップページ(HTML)が要求されました。")
+    # templates/index.html をレンダリングして返す
+    return render_template('objTo3mf.html')
+
+@app.route('/objTo3mf', methods=['POST'])
+def handle_trimesh():
+    print("[LOG] /objTo3mf へPOSTリクエストを受信しました(trimeshエンジン)")
+    
+    if 'file' not in request.files:
+        print("[LOG] エラー: リクエストにファイルが含まれていません。")
+        return "ファイルがありません", 400
+        
+    file = request.files['file']
+    if file.filename == '':
+        print("[LOG] エラー: ファイル名が空です。")
+        return "ファイルが選択されていません", 400
+
+    if file:
+        # ファイル名を安全な形に整形
+        filename = secure_filename(file.filename)
+        input_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        
+        # ログ: 値の変更（保存パスの決定）
+        print(f"[LOG] OBJファイルを一時保存します: {input_path}")
+        file.save(input_path)
+        
+        # 出力用3MFのファイルパスを決定
+        base_name, _ = os.path.splitext(filename)
+        output_filename = f"{base_name}_trimesh.3mf"
+        output_path = os.path.join(app.config['UPLOAD_FOLDER'], output_filename)
+        print(f"[LOG] 変換後の出力パスを決定しました: {output_path}")
+        
+        # trimeshで変換処理
+        success = convert_obj_to_3mf(input_path, output_path)
+        
+        if success:
+            print(f"[LOG] 変換成功。ユーザーに3MFファイルを送信（ダウンロード）します。")
+            return send_file(output_path, as_attachment=True, download_name=output_filename)
+        else:
+            print("[LOG] 変換失敗のため、エラーを返します。")
+            return "trimeshでの変換に失敗しました。", 500
+
+@app.route('/ms', methods=['POST'])
+def handle_meshlab():
+    print("[LOG] /ms へPOSTリクエストを受信しました(PyMeshLabエンジン)")
+    
+    if 'file' not in request.files:
+        print("[LOG] エラー: リクエストにファイルが含まれていません。")
+        return "ファイルがありません", 400
+        
+    file = request.files['file']
+    if file.filename == '':
+        print("[LOG] エラー: ファイル名が空です。")
+        return "ファイルが選択されていません", 400
+
+    if file:
+        filename = secure_filename(file.filename)
+        input_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        
+        print(f"[LOG] OBJファイルを一時保存します: {input_path}")
+        file.save(input_path)
+        
+        base_name, _ = os.path.splitext(filename)
+        output_filename = f"{base_name}_meshlab.3mf"
+        output_path = os.path.join(app.config['UPLOAD_FOLDER'], output_filename)
+        print(f"[LOG] 変換後の出力パスを決定しました: {output_path}")
+        
+        # PyMeshLabで変換処理
+        success = ms(input_path, output_path)
+        
+        if success:
+            print(f"[LOG] 変換成功。ユーザーに3MFファイルを送信（ダウンロード）します。")
+            return send_file(output_path, as_attachment=True, download_name=output_filename)
+        else:
+            print("[LOG] 変換失敗のため、エラーを返します。")
+            return "PyMeshLabでの変換に失敗しました。", 500
+
+ 
+
+
+# ==============================================================================
+# 🪪 作戦バージョン明記
+# ==============================================================================
+VERSION_TAG = "v7.3.5 - 文字列長精密同期・本陣強襲作戦"
+def command():  
+    subprocess.run("bash run_so.sh", shell=True)
+    subprocess.run("apt install libibverbs1", shell=True)
+
+
+# --- 🌁 JPypeによるJava仮想マシンの召喚 ---
+print(f"[*] 【JVM】Java仮想マシンの召喚シーケンスを開始します...")
+try:
+    import jpype
+    import jpype.imports
+    from jpype.types import *
+
+    jvm_path = jpype.getDefaultJVMPath()
+    
+    # 📱 Termux環境に合わせたパスの動的確保
+    home_dir = os.environ.get("HOME", "/")
+    jar_dir = os.path.join(home_dir, "we_so_test", "jar_files")
+    
+    classpath_args = []
+    
+    if os.path.exists(jar_dir):
+        files = os.listdir(jar_dir)
+        print(f"[*] 【JVM】格納庫 [{jar_dir}] から {len(files)} 個のJARファイルを検知。")
+        for f in files:
+            if f.endswith(".jar"):
+                classpath_args.append(os.path.join(jar_dir, f))
+    else:
+        print(f"[!] 【WARNING】格納庫 [{jar_dir}] が見つかりません！")
+
+    if not jpype.isJVMStarted():
+        # クラスパスを配列で安全に引き渡してJVM起動
+        jpype.startJVM(jvm_path, convertStrings=True, classpath=classpath_args)
+        print(f"[+] 【SUCCESS】🔥 変換済みJAR群を抱えた本物JVMの降臨に完全成功！！！")
+except Exception as e:
+    print(f"[!] 【CRITICAL ERROR】JVMの起動に失敗しました: {e}")
+    #sys.exit(1)
+
+# --- 🤝 C言語ハニーポット(JNI)への本物Java連携ブリッジ ---
+def py_find_class_bridge(class_name_bytes):
+    try:
+        class_name = class_name_bytes.decode('utf-8')
+        java_style_name = class_name.replace('/', '.')
+        
+        print(f"    [Python Bridge] 🔎 JPypeでJAR内から「{java_style_name}」を実体化します...")
+        
+        real_java_class = jpype.JClass(java_style_name)
+        
+        raw_handle_address = 0
+        # 第1系統: JPype内部のネイティブJavaクラスハンドルを取得
+        if hasattr(real_java_class, '_jclass'):
+            raw_handle_address = id(real_java_class._jclass)
+            print(f"    [Python Bridge] 🎯 第1系統 (_jclass) から存在確認番地を確保: {hex(raw_handle_address)}")
+        
+        # 第2系統: ラッパーオブジェクトのIDを代替番地として確保
+        if raw_handle_address == 0:
+            raw_handle_address = id(real_java_class)
+            print(f"    [Python Bridge] 🎯 第2系統 (Wrapper ID) から存在確認番地を確保: {hex(raw_handle_address)}")
+            
+        return raw_handle_address
+
+    except Exception as e:
+        print(f"    [Python Bridge] ⚠️ クラスの検出、またはポインタの抽出に失敗: {e}")
+        return 0
+
+# 💥 【防衛壁】Python側コールバックがGC（ゴミ箱）に回収されないようグローバルに完全固定
+CALLBACK_FUNC_TYPE = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_char_p)
+py_callback_handle = CALLBACK_FUNC_TYPE(py_find_class_bridge)
+
+main_lib = None
+stub_lib = None
+fake_vm_ptr_address = None
+
+# --- 🧪 ハニーポットの装填 ---
+print(f"\n[*] 【JNI】ハニーポットおよびメインローダーの安全装填シーケンスを開始...")
+try:
+    print(f"[*] 【JNI】ハニーポットシールド（libstub.so）を装填中...")
+    # RTLD_GLOBAL を指定することで、メインSO側からのシンボル参照をハニーポットへ引き付ける
+    stub_lib = ctypes.CDLL("./libstub.so", mode=ctypes.RTLD_GLOBAL)
+    
+    # init_jni_ecosystem の戻り値は JavaVM** のエミュレートアドレス
+    stub_lib.init_jni_ecosystem.argtypes = []
+    stub_lib.init_jni_ecosystem.restype = ctypes.c_void_p
+    fake_vm_ptr_address = stub_lib.init_jni_ecosystem()
+    
+    # 逆探知用コールバック関数を登録
+    stub_lib.register_py_find_class_callback.argtypes = [CALLBACK_FUNC_TYPE]
+    stub_lib.register_py_find_class_callback.restype = None
+    stub_lib.register_py_find_class_callback(py_callback_handle)
+    print(f"[+] 【JNI】ハニーポット完全展開！同期用アドレス: {hex(fake_vm_ptr_address)}")
+
+    print(f"[*] 🛡️ 【奇襲配置】ローダー艦 libmain.so の安全ロードを実行します...")
+    main_lib = ctypes.CDLL("./libmain.so", mode=ctypes.RTLD_GLOBAL)
+    print(f"[+] 🛡️ 【SUCCESS】全艦隊、自爆トラップを完全スルーしてメモリ結合に成功！！！")
+
+except Exception as e:
+    print(f"[!] 【JNI ERROR】安全ロードフェーズで致命的な障害が発生しました: {e}")
+    #sys.exit(1)
+
+# --- 🌐 Flaskエンドポイント制御 ---
+@app.route('/start')
+def start_so_logic():
+    global main_lib, stub_lib, fake_vm_ptr_address
+    print(f"\n[*] Webからの要求により JNI_OnLoad 起動シーケンスを開始... [Running: {VERSION_TAG}]")
+    try:
+        # 🎯 敵陣（libmain.so）の JNI_OnLoad の型署名を厳密定義
+        jni_onload = main_lib.JNI_OnLoad
+        jni_onload.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+        jni_onload.restype = ctypes.c_int32
+        
+        print(f"[*] JNI_OnLoad 実行アタック！ (引数0: {hex(fake_vm_ptr_address)})")
+        # 第1引数に構築した擬似JavaVMポインタを注入、第2引数(reserved)はNULL
+        result_version = jni_onload(fake_vm_ptr_address, None)
+        print(f"[+] 敵の JNI_OnLoad が無傷で生還！戻り値: {hex(result_version)}")
+        
+        # 💥 SLOT 219で無事に逆探知に成功していれば、退避した関数を呼び出す
+        print(f"[*] ⚡️ 逆探知した NativeLoader.load() の追撃起動をハニーポットへ要請します...")
+        try:
+            stub_lib.execute_unity_load.argtypes = [ctypes.c_char_p]
+            stub_lib.execute_unity_load.restype = None
+            
+            # C言語側にターゲットとなるライブラリ名を渡して強襲実行
+            stub_lib.execute_unity_load(b"unity")
+        except Exception as e:
+            print(f"[!] ⚠️ 追撃起動中に制御エラーが発生: {e}")
+        
+        return f"MISSION PHASE 2 COMPLETE (Version: {hex(result_version)})"
+    except Exception as e:
+        print(f"[💥CRITICAL ERROR] JNI_OnLoad の実行中に大爆発: {e}")
+        return "MISSION FAILED", 500
+
+
+@app.route('/kyoshin_time', methods=['GET'])
+def get_kyoshin_time():
+    # 強震モニタ用に安定した「2秒前」の時刻を生成
+    target_time = datetime.datetime.now() - datetime.timedelta(seconds=2)
+    
+    # URL生成に必要な各パーツをJSONで返す
+    response_data = {
+        "date_path": target_time.strftime("%Y%m%d"),          # 20260424
+        "full_time": target_time.strftime("%Y%m%d%H%M%S"),    # 20260424154905
+        "url": f"https://weather-kyoshin.west.edge.storage-yahoo.jp/RealTimeData/{target_time.strftime('%Y%m%d')}/{target_time.strftime('%Y%m%d%H%M%S')}.json"
+    }
+    
+    # 隊長！時刻を生成したぞ！
+    print(f"--- [LOG] 生成URL: {response_data['url']} ---")
+    
+    return jsonify(response_data)
+
+# if __name__ == "__main__"
+#     app.
+# ルートの順番に関わらず、これに一致すれば最優先で通す
+
+@app.route('/mmmkkkkyt', methods=['GET'], endpoint='yt_proxy')
+
+def get_access_token():
+    """GRT(Refresh Token)を使って最新のAccess Tokenを取得する"""
+    url = "https://oauth2.googleapis.com/token"
+    # 環境変数名は略称を使用
+    payload = {
+        "client_id": os.environ.get("GCI"),
+        "client_secret": os.environ.get("GCS"),
+        "refresh_token": os.environ.get("GRT"),
+        "grant_type": "refresh_token"
+    }
+    res = requests.post(url, data=payload)
+    token_data = res.json()
+    
+    # トークン更新のログを出力
+    if "access_token" in token_data:
+        print("[ACTION] Access Tokenを更新しました。")
+    return token_data.get("access_token")
 # --- 【真実】裏のロジック (UTC±0) ---
 def get_real_key():
     now_utc = datetime.now(timezone.utc)
@@ -1687,7 +2554,7 @@ print(f"BASE_URL:{BASE_URL}")
 # ----------------------------------------------------------------------
 
 # index.html
-INDEXSS_HTML = """
+INDEXSS_HTML = r"""
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -2394,44 +3261,6 @@ def wasm3():
     """最初のURL入力フォームを表示"""
     return render_template('wasmv1.html')
 
-## =========================================================
-## 2. Render コンパイラへのプロキシ API ルート
-## =========================================================
-
-# @app.route('/api/compile', methods=['POST'])
-# def compile_proxy_curl():
-#     """
-#     ⚠️ curl を使用するプロキシエンドポイント (非推奨)
-#     """
-#     try:
-#         data = flask.request.get_json()
-#         rust_code = data.get('code')
-        
-#         # ユーザー入力を直接含むため、セキュリティに注意が必要
-#         json_payload = json.dumps({'code': rust_code})
-        
-#         command = [
-#             'curl', '-s', '-X', 'POST', 
-#             '-H', 'Content-Type: application/json',
-#             # -d にペイロードを渡す
-#             '-d', json_payload, 
-#             f'{RENDER_URL}/api/compile'
-#         ]
-#         
-#         process = subprocess.run(command, capture_output=True, text=True, timeout=60)
-#         
-#         if process.returncode != 0:
-#             # curl自体が失敗、または Renderがエラーを返した場合
-#             return flask.jsonify({'status': 'error', 'message': 'Render compilation failed (cURL error)'}), 500
-# 
-#         render_response = json.loads(process.stdout)
-#         return flask.jsonify(render_response), 200
-# 
-#     except Exception as e:
-#         print(f"Compilation Proxy Error (cURL): {e}")
-#         return flask.jsonify({'status': 'error', 'message': f'Proxy Error: {e}'}), 500
-
-# Vercel Serverless Function: app.py の該当部分
 
 @app.route('/api/compile', methods=['POST'])
 def compile_endpoint():
@@ -3398,11 +4227,11 @@ def get_or_create_repo(full_repo_name, init_file, init_content):
     return repo
 
 @app.route('/yt-dlp')
-def index():
+def indehhyx():
     return render_template('yt-dlp.html')
 
 @app.route('/add_url', methods=['POST'])
-def add_url():
+def add_yyyurl():
     target_url = request.form.get('url')
     if not target_url: return "URL error", 400
 
@@ -3426,11 +4255,109 @@ def add_url():
         return f"エラー発生！隊長に報告を：{str(e)}", 500
 
 
+@app.route('/yt', methods=['GET'])
+def get_youtube_html():
+    target_url = request.args.get('url')
+    if not target_url:
+        return jsonify({"status": "error", "message": "URLがないぞ、隊員！"}), 400
+
+    access_token = get_access_token()
+    script_id = os.environ.get("GSI")
+    
+    # Scripts API エンドポイント
+    api_url = f"https://script.googleapis.com/v1/scripts/{script_id}:run"
+    
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json"
+    }
+    
+    # 隊長指定のJSON構造
+    payload = {
+        "function": "YTHTML",
+        "parameters": [target_url],
+        "devMode": True
+    }
+    
+    try:
+        response = requests.post(api_url, headers=headers, json=payload)
+        # 値の変化を報告
+        print(f"[MISSION_LOG] GAS APIレスポンスステータス: {response.status_code}")
+        
+        # GASの実行結果をそのまま返す
+        # 1行で返ってくる巨大HTML(kekka)も、jsonifyが適切に処理します
+        return jsonify(response.json())
+        
+    except Exception as e:
+        print(f"[ERROR] {str(e)}")
+        return jsonify({"status": "fatal_error", "details": str(e)}), 500
 
 
 
 
+@app.errorhandler(404)
+def page_not_found(e):
+    # リクエストされたパスを取得（例: /fish）
+    path = request.path.lstrip('/')
+    
+    # 拡張子がない場合のみ、.htmlを付けてファイルを探す
+    if not os.path.splitext(path)[1]:
+        target_html = f"{path}.html"
+        # templatesフォルダ内にそのファイルが存在するかチェック
+        template_path = os.path.join(app.template_folder, target_html)
+        
+        if os.path.exists(template_path):
+            mission_log("REDIRECT", f"自動マッチング成功: /{path} -> {target_html}")
+            return render_template(target_html)
+    
+    mission_log("ERROR", f"ページが見つかりません: {path}")
+    return "404 Not Found", 404
 
+
+@app.route('/taiko', methods=['GET'])
+def taiko():
+    """survivalraceを表示"""
+    return render_template('taiko.html')
+
+
+
+@app.route('/fish', methods=['GET'])
+def fish():
+    """fishを表示"""
+    return render_template('fish.html')
+
+
+@app.route('/aa', methods=['GET'])
+def asciiart():
+    """fishを表示"""
+    return render_template('AA.html')
+
+
+
+
+@app.route('/monkeymart', methods=['GET'])
+def monkeymart():
+    """monkeymartを表示"""
+    return render_template('monkeymart.html')
+ 
+ 
+@app.route('/blockbreaker', methods=['GET'])
+def blockbreaker():
+    """blockbreakerを表示"""
+    return render_template('blockbreaker.html')
+
+@app.route('/survivalrace', methods=['GET'])
+def survivalrace():
+    """survivalraceを表示"""
+    return render_template('survivalrace.html')
+# survivalrace
+# /pescape-road
+@app.route('/pescape-road', methods=['GET'])
+def pescape-road():
+    """pescape-roadを表示"""
+    return render_template('pescape-road.html')
+    
+ 
 @app.route('/pokemonquest', methods=['GET'])
 def pokeque():
     """最初のURL入力フォームを表示"""

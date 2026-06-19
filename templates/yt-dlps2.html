@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="description" content="Gemini programming隊特製 - H.264直結再生システム">
+    <meta name="author" content="カカオマメ & Gemini programming隊">
+    <meta name="theme-color" content="#1a1a1a">
+    <meta property="og:title" content="Xiaomi yt-dlps 統合コントロールパネル">
+    <meta property="og:image" content="https://kakaomames.github.io/rei/logo.png">
+    
+    <title>Gemini programming隊 - yt-dlps動画解決要塞</title>
+
+    <style>
+        body {
+            background-color: #121212;
+            color: #e0e0e0;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            background-color: #1e1e1e;
+            border: 2px solid #333;
+            border-radius: 12px;
+            padding: 30px;
+            width: 100%;
+            max-width: 650px;
+            text-align: center;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+        }
+        .logo { width: 100px; height: auto; margin-bottom: 15px; }
+        h1 { font-size: 24px; color: #ffffff; margin-bottom: 5px; }
+        .subtitle { font-size: 13px; color: #ff3344; font-weight: bold; margin-bottom: 25px; }
+        .section { margin-top: 20px; padding: 20px; border-radius: 8px; background-color: #252525; border: 1px solid #444; }
+        .hidden { display: none !important; }
+        input[type="text"] { width: 100%; padding: 15px; border: 2px solid #444; border-radius: 8px; background-color: #2a2a2a; color: #fff; font-size: 16px; box-sizing: border-box; }
+        button { width: 100%; padding: 15px; border: none; border-radius: 8px; background-color: #ff3344; color: #fff; font-size: 16px; font-weight: bold; cursor: pointer; }
+        .log-box { width: 100%; height: 200px; background-color: #000; color: #00ff66; font-family: monospace; padding: 15px; border-radius: 6px; border: 1px solid #333; overflow-y: auto; white-space: pre-wrap; text-align: left; box-sizing: border-box; font-size: 12px; }
+        video { width: 100%; background-color: #000; border: 2px solid #ff3344; border-radius: 8px; }
+        .btn-danger { background-color: #333; border: 1px solid #ff3344; color: #ff3344; margin-top: 15px; }
+        
+        .download-link { display: inline-block; width: 100%; padding: 15px; background-color: #33cc33; color: #fff; font-size: 16px; font-weight: bold; text-decoration: none; border-radius: 8px; margin-top: 15px; box-sizing: border-box; }
+    </style>
+    <style>
+        #devtoolsUI{position:fixed;top:10%;left:50%;transform:translateX(-50%);background:#111;color:#0f0;z-index:99999;font-family:'Inter',monospace;font-size:14px;padding:15px;border-radius:12px;width:90%;max-height:85%;overflow:auto;box-shadow:0 0 25px rgba(0,255,0,0.5);border:1px solid #0f0;}
+        #devtoolsTabs{display:flex;margin-bottom:10px;border-bottom:1px solid #333;padding-bottom:5px;}
+        #devtoolsTabs button{flex:1;background:#222;color:#0f0;border:none;padding:8px 12px;margin:0 4px;font-weight:bold;border-radius:8px;cursor:pointer;transition:background 0.3s ease,color 0.3s ease;}
+        #devtoolsTabs button:hover{background:#444;}
+        #devtoolsTabs button.active{background:#0f0;color:#000;box-shadow:0 0 8px rgba(0,255,0,0.7);}
+        #logBox{width:100%;height:350px;background:#000;color:#0f0;border:1px solid #333;overflow:auto;font-family:'Inter',monospace;padding:10px;resize:vertical;border-radius:8px;}
+        #closeBtn{position:absolute;top:8px;right:12px;color:#f44;cursor:pointer;font-weight:bold;font-size:1.5em;background:#222;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;}
+        #saveLog{position:absolute;top:8px;left:12px;color:#0f0;cursor:pointer;font-weight:bold;font-size:1.5em;background:#222;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;}
+        .info-bar{color:#ff0;margin-bottom:10px;font-size:0.9em;text-align:center;padding:5px;border:1px dashed #ff0;border-radius:8px;}
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <img src="https://kakaomames.github.io/rei/logo.png" alt="Gemini programming隊" class="logo">
+        <h1>Gemini programming隊(</h1>
+        <div class="subtitle">🎯 H.264 直結ストリーミングモード！ 🎯</div>
+        
+        <div id="inputSection" class="section">
+            <input type="text" id="videoUrl" placeholder="https://www.youtube.com/shorts/..." autocomplete="off">
+            <button id="btnStart">ダウンロードミッション開始 🚀</button>
+        </div>
+        
+        <div id="progressSection" class="section hidden">
+            <div class="log-box" id="logBox">基地からのログを待機中...</div>
+        </div>
+        
+        <div id="playerSection" class="section hidden">
+            <div id="videoContainer"></div>
+            
+            <button id="btnRemove" class="btn-danger">全削除 ＆ 基地クリーンアップ 💥</button>
+        </div>
+    </div>
+
+    <script>
+        let currentTaskId = "";
+
+        document.getElementById('btnStart').addEventListener('click', async () => {
+            const url = document.getElementById('videoUrl').value.trim();
+            if(!url) return;
+
+            const res = await fetch(`/yt-dlps?url=${encodeURIComponent(url)}`);
+            const data = await res.json();
+            if(data.task_id) {
+                currentTaskId = data.task_id;
+                document.getElementById('inputSection').classList.add('hidden');
+                document.getElementById('progressSection').classList.remove('hidden');
+                poll();
+            }
+        });
+
+        function poll() {
+            const interval = setInterval(async () => {
+                const res = await fetch(`/yt-dlps-status?id=${currentTaskId}&t=${Date.now()}`);
+                const data = await res.json();
+                document.getElementById('logBox').innerText = data.log;
+                
+                if (data.status === "complete") {
+                    clearInterval(interval);
+                    console.log("[LOG] ACTION: ダウンロード完了。ポーリング停止。");
+
+                    // UIの切り替え
+                    document.getElementById('progressSection').classList.add('hidden');
+                    document.getElementById('playerSection').classList.remove('hidden');
+
+                    try {
+                        // GitHubからURLを取得
+                        const response = await fetch("https://raw.githubusercontent.com/kakaomames/yt-dlp-s25/refs/heads/main/urls.json");
+                        const url2s = await response.json();
+                        const urlss = url2s.proxy_url;
+
+                        if (!urlss) {
+                            throw new Error("proxy_url が見つかりません。");
+                        }
+
+                        // プロキシURL構築
+                        const videoProxyUrl = `/proxy?u=${encodeURIComponent(urlss)}/watch?id=${currentTaskId}`;
+                        console.log("[LOG] ACTION: 新規videoタグをDOM生成します。URL ->", videoProxyUrl);
+                        
+                        // 🌟 隊員の閃き！余計なJS制御を全廃し、HTML文字列としてブチ込む！
+                        const container = document.getElementById('videoContainer');
+                        container.innerHTML = `
+                            <video controls playsinline>
+                                <source src="${videoProxyUrl}" type="video/mp4">
+                                お使いのブラウザは動画タグをサポートしていません。
+                            </video>
+                            <a class="download-link" href="${videoProxyUrl}" download target="_blank">
+                                念のための直接ダウンロードリンク 📥
+                            </a>
+                        `;
+
+                    } catch (error) {
+                        console.error("[LOG] ERROR:", error);
+                    }
+                }
+            }, 2000);
+        }
+
+        document.getElementById('btnRemove').addEventListener('click', async () => {
+            await fetch(`/yt-dlps-remove?t=${Date.now()}`);
+            location.reload();
+        });
+    </script>
+</body>
+</html>
