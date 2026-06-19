@@ -6,7 +6,20 @@ dependencies = [
     "flask",
     "flask-socketio",
     "requests",
-    # 他の依存ライブラリをここに追記
+    "beautifulsoup4",
+    "gunicorn",
+    "flask-cors",
+    "wasmtime",
+    "PyGithub",
+    "JPype1",
+    "trimesh",
+    "lxml",
+    "networkx",
+    "ffmpeg-python",
+    "moviepy",
+    "trimesh",
+    "shapely",
+    "matplotlib"
 ]
 
 [tool.vercel]
