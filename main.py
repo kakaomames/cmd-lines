@@ -2,6 +2,7 @@ import flask
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask import Flask, request, send_file, render_template_string, jsonify, Response, render_template, redirect, url_for, send_from_directory
 app = Flask(__name__)
+application = app
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 import re
