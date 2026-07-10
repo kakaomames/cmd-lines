@@ -3689,49 +3689,49 @@ def proxy():
             <link rel="icon" href="https://kakaomames.github.io/rei/logo.png">
             <script src="https://github.com/kakaomames/ios/raw/refs/heads/main/fetch.js"></script>
             <script>
-(function() {
-    if (document.getElementById('gemini-log-container')) return;
-    const style = document.createElement('style');
-    style.innerHTML = '#gemini-log-container{position:fixed;bottom:20px;right:20px;width:350px;height:250px;background:rgba(0,0,0,0.9);color:#fff;font-family:monospace;font-size:13px;border:2px solid #444;border-radius:10px;padding:10px;z-index:2147483647;display:flex;flex-direction:column;box-shadow:0 8px 30px rgba(0,0,0,0.8);resize:both;overflow:hidden}#gemini-log-header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #444;margin-bottom:8px;padding-bottom:5px;color:#aaa;font-weight:bold}#gemini-log-content{flex:1;overflow-y:auto;padding:5px}.log-entry{margin-bottom:4px;word-break:break-all;border-bottom:1px solid #222}.log-INFO{color:#fff}.log-WARN{color:#ffd32a}.log-ERROR{color:#ff4d4d;font-weight:bold}.btn-action{background:#333;border:1px solid #555;color:#fff;cursor:pointer;padding:2px 8px;border-radius:4px;font-size:10px;margin-left:5px}';
-    document.head.appendChild(style);
-    const container = document.createElement('div');
-    container.id = 'gemini-log-container';
-    container.innerHTML = '<div id="gemini-log-header"><span>🛰️ Gemini Log</span><div><button class="btn-action" id="log-copy-btn">COPY</button><button class="btn-action" id="log-save-btn">SAVE</button><button class="btn-action" id="log-close-btn">✖</button></div></div><div id="gemini-log-content"></div>';
-    document.body.appendChild(container);
-    window.missionLog = function(t, m) {
-        const c = document.getElementById('gemini-log-content');
-        if (!c) return;
-        const d = document.createElement('div');
-        d.className = 'log-entry log-' + t.toUpperCase();
-        d.innerHTML = '[' + new Date().toLocaleTimeString() + '] [' + t.toUpperCase() + '] ' + m;
-        c.appendChild(d);
-        c.scrollTop = c.scrollHeight;
-    };
-    ['log', 'warn', 'error', 'info'].forEach(m => {
-        const o = console[m];
-        console[m] = function(...a) {
+            (function() {
+            if (document.getElementById('gemini-log-container')) return;
+            const style = document.createElement('style');
+            style.innerHTML = '#gemini-log-container{position:fixed;bottom:20px;right:20px;width:350px;height:250px;background:rgba(0,0,0,0.9);color:#fff;font-family:monospace;font-size:13px;border:2px solid #444;border-radius:10px;padding:10px;z-index:2147483647;display:flex;flex-direction:column;box-shadow:0 8px 30px rgba(0,0,0,0.8);resize:both;overflow:hidden}#gemini-log-header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #444;margin-bottom:8px;padding-bottom:5px;color:#aaa;font-weight:bold}#gemini-log-content{flex:1;overflow-y:auto;padding:5px}.log-entry{margin-bottom:4px;word-break:break-all;border-bottom:1px solid #222}.log-INFO{color:#fff}.log-WARN{color:#ffd32a}.log-ERROR{color:#ff4d4d;font-weight:bold}.btn-action{background:#333;border:1px solid #555;color:#fff;cursor:pointer;padding:2px 8px;border-radius:4px;font-size:10px;margin-left:5px}';
+            document.head.appendChild(style);
+            const container = document.createElement('div');
+            container.id = 'gemini-log-container';
+            container.innerHTML = '<div id="gemini-log-header"><span>🛰️ Gemini Log</span><div><button class="btn-action" id="log-copy-btn">COPY</button><button class="btn-action" id="log-save-btn">SAVE</button><button class="btn-action" id="log-close-btn">✖</button></div></div><div id="gemini-log-content"></div>';
+            document.body.appendChild(container);
+            window.missionLog = function(t, m) {
+            const c = document.getElementById('gemini-log-content');
+            if (!c) return;
+            const d = document.createElement('div');
+            d.className = 'log-entry log-' + t.toUpperCase();
+            d.innerHTML = '[' + new Date().toLocaleTimeString() + '] [' + t.toUpperCase() + '] ' + m;
+            c.appendChild(d);
+            c.scrollTop = c.scrollHeight;
+            };
+            ['log', 'warn', 'error', 'info'].forEach(m => {
+            const o = console[m];
+            console[m] = function(...a) {
             if (a.some(x => typeof x === 'string' && x.includes('post-exception status'))) return;
             const msg = a.map(x => x instanceof Error ? '[ERROR] ' + x.name + ': ' + x.message : typeof x === 'object' ? JSON.stringify(x) : x).join(' ');
             window.missionLog(m === 'log' ? 'INFO' : m.toUpperCase(), msg);
             if (o) o.apply(console, a);
-        };
-    });
-    document.getElementById('log-copy-btn').addEventListener('click', () => navigator.clipboard.writeText(document.getElementById('gemini-log-content').innerText));
-    document.getElementById('log-save-btn').addEventListener('click', () => {
-        (function(t) {
+            };
+            });
+            document.getElementById('log-copy-btn').addEventListener('click', () => navigator.clipboard.writeText(document.getElementById('gemini-log-content').innerText));
+            document.getElementById('log-save-btn').addEventListener('click', () => {
+            (function(t) {
             const a = document.createElement('a');
             a.href = URL.createObjectURL(new Blob([t], { type: 'text/plain' }));
             a.download = 'log.txt';
             a.click();
-        })(document.getElementById('gemini-log-content').innerText);
-    });
-    document.getElementById('log-close-btn').addEventListener('click', () => {
-        container.remove();
-        style.remove();
-    });
-    window.missionLog('INFO', '通信確立。最前線仕様で稼働中！🫡');
-})();
-</script>
+            })(document.getElementById('gemini-log-content').innerText);
+            });
+            document.getElementById('log-close-btn').addEventListener('click', () => {
+            container.remove();
+            style.remove();
+            });
+            window.missionLog('INFO', '通信確立。最前線仕様で稼働中！🫡');
+            })();
+            </script>
             <!--script>
                 (function() {{
                     const PROXY_URL = window.location.origin + window.location.pathname + '?u=';
