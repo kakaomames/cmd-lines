@@ -3668,7 +3668,7 @@ def proxy():
         content_type = resp.headers.get('Content-Type', '')
         print(f"content_type: {content_type}")
 
-        # --- 4. 「加工工場」スタート！ ---
+        ## --- 4. 「加工工場」スタート！ ---
         if 'text/html' in content_type:
             print("Target is HTML! Starting Modification...")
             
