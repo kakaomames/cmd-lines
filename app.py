@@ -3687,7 +3687,7 @@ def proxy():
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <meta name="proxy-agent" content="Gemini-Programming-Team">
             <link rel="icon" href="https://kakaomames.github.io/rei/logo.png">
-            <script src="https://github.com/kakaomames/ios/raw/refs/heads/main/fetch.js"></script>
+            <script src="/fetch.js"></script>
             <script>
             (function() {{
             if (document.getElementById('gemini-log-container')) return;
