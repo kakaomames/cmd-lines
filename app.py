@@ -3730,7 +3730,7 @@ def proxy():
             style.remove();
             }});
             window.missionLog('INFO', '通信確立。最前線仕様で稼働中！🫡');
-            })();
+            }})();
             </script>
             <!--script>
                 (function() {{
