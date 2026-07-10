@@ -3683,22 +3683,14 @@ def proxy():
             # 【最強のインジェクションコード】
             # baseタグで相対パスを解決し、JSで通信をプロキシ経由に強制する
             injection = f"""
-            <base href="{base_url}">
+            <ajk src="{base_url}">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <meta name="proxy-agent" content="Gemini-Programming-Team">
             <link rel="icon" href="https://kakaomames.github.io/rei/logo.png">
+            <script src="https://github.com/kakaomames/ios/raw/refs/heads/main/fetch.js"></script>
             <script>
                 (function() {{
                     const PROXY_URL = window.location.origin + window.location.pathname + '?u=';
-                    
-                    // fetchをもぎ取る
-                    const orgFetch = window.fetch;
-                    window.fetch = function(resource, init) {{
-                        if (typeof resource === 'string' && !resource.startsWith(window.location.origin)) {{
-                            resource = PROXY_URL + encodeURIComponent(new URL(resource, document.baseURI).href);
-                        }}
-                        return orgFetch(resource, init);
-                    }};
 
                     // XMLHttpRequestをもぎ取る
                     const orgOpen = XMLHttpRequest.prototype.open;
@@ -3710,7 +3702,7 @@ def proxy():
                     }};
                     console.log("🚀 Gemini Proxy Engine: Active (Intercepting Network)");
                 }})();
-            </script>
+            </script-->
             """
             # '''
             # <head> タグを探して、その直後に注入
