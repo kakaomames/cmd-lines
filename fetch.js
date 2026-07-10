@@ -26,7 +26,8 @@
             const data = await responseClone.json().catch(() => "Non-JSON response");
             
             if (response.ok) {
-                safeLog("SUCCESS", `通信成功: ${url} (Status: ${response.status}) | Data: ${JSON.stringify(data)}`);
+                // safeLog("SUCCESS", `通信成功: ${url} (Status: ${response.status}) | Data: ${JSON.stringify(data)}`);
+                safeLog("SUCCESS", `通信成功: ${url} (Status: ${response.status}) `);
             } else {
                 safeLog("ERROR", `通信失敗: ${url} (Status: ${response.status})`);
             }
