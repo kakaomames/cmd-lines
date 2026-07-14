@@ -1,30 +1,21 @@
-name: Unity Hub Test
+name: Unity Downloader
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 jobs:
-  test-unity-hub:
+  download-unity:
     runs-on: ubuntu-latest
     steps:
-      - name: Install aria2
-        run: sudo apt-get update && sudo apt-get install -y aria2
-
-      - name: Download Unity Hub
-        run: aria2c https://public-cdn.cloud.unity3d.com/hub/prod/UnityHubSetup-amd64.deb
-
-      - name: Extract deb package
-        run: dpkg -x UnityHubSetup-amd64.deb ./unity-hub-extracted
-
-      - name: Test Unity Hub
+      - name: Download Unity 2020.3.48f1
         run: |
-          # 抽出したディレクトリの中身を確認し、実行ファイルを探してテスト
-          find ./unity-hub-extracted -name "unityhub" -type f -exec chmod +x {} \;
+          # 2020.3.48f1のインストーラー用URL
+          # ※URLは公式アーカイブに基づいた構造を使用
+          URL="https://download.unity3d.com/download_unity/f304a73772f1/LinuxEditorInstaller/Unity.tar.xz"
           
-          # --no-sandbox を追加して起動を試みる！
-          ./unity-hub-extracted/opt/unityhub/unityhub --help --no-sandbox || echo "Help command returned exit code with --no-sandbox" 
-        
-    
+          echo "Downloading Unity 2020.3.48f1..."
+          sudo apt-get install -y aria2
+          aria2c -x 16 -s 16 $URL
+          
+          echo "Download complete!"
+          ls -l Unity.tar.xz
