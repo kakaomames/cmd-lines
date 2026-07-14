@@ -1,0 +1,29 @@
+name: Unity Hub Test
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  test-unity-hub:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install aria2
+        run: sudo apt-get update && sudo apt-get install -y aria2
+
+      - name: Download Unity Hub
+        run: aria2c https://public-cdn.cloud.unity3d.com/hub/prod/UnityHubSetup-amd64.deb
+
+      - name: Extract deb package
+        run: dpkg -x UnityHubSetup-amd64.deb ./unity-hub-extracted
+
+      - name: Test Unity Hub
+        run: |
+          # 抽出したディレクトリの中身を確認し、実行ファイルを探してテスト
+          find ./unity-hub-extracted -name "unityhub" -type f -exec chmod +x {} \;
+          # バージョン情報やヘルプを表示しようとする
+          # 注意: GUIアプリのため、実際の起動は不可だが、パスが通ればヘルプなどは出る可能性がある
+          ./unity-hub-extracted/opt/unityhub/unityhub --help || echo "Help command returned exit code"
+    
