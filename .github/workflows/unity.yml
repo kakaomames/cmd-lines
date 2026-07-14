@@ -23,7 +23,8 @@ jobs:
         run: |
           # 抽出したディレクトリの中身を確認し、実行ファイルを探してテスト
           find ./unity-hub-extracted -name "unityhub" -type f -exec chmod +x {} \;
-          # バージョン情報やヘルプを表示しようとする
-          # 注意: GUIアプリのため、実際の起動は不可だが、パスが通ればヘルプなどは出る可能性がある
-          ./unity-hub-extracted/opt/unityhub/unityhub --help || echo "Help command returned exit code"
+          
+          # --no-sandbox を追加して起動を試みる！
+          ./unity-hub-extracted/opt/unityhub/unityhub --help --no-sandbox || echo "Help command returned exit code with --no-sandbox" 
+        
     
