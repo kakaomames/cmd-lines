@@ -400,42 +400,102 @@ from flask import Flask, request, redirect, render_template_string
 import urllib.parse
 
 
+@app.route('/')
+def index():
+    google_auth_url = "https://accounts.google.com/o/oauth2/v2/auth"
+    params = {
+        "client_id": CLIENT_ID,
+        "redirect_uri": REDIRECT_URI,
+        "response_type": "code",
+        "scope": "openid email profile", # ユーザーの詳細（名前やメールアドレス、ID）を取得するスコープ
+        "access_type": "offline",
+        "prompt": "consent"
+    }
+    auth_url = f"{google_auth_url}?{urllib.parse.urlencode(params)}"
+    
+    html = f"""
+    <!DOCTYPE html>
+    <html lang="ja">
+    <head>
+        <meta charset="UTF-8">
+        <title>OAuth Login Test</title>
+    </head>
+    <body style="font-family: sans-serif; text-align: center; margin-top: 50px;">
+        <h1>Gemini programming隊 ログイン司令室</h1>
+        <p>Googleアカウントでログインして、自分の詳細情報を取得しよう！</p>
+        <a href="{auth_url}" style="display: inline-block; padding: 12px 24px; background: #4285F4; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">Googleでログインする</a>
+    </body>
+    </html>
+    """
+    # """
+    return render_template_string(html)
+
 @app.route('/shortcuts')
-def oauth_shortcuts_redirect():
-    # Googleから送られてきたクエリパラメータを丸ごと取得
-    query_string = request.query_string.decode('utf-8')
+def oauth_callback():
+    # 1. Googleから送られてきた認可コード（code）を取得
+    code = request.args.get('code')
+    if not code:
+        return "エラー: 認証コードが見つかりません。", 400
+
+    # 2. クライアントシークレットを使って、Googleにアクセストークンを要求する
+    token_url = "https://oauth2.googleapis.com/token"
+    payload = {
+        "code": code,
+        "client_id": CLIENT_ID,
+        "client_secret": CLIENT_SECRET,
+        "redirect_uri": REDIRECT_URI,
+        "grant_type": "authorization_code"
+    }
     
-    # ショートカット名
+    token_res = requests.post(token_url, data=payload)
+    token_data = token_res.json()
+    
+    access_token = token_data.get("access_token")
+    if not access_token:
+        return f"トークンの取得に失敗しました: {{token_data}}", 400
+
+    # 3. アクセストークンを使って、その人のユーザー情報をGoogleから取得する
+    userinfo_url = "https://www.googleapis.com/oauth2/v2/userinfo"
+    headers = {"Authorization": f"Bearer {access_token}"}
+    userinfo_res = requests.get(userinfo_url, headers=headers)
+    user_info = userinfo_res.json()
+
+    # 取得できる情報の例: user_info['name'] (名前), user_info['email'] (メールアドレス), user_info['picture'] (アイコン画像)
+    user_name = user_info.get("name", "名無し隊員")
+    user_email = user_info.get("email", "不明")
+    user_picture = user_info.get("picture", "")
+
+    # 4. Web画面で詳細を表示しつつ、スマホのショートカット（OAuth）にもデータを引き継ぐ準備をする
     shortcut_name = "OAuth"
-    
-    # 転送先のURLスキームを構築 (受け取ったパラメータをそのままショートカットに渡す)
-    target_url = f"shortcuts://run-shortcut?name={urllib.parse.quote(shortcut_name)}"
-    if query_string:
-        target_url += f"&input={urllib.parse.quote(query_string)}"
-        
-    # パターン1: サーバ側から直接302リダイレクトを返す場合
-    # return redirect(target_url, code=302)
-    
-    # パターン2: ブラウザ側で確実にジャンプさせるためのHTMLを返す場合（安全確実でおすすめ）
+    # ショートカット側に渡したいデータ（例としてメールアドレスや名前をJSON風に持たせる）
+    shortcut_input = f"name={{user_name}}&email={{user_email}}"
+    target_url = f"shortcuts://run-shortcut?name={{urllib.parse.quote(shortcut_name)}}&input={{urllib.parse.quote(shortcut_input)}}"
+
     html_content = f"""
     <!DOCTYPE html>
     <html lang="ja">
     <head>
         <meta charset="UTF-8">
-        <title>Redirecting to Shortcuts...</title>
-        <meta http-equiv="refresh" content="0;url={target_url}">
+        <title>ログイン成功 - 隊員情報</title>
+        <meta http-equiv="refresh" content="3;url={{target_url}}">
     </head>
-    <body>
-        <p>ショートカットアプリに転送中...</p>
-        <p><a href="{target_url}">ここをタップしてもジャンプしない場合はこちら</a></p>
+    <body style="font-family: sans-serif; text-align: center; margin-top: 50px;">
+        <h1>ログイン成功！ようこそ、{{user_name}} 隊員！🎉</h1>
+        {{f'<img src="{{user_picture}}" width="100" style="border-radius: 50%;">' if user_picture else ''}}
+        <p>メールアドレス: <b>{{user_email}}</b></p>
+        <p>3秒後にショートカットアプリ（OAuth）へ自動転送します...</p>
+        <p><a href="{{target_url}}">今すぐショートカットを起動する</a></p>
         <script>
-            window.location.href = "{target_url}";
+            // 念のためJavaScriptでもリダイレクト
+            setTimeout(function() {{
+                window.location.href = "{{target_url}}";
+            }}, 2000);
         </script>
     </body>
     </html>
     """
     return render_template_string(html_content)
-
+    
 # """
 
 # ========================================================
