@@ -400,8 +400,8 @@ from flask import Flask, request, redirect, render_template_string
 import urllib.parse
 
 
-@app.route('/')
-def index():
+@app.route('/signin')
+def googleSignin():
     google_auth_url = "https://accounts.google.com/o/oauth2/v2/auth"
     params = {
         "client_id": CLIENT_ID,
