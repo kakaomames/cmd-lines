@@ -400,18 +400,20 @@ def show_control_paкnel():
 
 
 
-from flask import Flask, request, redirect, render_template_string
+import os
+import requests
+from flask import Flask, request, redirect, render_template_string, session
 import urllib.parse
 
 
-@app.route('/signin')
-def googleSignin():
+@app.route('/login')
+def GoogleSignIn():
     google_auth_url = "https://accounts.google.com/o/oauth2/v2/auth"
     params = {
         "client_id": CLIENT_ID,
         "redirect_uri": REDIRECT_URI,
         "response_type": "code",
-        "scope": "openid email profile", # ユーザーの詳細（名前やメールアドレス、ID）を取得するスコープ
+        "scope": "openid email profile",
         "access_type": "offline",
         "prompt": "consent"
     }
@@ -431,17 +433,30 @@ def googleSignin():
     </body>
     </html>
     """
-    # """
+    ### """
     return render_template_string(html)
+
+@app.route('/signin')
+def googleSignin():
+    global CLIENT_ID, REDIRECT_URI
+    google_auth_url = "https://accounts.google.com/o/oauth2/v2/auth"
+    params = {
+        "client_id": CLIENT_ID,
+        "redirect_uri": REDIRECT_URI,
+        "response_type": "code",
+        "scope": "openid email profile",
+        "access_type": "offline",
+        "prompt": "consent"
+    }
+    auth_url = f"{google_auth_url}?{urllib.parse.urlencode(params)}"
+    return redirect(auth_url)
 
 @app.route('/shortcuts')
 def oauth_callback():
-    # 1. Googleから送られてきた認可コード（code）を取得
     code = request.args.get('code')
     if not code:
         return "エラー: 認証コードが見つかりません。", 400
 
-    # 2. クライアントシークレットを使って、Googleにアクセストークンを要求する
     token_url = "https://oauth2.googleapis.com/token"
     payload = {
         "code": code,
@@ -456,50 +471,55 @@ def oauth_callback():
     
     access_token = token_data.get("access_token")
     if not access_token:
-        return f"トークンの取得に失敗しました: {{token_data}}", 400
+        return f"トークンの取得に失敗しました: {token_data}", 400
 
-    # 3. アクセストークンを使って、その人のユーザー情報をGoogleから取得する
     userinfo_url = "https://www.googleapis.com/oauth2/v2/userinfo"
     headers = {"Authorization": f"Bearer {access_token}"}
     userinfo_res = requests.get(userinfo_url, headers=headers)
     user_info = userinfo_res.json()
 
-    # 取得できる情報の例: user_info['name'] (名前), user_info['email'] (メールアドレス), user_info['picture'] (アイコン画像)
     user_name = user_info.get("name", "名無し隊員")
     user_email = user_info.get("email", "不明")
     user_picture = user_info.get("picture", "")
 
-    # 4. Web画面で詳細を表示しつつ、スマホのショートカット（OAuth）にもデータを引き継ぐ準備をする
     shortcut_name = "OAuth"
-    # ショートカット側に渡したいデータ（例としてメールアドレスや名前をJSON風に持たせる）
-    shortcut_input = f"name={{user_name}}&email={{user_email}}"
-    target_url = f"shortcuts://run-shortcut?name={{urllib.parse.quote(shortcut_name)}}&input={{urllib.parse.quote(shortcut_input)}}"
+    shortcut_input = f"name={user_name}&email={user_email}"
+    target_url = f"shortcuts://run-shortcut?name={urllib.parse.quote(shortcut_name)}&input={urllib.parse.quote(shortcut_input)}"
 
-    html_content = f"""
+    # 画像タグの組み立て
+    picture_tag = f'<img src="{user_picture}" width="100" style="border-radius: 50%;">' if user_picture else ''
+
+    # HTML内のf-stringの波括弧の競合を防ぐため、通常の文字列結合または適切にエスケープして構築
+    html_content = """
     <!DOCTYPE html>
     <html lang="ja">
     <head>
         <meta charset="UTF-8">
         <title>ログイン成功 - 隊員情報</title>
-        <meta http-equiv="refresh" content="3;url={{target_url}}">
+        <meta http-equiv="refresh" content="3;url=__TARGET_URL__">
     </head>
     <body style="font-family: sans-serif; text-align: center; margin-top: 50px;">
-        <h1>ログイン成功！ようこそ、{{user_name}} 隊員！🎉</h1>
-        {{f'<img src="{{user_picture}}" width="100" style="border-radius: 50%;">' if user_picture else ''}}
-        <p>メールアドレス: <b>{{user_email}}</b></p>
+        <h1>ログイン成功！ようこそ、__USER_NAME__ 隊員！🎉</h1>
+        __PICTURE_TAG__
+        <p>メールアドレス: <b>__USER_EMAIL__</b></p>
         <p>3秒後にショートカットアプリ（OAuth）へ自動転送します...</p>
-        <p><a href="{{target_url}}">今すぐショートカットを起動する</a></p>
+        <p><a href="__TARGET_URL__">今すぐショートカットを起動する</a></p>
         <script>
-            // 念のためJavaScriptでもリダイレクト
-            setTimeout(function() {{
-                window.location.href = "{{target_url}}";
-            }}, 2000);
+            setTimeout(function() {
+                window.location.href = "__TARGET_URL__";
+            }, 2000);
         </script>
     </body>
     </html>
     """
-    return render_template_string(html_content)
     
+    # プレースホルダーを実際の値に置換
+    html_content = html_content.replace("__TARGET_URL__", target_url)
+    html_content = html_content.replace("__USER_NAME__", user_name)
+    html_content = html_content.replace("__USER_EMAIL__", user_email)
+    html_content = html_content.replace("__PICTURE_TAG__", picture_tag)
+
+    return render_template_string(html_content)
 # """
 
 # ========================================================
