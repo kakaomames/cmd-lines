@@ -436,20 +436,7 @@ def GoogleSignIn():
     ### """
     return render_template_string(html)
 
-@app.route('/signin')
-def googleSignin():
-    global CLIENT_ID, REDIRECT_URI
-    google_auth_url = "https://accounts.google.com/o/oauth2/v2/auth"
-    params = {
-        "client_id": CLIENT_ID,
-        "redirect_uri": REDIRECT_URI,
-        "response_type": "code",
-        "scope": "openid email profile",
-        "access_type": "offline",
-        "prompt": "consent"
-    }
-    auth_url = f"{google_auth_url}?{urllib.parse.urlencode(params)}"
-    return redirect(auth_url)
+
 
 @app.route('/shortcuts')
 def oauth_callback():
@@ -457,6 +444,7 @@ def oauth_callback():
     if not code:
         return "エラー: 認証コードが見つかりません。", 400
 
+    # 1. 認可コードをアクセストークン＆リフレッシュトークンに交換
     token_url = "https://oauth2.googleapis.com/token"
     payload = {
         "code": code,
@@ -470,9 +458,11 @@ def oauth_callback():
     token_data = token_res.json()
     
     access_token = token_data.get("access_token")
+    refresh_token = token_data.get("refresh_token", "") # 初回ログイン時などに取得できる
     if not access_token:
         return f"トークンの取得に失敗しました: {token_data}", 400
 
+    # 2. ユーザー情報を取得
     userinfo_url = "https://www.googleapis.com/oauth2/v2/userinfo"
     headers = {"Authorization": f"Bearer {access_token}"}
     userinfo_res = requests.get(userinfo_url, headers=headers)
@@ -482,26 +472,37 @@ def oauth_callback():
     user_email = user_info.get("email", "不明")
     user_picture = user_info.get("picture", "")
 
-    shortcut_name = "OAuth"
-    shortcut_input = f"name={user_name}&email={user_email}"
-    target_url = f"shortcuts://run-shortcut?name={urllib.parse.quote(shortcut_name)}&input={urllib.parse.quote(shortcut_input)}"
+    # 3. ショートカットに渡すデータをすべてJSONオブジェクトにまとめる
+    user_data_dict = {
+        "name": user_name,
+        "email": user_email,
+        "picture": user_picture,
+        "access_token": access_token,
+        "refresh_token": refresh_token
+    }
+    
+    # Pythonの辞書を綺麗なJSON文字列に変換
+    json_string = json.dumps(user_data_dict, ensure_ascii=False)
 
-    # 画像タグの組み立て
+    shortcut_name = "OAuth"
+    # inputパラメータにJSON文字列をそのままURLエンコードして乗せる
+    target_url = f"shortcuts://run-shortcut?name={urllib.parse.quote(shortcut_name)}&input={urllib.parse.quote(json_string)}"
+
     picture_tag = f'<img src="{user_picture}" width="100" style="border-radius: 50%;">' if user_picture else ''
 
-    # HTML内のf-stringの波括弧の競合を防ぐため、通常の文字列結合または適切にエスケープして構築
     html_content = """
     <!DOCTYPE html>
     <html lang="ja">
     <head>
         <meta charset="UTF-8">
-        <title>ログイン成功 - 隊員情報</title>
+        <title>ログイン成功 - ショートカットへ転送</title>
         <meta http-equiv="refresh" content="3;url=__TARGET_URL__">
     </head>
     <body style="font-family: sans-serif; text-align: center; margin-top: 50px;">
         <h1>ログイン成功！ようこそ、__USER_NAME__ 隊員！🎉</h1>
         __PICTURE_TAG__
         <p>メールアドレス: <b>__USER_EMAIL__</b></p>
+        <p style="color: green; font-weight: bold;">🔑 アクセス＆リフレッシュトークン入りJSONをショートカットへ送信中...</p>
         <p>3秒後にショートカットアプリ（OAuth）へ自動転送します...</p>
         <p><a href="__TARGET_URL__">今すぐショートカットを起動する</a></p>
         <script>
@@ -513,7 +514,6 @@ def oauth_callback():
     </html>
     """
     
-    # プレースホルダーを実際の値に置換
     html_content = html_content.replace("__TARGET_URL__", target_url)
     html_content = html_content.replace("__USER_NAME__", user_name)
     html_content = html_content.replace("__USER_EMAIL__", user_email)
