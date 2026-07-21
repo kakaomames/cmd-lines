@@ -266,7 +266,7 @@ def ensure_ffmpeg():
 from datetime import datetime, timezone, timedelta
 import requests
 import os
-app = Flask(__name__)
+# app = Flask(__name__)
 # タイムスタンプ生成
 JST = timezone(timedelta(hours=9))
 timestamp = datetime.now(JST).strftime('%Y%m%d%H%M%S')
@@ -386,6 +386,56 @@ def show_control_paкnel():
     except requests.exceptions.RequestException as e:
         print(f"[LOG] ERROR: スマホ基地への転送通信に失敗しました。詳細: {str(e)}")
         return jsonify({"error": "Failed to communicate with proxy base", "details": str(e)}), 502
+
+
+
+
+
+
+
+
+
+from flask import Flask, request, redirect, render_template_string
+import urllib.parse
+
+
+@app.route('/shortcuts')
+def oauth_shortcuts_redirect():
+    # Googleから送られてきたクエリパラメータを丸ごと取得
+    query_string = request.query_string.decode('utf-8')
+    
+    # ショートカット名
+    shortcut_name = "OAuth"
+    
+    # 転送先のURLスキームを構築 (受け取ったパラメータをそのままショートカットに渡す)
+    target_url = f"shortcuts://run-shortcut?name={urllib.parse.quote(shortcut_name)}"
+    if query_string:
+        target_url += f"&input={urllib.parse.quote(query_string)}"
+        
+    # パターン1: サーバ側から直接302リダイレクトを返す場合
+    # return redirect(target_url, code=302)
+    
+    # パターン2: ブラウザ側で確実にジャンプさせるためのHTMLを返す場合（安全確実でおすすめ）
+    html_content = f"""
+    <!DOCTYPE html>
+    <html lang="ja">
+    <head>
+        <meta charset="UTF-8">
+        <title>Redirecting to Shortcuts...</title>
+        <meta http-equiv="refresh" content="0;url={target_url}">
+    </head>
+    <body>
+        <p>ショートカットアプリに転送中...</p>
+        <p><a href="{target_url}">ここをタップしてもジャンプしない場合はこちら</a></p>
+        <script>
+            window.location.href = "{target_url}";
+        </script>
+    </body>
+    </html>
+    """
+    return render_template_string(html_content)
+
+# """
 
 # ========================================================
 # 📡 進捗ログ中継ルート: /yt-dlps-status
