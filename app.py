@@ -45,6 +45,7 @@ print("sudo apt-get install -y git python3-pip")
 
 pokemogukunns = app
 IS_VERCEL = os.environ.get("VERCEL") == "1"
+CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "Unknown")
 
 
 def sync_urls_json(github_token):
