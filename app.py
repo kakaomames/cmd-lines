@@ -540,50 +540,25 @@ def missionLog(status, message):
 
 @app.route("/jq", methods=["POST"])
 def run_jq():
-    # 1. ヘッダーから jq のクエリを取得
     jq_query = request.headers.get("X-Jq-Query", ".")
-    missionLog("ACTION", f"ヘッダーからjqクエリを受信しました: {jq_query}")
-
-    # 2. ボディから Base64 データを取得
+    
     try:
         req_json = request.get_json(force=True)
         base64_str = req_json.get("data", "")
         if not base64_str and isinstance(req_json, str):
             base64_str = req_json
-    except Exception as e:
-        missionLog("ERROR", f"リクエストボディの取得に失敗しました: {e}")
-        return jsonify({"error": "Invalid request body", "details": str(e)}), 400
-
-    # 3. Base64デコード ＆ パース
-    try:
+            
         decoded_bytes = base64.b64decode(base64_str)
         json_data = json.loads(decoded_bytes.decode("utf-8"))
-    except Exception as e:
-        missionLog("ERROR", f"Base64デコードまたはJSONパースに失敗しました: {e}")
-        return jsonify({"error": "Failed to decode Base64 or invalid JSON", "details": str(e)}), 400
-
-    missionLog("SUCCESS", "Base64のデコードとJSON検証に成功しました！✨")
-
-    # 4. pyjq を使ってクエリを実行！
-    try:
-        # pyjq.all は結果をPythonのオブジェクト（リスト等）で返してくれます
-        # jq と同様の挙動にするため、要素が1つの場合は取り出すなどの調整をします
-        result_output = pyjq.all(jq_query, json_data)
-
-        # 本家の jq が単一の値やオブジェクトを返す挙動に合わせる
-        if len(result_output) == 1:
-            parsed_result = result_output[0]
-        else:
-            parsed_result = result_output
-
-        missionLog("SUCCESS", "jqの処理が正常に完了しました！✨")
-        return jsonify({"status": "success", "query": jq_query, "result": parsed_result})
-
-    except Exception as e:
-        error_message = str(e)
-        missionLog("ERROR", f"jqの実行に失敗しました: {error_message}")
-        return jsonify({"status": "error", "message": "jq execution failed", "details": error_message}), 400
         
+        # クエリ実行
+        result = evaluate_jq_query(json_data, jq_query)
+        
+        # ★余計なラップをせず、結果のオブジェクト・文字列をそのまま返す！
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
 
 
 
