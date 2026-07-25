@@ -52,6 +52,31 @@ CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
 REDIRECT_URI = os.environ.get("REDIRECT_URI")
 
 
+
+def evaluate_jq_query(data, query):
+    if not query or query.strip() == "." or query.strip() == "":
+        return data
+
+    clean_query = query.strip()
+    if clean_query.startswith("."):
+        clean_query = clean_query[1:]
+
+    if not clean_query:
+        return data
+
+    keys = clean_query.split(".")
+    current = data
+
+    for key in keys:
+        if isinstance(current, dict) and key in current:
+            current = current[key]
+        else:
+            raise KeyError(f"Key '{key}' not found in JSON structure.")
+
+    return current
+
+
+
 def sync_urls_json(github_token):
     """
     1MB以上の大容量ファイルにも対応した、GitHub API経由の urls.json 同期関数。
