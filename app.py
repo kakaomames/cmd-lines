@@ -538,7 +538,7 @@ def run_jq():
     # 1. ヘッダーから jq の引数（クエリ）を取得する
     # 例として 'X-Jq-Query' ヘッダーを使用します
     jq_query = request.headers.get("X-Jq-Query", ".")
-    missionLog("ACTION", f"ヘッダーからjqクエリを受信しました: {jq_query}")
+    mission_log("ACTION", f"ヘッダーからjqクエリを受信しました: {jq_query}")
 
     # 2. リクエストボディ（JSON）から Base64 エンコードされた対象データを取り出す
     # 想定JSON構造: {"data": "<base64_encoded_json>"} または 生の文字列
@@ -549,7 +549,7 @@ def run_jq():
         if not base64_str and isinstance(req_json, str):
             base64_str = req_json
     except Exception as e:
-        missionLog("ERROR", f"リクエストボディの取得に失敗しました: {e}")
+        mission_log("ERROR", f"リクエストボディの取得に失敗しました: {e}")
         return (
             jsonify({"error": "Invalid request body", "details": str(e)}),
             400,
@@ -562,13 +562,13 @@ def run_jq():
         # デコードしたものが正しいJSONか一応チェック
         json.loads(json_str)
     except Exception as e:
-        missionLog("ERROR", f"Base64デコードまたはJSONパースに失敗しました: {e}")
+        mission_log("ERROR", f"Base64デコードまたはJSONパースに失敗しました: {e}")
         return (
             jsonify({"error": "Failed to decode Base64 or invalid JSON", "details": str(e)}),
             400,
         )
 
-    missionLog("SUCCESS", "Base64のデコードとJSON検証に成功しました！✨")
+    mission_log("SUCCESS", "Base64のデコードとJSON検証に成功しました！✨")
 
     # 4. サブプロセスで jq コマンドを実行する
     try:
@@ -588,12 +588,12 @@ def run_jq():
         except json.JSONDecodeError:
             parsed_result = result_output
 
-        missionLog("SUCCESS", "jqの処理が正常に完了しました！✨")
+        mission_log("SUCCESS", "jqの処理が正常に完了しました！✨")
         return jsonify({"status": "success", "query": jq_query, "result": parsed_result})
 
     except subprocess.CalledProcessError as e:
         error_message = e.stderr.strip()
-        missionLog("ERROR", f"jqの実行に失敗しました: {error_message}")
+        mission_log("ERROR", f"jqの実行に失敗しました: {error_message}")
         return (
             jsonify(
                 {
@@ -605,7 +605,7 @@ def run_jq():
             400,
         )
     except Exception as e:
-        missionLog("ERROR", f"予期せぬエラーが発生しました: {e}")
+        mission_log("ERROR", f"予期せぬエラーが発生しました: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
