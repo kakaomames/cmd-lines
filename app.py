@@ -555,7 +555,6 @@ import base64
 import json
 import subprocess
 from flask import Flask, jsonify, request
-import pyjq
 
 
 
