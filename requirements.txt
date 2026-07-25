@@ -17,4 +17,3 @@ shapely
 matplotlib
 google-api-python-client
 google-auth
-pyjq
