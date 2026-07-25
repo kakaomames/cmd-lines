@@ -579,7 +579,10 @@ def run_jq():
         result = evaluate_jq_query(json_data, jq_query)
         
         # ★余計なラップをせず、結果のオブジェクト・文字列をそのまま返す！
-        return jsonify(result)
+        # ★ インデント付き（綺麗に整形）して返す
+        formatted_json_str = json.dumps(result, ensure_ascii=False, indent=2)
+        return formatted_json_str, 200, {"Content-Type": "application/json"}
+
         
     except Exception as e:
         return jsonify({"error": str(e)}), 400
