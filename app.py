@@ -530,83 +530,60 @@ import base64
 import json
 import subprocess
 from flask import Flask, jsonify, request
+import pyjq
 
+
+
+def missionLog(status, message):
+    print(f"[{status}] 🚀 {message}")
 
 
 @app.route("/jq", methods=["POST"])
 def run_jq():
-    # 1. ヘッダーから jq の引数（クエリ）を取得する
-    # 例として 'X-Jq-Query' ヘッダーを使用します
+    # 1. ヘッダーから jq のクエリを取得
     jq_query = request.headers.get("X-Jq-Query", ".")
-    mission_log("ACTION", f"ヘッダーからjqクエリを受信しました: {jq_query}")
+    missionLog("ACTION", f"ヘッダーからjqクエリを受信しました: {jq_query}")
 
-    # 2. リクエストボディ（JSON）から Base64 エンコードされた対象データを取り出す
-    # 想定JSON構造: {"data": "<base64_encoded_json>"} または 生の文字列
+    # 2. ボディから Base64 データを取得
     try:
         req_json = request.get_json(force=True)
-        # "data" キーにbase64が入っていると仮定。キーが違う場合は適宜変更してください！
         base64_str = req_json.get("data", "")
         if not base64_str and isinstance(req_json, str):
             base64_str = req_json
     except Exception as e:
-        mission_log("ERROR", f"リクエストボディの取得に失敗しました: {e}")
-        return (
-            jsonify({"error": "Invalid request body", "details": str(e)}),
-            400,
-        )
+        missionLog("ERROR", f"リクエストボディの取得に失敗しました: {e}")
+        return jsonify({"error": "Invalid request body", "details": str(e)}), 400
 
-    # 3. Base64文字列をデコードして、元のJSON文字列に戻す
+    # 3. Base64デコード ＆ パース
     try:
         decoded_bytes = base64.b64decode(base64_str)
-        json_str = decoded_bytes.decode("utf-8")
-        # デコードしたものが正しいJSONか一応チェック
-        json.loads(json_str)
+        json_data = json.loads(decoded_bytes.decode("utf-8"))
     except Exception as e:
-        mission_log("ERROR", f"Base64デコードまたはJSONパースに失敗しました: {e}")
-        return (
-            jsonify({"error": "Failed to decode Base64 or invalid JSON", "details": str(e)}),
-            400,
-        )
+        missionLog("ERROR", f"Base64デコードまたはJSONパースに失敗しました: {e}")
+        return jsonify({"error": "Failed to decode Base64 or invalid JSON", "details": str(e)}), 400
 
-    mission_log("SUCCESS", "Base64のデコードとJSON検証に成功しました！✨")
+    missionLog("SUCCESS", "Base64のデコードとJSON検証に成功しました！✨")
 
-    # 4. サブプロセスで jq コマンドを実行する
+    # 4. pyjq を使ってクエリを実行！
     try:
-        process = subprocess.run(
-            ["jq", jq_query],
-            input=json_str,
-            text=True,
-            capture_output=True,
-            check=True,
-        )
+        # pyjq.all は結果をPythonのオブジェクト（リスト等）で返してくれます
+        # jq と同様の挙動にするため、要素が1つの場合は取り出すなどの調整をします
+        result_output = pyjq.all(jq_query, json_data)
 
-        result_output = process.stdout.strip()
-
-        # jqの出力結果がJSON形式であればそのままパース、そうでなければ文字列として返す
-        try:
-            parsed_result = json.loads(result_output)
-        except json.JSONDecodeError:
+        # 本家の jq が単一の値やオブジェクトを返す挙動に合わせる
+        if len(result_output) == 1:
+            parsed_result = result_output[0]
+        else:
             parsed_result = result_output
 
-        mission_log("SUCCESS", "jqの処理が正常に完了しました！✨")
+        missionLog("SUCCESS", "jqの処理が正常に完了しました！✨")
         return jsonify({"status": "success", "query": jq_query, "result": parsed_result})
 
-    except subprocess.CalledProcessError as e:
-        error_message = e.stderr.strip()
-        mission_log("ERROR", f"jqの実行に失敗しました: {error_message}")
-        return (
-            jsonify(
-                {
-                    "status": "error",
-                    "message": "jq execution failed",
-                    "details": error_message,
-                }
-            ),
-            400,
-        )
     except Exception as e:
-        mission_log("ERROR", f"予期せぬエラーが発生しました: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
+        error_message = str(e)
+        missionLog("ERROR", f"jqの実行に失敗しました: {error_message}")
+        return jsonify({"status": "error", "message": "jq execution failed", "details": error_message}), 400
+        
 
 
 
