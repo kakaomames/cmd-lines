@@ -522,6 +522,100 @@ def oauth_callback():
     return render_template_string(html_content)
 # """
 
+
+
+
+
+import base64
+import json
+import subprocess
+from flask import Flask, jsonify, request
+
+
+
+@app.route("/jq", methods=["POST"])
+def run_jq():
+    # 1. ヘッダーから jq の引数（クエリ）を取得する
+    # 例として 'X-Jq-Query' ヘッダーを使用します
+    jq_query = request.headers.get("X-Jq-Query", ".")
+    missionLog("ACTION", f"ヘッダーからjqクエリを受信しました: {jq_query}")
+
+    # 2. リクエストボディ（JSON）から Base64 エンコードされた対象データを取り出す
+    # 想定JSON構造: {"data": "<base64_encoded_json>"} または 生の文字列
+    try:
+        req_json = request.get_json(force=True)
+        # "data" キーにbase64が入っていると仮定。キーが違う場合は適宜変更してください！
+        base64_str = req_json.get("data", "")
+        if not base64_str and isinstance(req_json, str):
+            base64_str = req_json
+    except Exception as e:
+        missionLog("ERROR", f"リクエストボディの取得に失敗しました: {e}")
+        return (
+            jsonify({"error": "Invalid request body", "details": str(e)}),
+            400,
+        )
+
+    # 3. Base64文字列をデコードして、元のJSON文字列に戻す
+    try:
+        decoded_bytes = base64.b64decode(base64_str)
+        json_str = decoded_bytes.decode("utf-8")
+        # デコードしたものが正しいJSONか一応チェック
+        json.loads(json_str)
+    except Exception as e:
+        missionLog("ERROR", f"Base64デコードまたはJSONパースに失敗しました: {e}")
+        return (
+            jsonify({"error": "Failed to decode Base64 or invalid JSON", "details": str(e)}),
+            400,
+        )
+
+    missionLog("SUCCESS", "Base64のデコードとJSON検証に成功しました！✨")
+
+    # 4. サブプロセスで jq コマンドを実行する
+    try:
+        process = subprocess.run(
+            ["jq", jq_query],
+            input=json_str,
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+
+        result_output = process.stdout.strip()
+
+        # jqの出力結果がJSON形式であればそのままパース、そうでなければ文字列として返す
+        try:
+            parsed_result = json.loads(result_output)
+        except json.JSONDecodeError:
+            parsed_result = result_output
+
+        missionLog("SUCCESS", "jqの処理が正常に完了しました！✨")
+        return jsonify({"status": "success", "query": jq_query, "result": parsed_result})
+
+    except subprocess.CalledProcessError as e:
+        error_message = e.stderr.strip()
+        missionLog("ERROR", f"jqの実行に失敗しました: {error_message}")
+        return (
+            jsonify(
+                {
+                    "status": "error",
+                    "message": "jq execution failed",
+                    "details": error_message,
+                }
+            ),
+            400,
+        )
+    except Exception as e:
+        missionLog("ERROR", f"予期せぬエラーが発生しました: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+
+
+
+
+
+
+
 # ========================================================
 # 📡 進捗ログ中継ルート: /yt-dlps-status
 # ========================================================
