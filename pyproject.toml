@@ -19,7 +19,11 @@ dependencies = [
     "moviepy",
     "trimesh",
     "shapely",
-    "matplotlib"
+    "matplotlib",
+    "psd-tools",
+    "attrs",
+    "docopt",
+    "packbits"
 ]
 
 [tool.vercel]
