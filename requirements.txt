@@ -17,3 +17,7 @@ shapely
 matplotlib
 google-api-python-client
 google-auth
+psd-tools
+attrs
+docopt
+packbits
