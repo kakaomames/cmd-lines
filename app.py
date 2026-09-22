@@ -76,8 +76,78 @@ def evaluate_jq_query(data, query):
     return current
 
 
-
 def sync_urls_json(github_token):
+    """
+    1MB以上の大容量ファイルにも対応した、GitHub経由の zip アーカイブ取得＆メモリ上解凍関数。
+    ディスクへの保存を行わず、メモリ上で urls.json を解析します。
+    """
+    base_headers = {
+        "Authorization": f"Bearer {github_token}",
+        "User-Agent": "Flask-App-Sync",
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache"
+    }
+
+    try:
+        print("GitHub経由で zip アーカイブを取得中...")
+        api_url = "https://github.com/kakaomames/yt-dlp-s25/archive/refs/heads/main.zip"
+        
+        req_src = Request(api_url, headers=base_headers)
+        
+        # 1. ネットワーク経由で zip データをメモリに読み込む
+        with urlopen(req_src) as response:
+            zip_bytes = response.read()
+            if not zip_bytes:
+                print("エラー: zip データの取得に失敗しました。")
+                return False
+
+        print("メモリ上で zip を解凍・解析中...")
+        
+        # 2. BytesIO を使ってメモリ上のバイナリデータをファイルオブジェクトのように扱う
+        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+            # zip 内の全ファイルリストを取得
+            file_list = zf.namelist()
+            
+            # urls.json のパスを探す (例: yt-dlp-s25-main/urls.json)
+            target_file = None
+            for filename in file_list:
+                if filename.endswith("urls.json"):
+                    target_file = filename
+                    break
+            
+            if not target_file:
+                print("エラー: zip アーカイブ内に urls.json が見つかりませんでした。")
+                return False
+            
+            # 3. メモリ上で対象ファイルを展開して読み込む
+            with zf.open(target_file) as f:
+                urls_json_bytes = f.read()
+                urls_json_content = urls_json_bytes.decode("utf-8")
+
+        # 4. JSON のフォーマットチェックと読み込み
+        try:
+            data = json.loads(urls_json_content)
+            print("最新の urls.json を正常に取得・検証しました。")
+            
+            # 値が正しく取得できたことをログ出力
+            key_count = len(data) if isinstance(data, (dict, list)) else 0
+            print(f"[LOG] urls.json の読み込み成功 (要素数: {key_count})")
+            
+            return True
+        except json.JSONDecodeError as e:
+            print(f"エラー: 取得した urls.json の形式が正しいJSONではありません。\n詳細: {str(e)}")
+            return False
+
+    except HTTPError as e:
+        error_body = e.read().decode("utf-8") if e.readable() else ""
+        print(f"取得中にHTTPエラーが発生しました: {e.code} {e.reason}\n詳細: {error_body}")
+        return False
+    except Exception as e:
+        print(f"同期中に予期せぬエラーが発生しました: {str(e)}")
+        return False
+
+
+def sync_urls_jsohsn(github_token):
     """
     1MB以上の大容量ファイルにも対応した、GitHub API経由の urls.json 同期関数。
     """
@@ -91,7 +161,8 @@ def sync_urls_json(github_token):
     try:
         # 1. GitHub APIを使用してキャッシュを回避し最新のurls.jsonを取得
         print("GitHub API経由で urls.json を取得中...")
-        api_url = "https://api.github.com/repos/kakaomames/yt-dlp-s25/contents/urls.json"
+        api_url = "https://github.com/kakaomames/yt-dlp-s25/archive/refs/heads/main.zip"
+        
         
         req_src = Request(
             api_url, 
@@ -101,6 +172,7 @@ def sync_urls_json(github_token):
                 "Pragma": "no-cache"
             }
         )
+        subprocess.run(["unzip", req_src],Shell=True)
         
         with urlopen(req_src) as response:
             data = json.loads(response.read().decode("utf-8"))
@@ -305,8 +377,58 @@ timestamp = datetime.now(JST).strftime('%Y%m%d%H%M%S')
 RAW_URL_CONFIGS = "https://api.github.com/repos/kakaomames/yt-dlp-s25/contents/urls.json"
 
 
+import json
+import io
+import zipfile
+import requests
+
+# ベースURLはzipアーカイブのURLに変更
+RAW_URL_CONFIGS = "https://github.com/kakaomames/yt-dlp-s25/archive/refs/heads/main.zip"
 
 def get_base_proxy_url():
+    # ヘッダーにキャッシュ無効化の命令を詰め込む
+    headers = {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0",
+        "User-Agent": "yt-dlp-s25-sync"
+    }
+    
+    try:
+        # 1. zip アーカイブを取得
+        response = requests.get(RAW_URL_CONFIGS, headers=headers)
+        response.raise_for_status()
+        
+        # 2. メモリ上で zip を解凍して urls.json を探索
+        with zipfile.ZipFile(io.BytesIO(response.content)) as zf:
+            target_file = None
+            for filename in zf.namelist():
+                if filename.endswith("urls.json"):
+                    target_file = filename
+                    break
+            
+            if not target_file:
+                mission_log("ERROR", "zip内に urls.json が見つかりませんでした")
+                return ""
+            
+            # 3. urls.json の中身を展開・読み込み
+            with zf.open(target_file) as f:
+                urls_json_bytes = f.read()
+                actual_data = json.loads(urls_json_bytes.decode("utf-8"))
+        
+        # 4. proxy_url を取得
+        base_url = actual_data.get("proxy_url", "").rstrip('/')
+        
+        mission_log("INFO", f"URL取得成功: {base_url}")
+        return base_url
+
+    except Exception as e:
+        mission_log("ERROR", f"URL取得中にエラーが発生しました: {str(e)}")
+        return ""
+
+
+
+def get_base_proxy_udddrl():
     # ヘッダーにキャッシュ無効化の命令を詰め込む
     headers = {
         "Cache-Control": "no-cache, no-store, must-revalidate",
