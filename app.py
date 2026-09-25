@@ -4288,6 +4288,10 @@ COMPANION_BASE = "https://atwck4j0x.localto.net/"
 AUTH_KEY = "ABCdef1234567890"
 context = ssl._create_unverified_context()
 
+
+
+
+
 @app.route('/watch')
 def watch():
   video_id = request.args.get("v")
@@ -4299,7 +4303,7 @@ def watch():
 
   try:
     # 2. YouTubeの動画URLを組み立てる
-    youtube_url = f"https://youtube.com{video_id}"
+    youtube_url = f"https://xeroxapp032.vercel.app/proxy?u=https://www.youtube.com/watch?v={video_id}"
     print(f"Redirecting to: {youtube_url}")
 
     # 3. 組み立てたURLにリダイレクトする
@@ -4308,6 +4312,13 @@ def watch():
   except Exception as e:
     print(f"❌ エラー: {e}")
     return f"エラーが発生したぞ！: {e}", 500
+
+
+
+
+
+
+
 
 
 
