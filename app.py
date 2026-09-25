@@ -4290,44 +4290,24 @@ context = ssl._create_unverified_context()
 
 @app.route('/watch')
 def watch():
-    video_id = request.args.get('v')
-    print(f"video_id determined: {video_id}")
-    
-    if not video_id:
-        return "IDを入れてくれ！", 400
+  video_id = request.args.get("v")
+  print(f"video_id determined: {video_id}")
 
-    target_url = f"{COMPANION_BASE}/latest_version?id={video_id}&itag=18"
-    print(f"Targeting Companion: {target_url}")
+  # 1. video_id が無い場合はエラーを返す
+  if not video_id:
+    return "IDを入れてくれ！", 400
 
-    # リダイレクトを自動で追わないハンドラ
-    class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
-        def http_error_302(self, req, fp, code, msg, headers):
-            return fp  # 302エラーを投げずにそのままレスポンスを返す
+  try:
+    # 2. YouTubeの動画URLを組み立てる
+    youtube_url = f"https://youtube.com{video_id}"
+    print(f"Redirecting to: {youtube_url}")
 
-    opener = urllib.request.build_opener(NoRedirectHandler)
-    req = urllib.request.Request(target_url)
-    req.add_header("Authorization", AUTH_KEY)
-    req.add_header("localtonet-skip-warning", "true")
-    req.add_header("User-Agent", "Mozilla/5.0")
+    # 3. 組み立てたURLにリダイレクトする
+    return redirect(youtube_url)
 
-    try:
-        print("コンパニオンからリダイレクト先を奪取中...")
-        with opener.open(req) as res:
-            # 302リダイレクトの「Location」ヘッダーに真の動画URLが入っている
-            final_video_url = res.headers.get('Location')
-            
-            if not final_video_url:
-                # リダイレクトされなかった場合（403など）
-                body = res.read().decode('utf-8')
-                print(f"❌ 失敗。応答ボディ: {body}")
-                return f"コンパニオンがURLをくれませんでした: {body}", 403
-
-            print(f"final_video_url determined: {final_video_url}")
-            return render_template('watch.html', video_id=video_id, video_url=final_video_url)
-
-    except Exception as e:
-        print(f"❌ 通信エラー: {e}")
-        return f"エラーが発生したぞ！: {e}", 500
+  except Exception as e:
+    print(f"❌ エラー: {e}")
+    return f"エラーが発生したぞ！: {e}", 500
 
 
 
