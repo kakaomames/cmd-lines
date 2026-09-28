@@ -4695,6 +4695,56 @@ def asciiart():
 
 
 
+import base64
+import json
+from flask import Flask, request, jsonify
+import requests
+
+
+
+def decode_base64_json(data_str):
+    """Base64エンコードされたJSON文字列をデコードして辞書にするヘルパー関数"""
+    if not data_str:
+        return {}
+    try:
+        # Base64デコード -> 文字列デコード -> JSONパース
+        decoded_bytes = base64.b64decode(data_str)
+        decoded_str = decoded_bytes.decode('utf-8')
+        return json.loads(decoded_str)
+    except Exception as e:
+        # パースに失敗した場合は空の辞書を返す（またはエラーハンドリング）
+        return {}
+
+@app.route('/post', methods=['POST', 'GET'])
+def proxy_post():
+    # 1. クエリパラメータから各値を取得
+    target_url = request.args.get('u')
+    body_b64 = request.args.get('body')
+    header_b64 = request.args.get('header')
+
+    # URLがない場合はエラー
+    if not target_url:
+        return jsonify({"error": "Missing target URL ('u' parameter)"}), 400
+
+    # 2. Base64 & JSON デコード
+    json_body = decode_base64_json(body_b64)
+    headers = decode_base64_json(header_b64)
+
+    try:
+        # 3. ターゲットURLへPOSTリクエストを送信
+        # json=引数を使うと、自動的にContent-Type: application/jsonが設定されます
+        response = requests.post(target_url, json=json_body, headers=headers, timeout=10)
+        
+        # 4. ターゲットからのレスポンスをそのまま返す
+        return (response.text, response.status_code, response.headers.items())
+
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": "Failed to connect to target URL", "details": str(e)}), 500
+
+
+
+
+
 @app.route('/monkeymart', methods=['GET'])
 def monkeymart():
     """monkeymartを表示"""
@@ -4722,6 +4772,9 @@ def pescape_road():
 def pokeque():
     """最初のURL入力フォームを表示"""
     return render_template('pokemonquest.html')
+
+
+
 
 
 
