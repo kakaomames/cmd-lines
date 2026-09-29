@@ -4715,7 +4715,7 @@ def decode_base64_json(data_str):
         # パースに失敗した場合は空の辞書を返す（またはエラーハンドリング）
         return {}
 
-@app.route('/post', methods=['POST', 'GET'])
+@app.route('/posts', methods=['POST', 'GET'])
 def proxy_post():
     # 1. クエリパラメータから各値を取得
     target_url = request.args.get('u')
