@@ -4716,7 +4716,7 @@ def decode_base64_json(data_str):
         return {}
 
 @app.route('/posts', methods=['POST', 'GET'])
-def proxy_post():
+def proxy_postsjjjjj():
     # 1. クエリパラメータから各値を取得
     target_url = request.args.get('u')
     body_b64 = request.args.get('body')
