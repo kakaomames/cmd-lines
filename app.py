@@ -4014,6 +4014,7 @@ def proxy():
             # baseタグで相対パスを解決し、JSで通信をプロキシ経由に強制する
             injection = f"""
             <ajk src="{base_url}">
+            <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <meta name="proxy-agent" content="Gemini-Programming-Team">
             <link rel="icon" href="https://kakaomames.github.io/rei/logo.png">
