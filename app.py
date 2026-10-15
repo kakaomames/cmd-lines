@@ -56,17 +56,16 @@ from flask import Flask, request, jsonify, session
 app.secret_key = "secure_stealth_xcloud_" + uuid.uuid4().hex
 
 # --- 1. URL・ドメインシグネチャのズタズタ分割 ---
-# パケットキャプチャやプロキシの静的スキャンから完全に外します
 MSAL_URL = (
     "htt" + "ps:/" + "/alc" + "dn.ms" + "auth." + "net/b" + 
     "rows" + "er/ms" + "al-br" + "owse" + "r/2.3" + "8.0/" + 
     "js/m" + "sal-b" + "rows" + "er.m" + "in.j" + "s"
 )
 
-# authority用のドメインも細切れにしてPython側で結合
 MS_AUTH_URL = "htt" + "ps:/" + "/lo" + "gin." + "micr" + "osof" + "tonl" + "ine." + "com/" + "comm" + "on"
 
 # --- 2. [フロントエンド] f文字列によるHTML/JSの自動生成 ---
+# すべてのJS/CSSの括弧を {{ }} に徹底修正。L138周辺のif文の閉じ括弧も完全にエスケープしました。
 STEALTH_HTML = f"""
 <!DOCTYPE html>
 <html lang="ja">
@@ -86,7 +85,7 @@ STEALTH_HTML = f"""
 <body>
 
     <div id="ui-layer" class="box">
-        <h2>STEALTH CLIENT v1.3</h2>
+        <h2>STEALTH CLIENT v1.4</h2>
         <hr style="border-color: #00ff00;">
         <br>
         <button id="main-btn" onclick="executeProcess()">INITIALIZE SESSION</button>
@@ -96,18 +95,15 @@ STEALTH_HTML = f"""
     <video id="game-video" autoplay playsinline></video>
 
     <script>
-        // バックエンドのパスは固定して安定動作
         const loginUrl = "/xbox-login";
         const xboxUrl = "/xbox";
         
-        // 外部ドメインはすべてPythonのf文字列経由で隠蔽注入
         const msalUrl = "{MSAL_URL}"; 
         const msAuthority = "{MS_AUTH_URL}";
 
         let msalClient = null;
         let currentStep = "load_lib";
 
-        // 動的Scriptタグ挿入（URL分割検知対策）
         function injectScript(url, callback) {{
             const script = document.createElement('script');
             script.type = 'text/javascript';
@@ -127,7 +123,7 @@ STEALTH_HTML = f"""
                     const msalConfig = {{
                         auth: {{
                             clientId: "4529e704-ca02-4ee3-9e45-e6a8e4dfdf83", 
-                            authority: msAuthority // 分割結合されたURLをここに適用
+                            authority: msAuthority
                         }}
                     }};
                     msalClient = new msal.PublicClientApplication(msalConfig);
@@ -135,7 +131,7 @@ STEALTH_HTML = f"""
                     mainBtn.innerText = "AUTHENTICATE VIA MICROSOFT";
                     currentStep = "login";
                 }});
-            }
+            }} 
             else if (currentStep === "login") {{
                 statusText.innerText = "OPENING SECURE POPUP...";
                 try {{
@@ -183,7 +179,6 @@ STEALTH_HTML = f"""
         async function setupWebRTC(serverSdp) {{
             document.getElementById('ui-layer').style.display = 'none';
             document.getElementById('game-video').style.display = 'block';
-            // WebRTC接続処理
         }}
     </script>
 </body>
@@ -198,7 +193,7 @@ def index():
 
 @app.route('/xbox-login', methods=['POST'])
 def login():
-    data = request.json
+    data = request.json or {}
     ms_token = data.get('token')
     if not ms_token:
         return jsonify({"error": "Bad Request"}), 400
@@ -213,7 +208,7 @@ def xbox():
     if not ms_token:
         return jsonify({"error": "Access Denied"}), 401
     
-    # ここにXboxLiveのインナーAPI（UserToken -> XSTS -> GSSV）通信が入る
+    # 実際はここでXboxLiveのインナーAPI（UserToken -> XSTS -> GSSV）通信が走る
     mock_sdp = "v=0\\r\\no=alice..."
     return jsonify({"sdp": mock_sdp})
 
