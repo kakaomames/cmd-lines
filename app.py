@@ -97,7 +97,7 @@ STEALTH_HTML = f"""
 
     <script>
         // バックエンドのパスは固定して安定動作
-        const loginUrl = "/login";
+        const loginUrl = "/xbox-login";
         const xboxUrl = "/xbox";
         
         // 外部ドメインはすべてPythonのf文字列経由で隠蔽注入
