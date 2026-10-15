@@ -70,11 +70,9 @@ X_BASE = XBOX_DOM_P1 + XBOX_DOM_P2 + XBOX_DOM_P3  # メモリ上で "xboxlive.co
 # ==========================================
 @app.route('/xboxs')
 def xboxs():
-    return render_template(
-        'xboxs.html', 
-        msal_url=STEALTH_MSAL_URL, 
-        ms_auth_url=STEALTH_MS_AUTH_URL
-    )
+    # 引数は不要。ただHTMLを呼び出すだけで完璧に動きます
+    return render_template('xboxs.html')
+
 
 # ==========================================
 # 2. ログイン処理エンドポイント
