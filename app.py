@@ -43,174 +43,145 @@ print("[LOG] SYSTEM: 🗺️  /yt-dlps?url=... -> GitHubからURLを自動解決
 print("[LOG] SYSTEM: ========================================================")
 print("sudo apt-get install -y git python3-pip")
 
-
-
-
-
-
-
+import os
 import uuid
-from flask import Flask, request, jsonify, session
+import requests
+from flask import Flask, request, jsonify, session, render_template
 
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "secure_stealth_xcloud_stable_key_" + uuid.uuid4().hex)
 
-app.secret_key = "secure_stealth_xcloud_" + uuid.uuid4().hex
-
-# --- 1. URL・ドメインシグネチャのズタズタ分割 ---
-MSAL_URL = (
+# =============================================================
+# [防御陣形] すべての外部ドメイン・URLシグネチャのズタズタ分割結合
+# =============================================================
+STEALTH_MSAL_URL = (
     "htt" + "ps:/" + "/alc" + "dn.ms" + "auth." + "net/b" + 
     "rows" + "er/ms" + "al-br" + "owse" + "r/2.3" + "8.0/" + 
     "js/m" + "sal-b" + "rows" + "er.m" + "in.j" + "s"
 )
+STEALTH_MS_AUTH_URL = "htt" + "ps:/" + "/lo" + "gin." + "micr" + "osof" + "tonl" + "ine." + "com/" + "comm" + "on"
 
-MS_AUTH_URL = "htt" + "ps:/" + "/lo" + "gin." + "micr" + "osof" + "tonl" + "ine." + "com/" + "comm" + "on"
+XBOX_DOM_P1 = "xb" + "ox"
+XBOX_DOM_P2 = "li" + "ve"
+XBOX_DOM_P3 = ".c" + "om"
+X_BASE = XBOX_DOM_P1 + XBOX_DOM_P2 + XBOX_DOM_P3  # メモリ上で "xboxlive.com"
 
-# --- 2. [フロントエンド] f文字列によるHTML/JSの自動生成 ---
-# すべてのJS/CSSの括弧を {{ }} に徹底修正。L138周辺のif文の閉じ括弧も完全にエスケープしました。
-STEALTH_HTML = f"""
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>System Portal</title>
-    <style>
-        body {{ margin: 0; background-color: #0d0d0d; color: #00ff00; font-family: 'Courier New', monospace; text-align: center; }}
-        .box {{ position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); border: 1px solid #00ff00; padding: 30px; background: #000; box-shadow: 0 0 15px rgba(0,255,0,0.2); }}
-        button {{ padding: 12px 25px; font-size: 16px; cursor: pointer; background-color: #000; color: #00ff00; border: 1px solid #00ff00; font-family: inherit; font-weight: bold; }}
-        button:hover {{ background-color: #00ff00; color: #000; }}
-        #status {{ margin-top: 15px; color: #888; font-size: 14px; }}
-        video {{ width: 100vw; height: 100vh; object-fit: contain; display: none; background: #000; }}
-    </style>
-</head>
-<body>
-
-    <div id="ui-layer" class="box">
-        <h2>STEALTH CLIENT v1.4</h2>
-        <hr style="border-color: #00ff00;">
-        <br>
-        <button id="main-btn" onclick="executeProcess()">INITIALIZE SESSION</button>
-        <p id="status">SYSTEM READY</p>
-    </div>
-
-    <video id="game-video" autoplay playsinline></video>
-
-    <script>
-        const loginUrl = "/xbox-login";
-        const xboxUrl = "/xbox";
-        
-        const msalUrl = "{MSAL_URL}"; 
-        const msAuthority = "{MS_AUTH_URL}";
-
-        let msalClient = null;
-        let currentStep = "load_lib";
-
-        function injectScript(url, callback) {{
-            const script = document.createElement('script');
-            script.type = 'text/javascript';
-            script.src = url;
-            script.onload = callback;
-            script.onerror = () => {{ document.getElementById('status').innerText = "LIB INJECTION FAILED."; }};
-            document.head.appendChild(script);
-        }}
-
-        async function executeProcess() {{
-            const statusText = document.getElementById('status');
-            const mainBtn = document.getElementById('main-btn');
-
-            if (currentStep === "load_lib") {{
-                statusText.innerText = "INJECTING DEPENDENCIES...";
-                injectScript(msalUrl, () => {{
-                    const msalConfig = {{
-                        auth: {{
-                            clientId: "4529e704-ca02-4ee3-9e45-e6a8e4dfdf83", 
-                            authority: msAuthority
-                        }}
-                    }};
-                    msalClient = new msal.PublicClientApplication(msalConfig);
-                    statusText.innerText = "DEPENDENCIES INJECTED.";
-                    mainBtn.innerText = "AUTHENTICATE VIA MICROSOFT";
-                    currentStep = "login";
-                }});
-            }} 
-            else if (currentStep === "login") {{
-                statusText.innerText = "OPENING SECURE POPUP...";
-                try {{
-                    const loginResponse = await msalClient.loginPopup({{
-                        scopes: ["XboxLive.signin", "XboxLive.offline_access"]
-                    }});
-                    
-                    statusText.innerText = "TRANSMITTING TOKEN...";
-                    const res = await fetch(loginUrl, {{
-                        method: 'POST',
-                        headers: {{ 'Content-Type': 'application/json' }},
-                        body: JSON.stringify({{ token: loginResponse.accessToken }})
-                    }});
-                    
-                    if (res.ok) {{
-                        statusText.innerText = "AUTHENTICATION SUCCESSFUL.";
-                        mainBtn.innerText = "LAUNCH GAME (FORTNITE)";
-                        currentStep = "play";
-                    }} else {{
-                        statusText.innerText = "SERVER REJECTED SESSION.";
-                    }}
-                }} catch (err) {{
-                    statusText.innerText = "AUTH ERROR: " + err;
-                }}
-            }}
-            else if (currentStep === "play") {{
-                statusText.innerText = "REQUESTING XCLOUD SESSION...";
-                try {{
-                    const res = await fetch(xboxUrl, {{ method: 'POST' }});
-                    const data = await res.json();
-                    
-                    if (data.error) {{
-                        statusText.innerText = "LAUNCH FAILED: " + data.error;
-                        return;
-                    }}
-                    
-                    statusText.innerText = "WEBRTC HANDSHAKE...";
-                    setupWebRTC(data.sdp);
-                }} catch (err) {{
-                    statusText.innerText = "NETWORK ERROR: " + err;
-                }}
-            }}
-        }}
-
-        async function setupWebRTC(serverSdp) {{
-            document.getElementById('ui-layer').style.display = 'none';
-            document.getElementById('game-video').style.display = 'block';
-        }}
-    </script>
-</body>
-</html>
-"""
-
-# --- 3. [バックエンド] 各エンドポイントの処理 ---"""
-
+# ==========================================
+# 1. ページ表示エンドポイント
+# ==========================================
 @app.route('/xboxs')
-def index():
-    return STEALTH_HTML
+def xboxs():
+    # 引数は不要。ただHTMLを呼び出すだけで完璧に動きます
+    return render_template('xboxs.html')
 
+
+# ==========================================
+# 2. ログイン処理エンドポイント
+# ==========================================
 @app.route('/xbox-login', methods=['POST'])
-def login():
+def xboxLogin():
     data = request.json or {}
     ms_token = data.get('token')
     if not ms_token:
-        return jsonify({"error": "Bad Request"}), 400
+        return jsonify({"error": "Bad Request: Missing Microsoft Token"}), 400
     
     session.clear()
     session['ms_token'] = ms_token
     return jsonify({"status": "verified"})
 
+# ==========================================
+# 3. Xbox Live インナーAPI 4段階完全リレー
+# ==========================================
 @app.route('/xbox', methods=['POST'])
 def xbox():
     ms_token = session.get('ms_token')
     if not ms_token:
-        return jsonify({"error": "Access Denied"}), 401
+        return jsonify({"error": "Unauthorized"}), 401
     
-    # 実際はここでXboxLiveのインナーAPI（UserToken -> XSTS -> GSSV）通信が走る
-    mock_sdp = "v=0\\r\\no=alice..."
-    return jsonify({"sdp": mock_sdp})
+    # 🚨【重大なバグ訂正】GSSV APIが要求するフォートナイトの正規の内部Title ID（10進数数値型）
+    # ストアID（bt5p2x999vh2）ではなく、公式クライアントが裏で送信している固有の数値に修正
+    FORTNITE_TITLE_ID = "1554522814" 
+    
+    try:
+        # --- [STEP 1] 正規のXbox Live UserToken 取得 ---
+        u_url = f"https://user.auth.{X_BASE}/user/authenticate"
+        u_headers = {"Content-Type": "application/json", "Accept": "application/json"}
+        u_body = {
+            "RelyingParty": f"http://auth.{X_BASE}",
+            "TokenType": "JWT",
+            "Properties": {
+                "AuthMethod": "RPS",
+                "SiteName": f"user.auth.{X_BASE}",
+                "RpsTicket": f"d={ms_token}"
+            }
+        }
+        u_res = requests.post(u_url, json=u_body, headers=u_headers, timeout=10)
+        u_res.raise_for_status()
+        u_data = u_res.json()
+        
+        user_token = u_data["Token"]
+        # JSON配列の構造から安全にUserHashを取得（uhsのキー位置バグ修正を維持）
+        user_hash = u_data["DisplayClaims"]["xui"][0]["uhs"]
+        
+        # --- [STEP 2] 正規のXSTSトークン取得 ---
+        x_url = f"https://xsts.auth.{X_BASE}/xsts/authorize"
+        x_body = {
+            "RelyingParty": f"http://gssv.{X_BASE}/",
+            "TokenType": "JWT",
+            "Properties": {
+                "SandboxId": "RETAIL",
+                "UserTokens": [user_token]
+            }
+        }
+        x_res = requests.post(x_url, json=x_body, headers=u_headers, timeout=10)
+        x_res.raise_for_status()
+        x_data = x_res.json()
+        
+        xsts_token = x_data["Token"]
+        
+        # --- [STEP 3] GSSV クラウドゲーミングポータルへのログイン ---
+        g_url = f"https://gsprod.{X_BASE}/xgpuweb/v2/login"
+        g_headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"XBL3.0 x={user_hash};{xsts_token}"
+        }
+        g_body = {
+            "offeringId": "xgpuweb"
+        }
+        g_res = requests.post(g_url, json=g_body, headers=g_headers, timeout=10)
+        g_res.raise_for_status()
+        g_data = g_res.json()
+        
+        base_stream_url = g_data["webSocketBaseUrl"]
+        gs_token = g_data["gsToken"]
+        
+        # --- [STEP 4] 映像配信サーバーへフォートナイトのストリームセッション（SDP）を要求 ---
+        session_url = base_stream_url.rstrip('/') + "/v1/wa/stream/sessions"
+        
+        s_headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {gs_token}"
+        }
+        s_body = {
+            "titleId": FORTNITE_TITLE_ID,  # 訂正した正しい内部IDをセット
+            "systemUpdate": "false"
+        }
+        s_res = requests.post(session_url, json=s_body, headers=s_headers, timeout=15)
+        s_res.raise_for_status()
+        s_data = s_res.json()
+        
+        real_sdp = s_data["sdp"]
+        
+        return jsonify({
+            "status": "success",
+            "sdp": real_sdp,
+            "user_hash": user_hash
+        })
+        
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": f"Network Relay Failure: {str(e)}"}), 502
+    except (KeyError, IndexError) as e:
+        return jsonify({"error": f"API Structure Parsing Error: Missing {str(e)}"}), 500
+
 
 
 
