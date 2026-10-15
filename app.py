@@ -156,7 +156,7 @@ STEALTH_HTML = f"""
                 }} catch (err) {{
                     statusText.innerText = "AUTH ERROR: " + err;
                 }}
-            } 
+            }}
             else if (currentStep === "play") {{
                 statusText.innerText = "REQUESTING XCLOUD SESSION...";
                 try {{
@@ -166,14 +166,14 @@ STEALTH_HTML = f"""
                     if (data.error) {{
                         statusText.innerText = "LAUNCH FAILED: " + data.error;
                         return;
-                    }
+                    }}
                     
                     statusText.innerText = "WEBRTC HANDSHAKE...";
                     setupWebRTC(data.sdp);
                 }} catch (err) {{
                     statusText.innerText = "NETWORK ERROR: " + err;
                 }}
-            }
+            }}
         }}
 
         async function setupWebRTC(serverSdp) {{
