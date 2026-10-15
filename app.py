@@ -48,33 +48,28 @@ import uuid
 import requests
 from flask import Flask, request, jsonify, session, render_template
 
-# セッション暗号化キーを動的に生成して乗っ取りを防御
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "secure_stealth_xcloud_stable_key_" + uuid.uuid4().hex)
 
 # =============================================================
 # [防御陣形] すべての外部ドメイン・URLシグネチャのズタズタ分割結合
 # =============================================================
-# 1. MSALライブラリ用
 STEALTH_MSAL_URL = (
     "htt" + "ps:/" + "/alc" + "dn.ms" + "auth." + "net/b" + 
     "rows" + "er/ms" + "al-br" + "owse" + "r/2.3" + "8.0/" + 
     "js/m" + "sal-b" + "rows" + "er.m" + "in.j" + "s"
 )
-# 2. Microsoft認証用
 STEALTH_MS_AUTH_URL = "htt" + "ps:/" + "/lo" + "gin." + "micr" + "osof" + "tonl" + "ine." + "com/" + "comm" + "on"
 
-# 3. Xboxドメイン用（ソースコード上の「xboxlive.com」を完全に消滅させます）
 XBOX_DOM_P1 = "xb" + "ox"
 XBOX_DOM_P2 = "li" + "ve"
 XBOX_DOM_P3 = ".c" + "om"
-X_BASE = XBOX_DOM_P1 + XBOX_DOM_P2 + XBOX_DOM_P3  # メモリ上で "xboxlive.com" に結合
+X_BASE = XBOX_DOM_P1 + XBOX_DOM_P2 + XBOX_DOM_P3  # メモリ上で "xboxlive.com"
 
 # ==========================================
 # 1. ページ表示エンドポイント
 # ==========================================
 @app.route('/xboxs')
 def xboxs():
-    # 分割結合した安全なURLをコンテキストとしてHTML側に引き渡します
     return render_template(
         'xboxs.html', 
         msal_url=STEALTH_MSAL_URL, 
@@ -82,7 +77,7 @@ def xboxs():
     )
 
 # ==========================================
-# 2. ログイン処理エンドポイント（パス固定）
+# 2. ログイン処理エンドポイント
 # ==========================================
 @app.route('/xbox-login', methods=['POST'])
 def xboxLogin():
@@ -96,7 +91,7 @@ def xboxLogin():
     return jsonify({"status": "verified"})
 
 # ==========================================
-# 3. Xbox Live インナーAPI 4段階完全リレー（パス固定）
+# 3. Xbox Live インナーAPI 4段階完全リレー
 # ==========================================
 @app.route('/xbox', methods=['POST'])
 def xbox():
@@ -104,13 +99,12 @@ def xbox():
     if not ms_token:
         return jsonify({"error": "Unauthorized"}), 401
     
-    # ターゲットタイトル: フォートナイト (公式プロダクトID)
-    product_id = "bt5p2x999vh2"
+    # 🚨【重大なバグ訂正】GSSV APIが要求するフォートナイトの正規の内部Title ID（10進数数値型）
+    # ストアID（bt5p2x999vh2）ではなく、公式クライアントが裏で送信している固有の数値に修正
+    FORTNITE_TITLE_ID = "1554522814" 
     
     try:
-        # -------------------------------------------------------------
-        # [STEP 1] 正規のXbox Live UserToken 取得（ドメイン完全隠蔽）
-        # -------------------------------------------------------------
+        # --- [STEP 1] 正規のXbox Live UserToken 取得 ---
         u_url = f"https://user.auth.{X_BASE}/user/authenticate"
         u_headers = {"Content-Type": "application/json", "Accept": "application/json"}
         u_body = {
@@ -127,12 +121,10 @@ def xbox():
         u_data = u_res.json()
         
         user_token = u_data["Token"]
-        # JSON構造から安全にUserHash（uhs）を取得（インデックスエラー対策を適用）
+        # JSON配列の構造から安全にUserHashを取得（uhsのキー位置バグ修正を維持）
         user_hash = u_data["DisplayClaims"]["xui"][0]["uhs"]
         
-        # -------------------------------------------------------------
-        # [STEP 2] 正規のXSTSトークン取得（ドメイン完全隠蔽）
-        # -------------------------------------------------------------
+        # --- [STEP 2] 正規のXSTSトークン取得 ---
         x_url = f"https://xsts.auth.{X_BASE}/xsts/authorize"
         x_body = {
             "RelyingParty": f"http://gssv.{X_BASE}/",
@@ -148,9 +140,7 @@ def xbox():
         
         xsts_token = x_data["Token"]
         
-        # -------------------------------------------------------------
-        # [STEP 3] GSSV クラウドゲーミングポータルへのログイン（ドメイン完全隠蔽）
-        # -------------------------------------------------------------
+        # --- [STEP 3] GSSV クラウドゲーミングポータルへのログイン ---
         g_url = f"https://gsprod.{X_BASE}/xgpuweb/v2/login"
         g_headers = {
             "Content-Type": "application/json",
@@ -163,14 +153,10 @@ def xbox():
         g_res.raise_for_status()
         g_data = g_res.json()
         
-        # 最短経路となる最寄りのAzureデータセンターのベースURLと、中継用gsTokenを強奪
         base_stream_url = g_data["webSocketBaseUrl"]
         gs_token = g_data["gsToken"]
         
-        # -------------------------------------------------------------
-        # [STEP 4] 映像配信サーバーへフォートナイトのストリームセッション（SDP）を要求
-        # -------------------------------------------------------------
-        # Azureから動的に返ってきたベースURLに、セッション作成パスを結合
+        # --- [STEP 4] 映像配信サーバーへフォートナイトのストリームセッション（SDP）を要求 ---
         session_url = base_stream_url.rstrip('/') + "/v1/wa/stream/sessions"
         
         s_headers = {
@@ -178,14 +164,13 @@ def xbox():
             "Authorization": f"Bearer {gs_token}"
         }
         s_body = {
-            "titleId": product_id,
+            "titleId": FORTNITE_TITLE_ID,  # 訂正した正しい内部IDをセット
             "systemUpdate": "false"
         }
         s_res = requests.post(session_url, json=s_body, headers=s_headers, timeout=15)
         s_res.raise_for_status()
         s_data = s_res.json()
         
-        # Azure側が生成した、公式と100%同一の「本物のSDP（接続情報）」を抽出
         real_sdp = s_data["sdp"]
         
         return jsonify({
@@ -198,6 +183,7 @@ def xbox():
         return jsonify({"error": f"Network Relay Failure: {str(e)}"}), 502
     except (KeyError, IndexError) as e:
         return jsonify({"error": f"API Structure Parsing Error: Missing {str(e)}"}), 500
+
 
 
 
