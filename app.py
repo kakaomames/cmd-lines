@@ -101,7 +101,7 @@ STEALTH_HTML = f"""
         const xboxUrl = "/xbox";
         
         // 外部ドメインはすべてPythonのf文字列経由で隠蔽注入
-        const msalUrl = "{MSAL_URL}"; // 代入"""
+        const msalUrl = "{MSAL_URL}"; 
         const msAuthority = "{MS_AUTH_URL}";
 
         let msalClient = null;
