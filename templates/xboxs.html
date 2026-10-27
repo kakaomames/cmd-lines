@@ -91,14 +91,13 @@
         const gamesUrl = "/xbox/games";
         const xboxUrl = "/xbox";
         
-        // コンシューマー用エンドポイント対応のMSAL設定
         const msAuthority = "https://login.microsoftonline.com/consumers";
 
         const msalConfig = {
             auth: {
                 clientId: "1d9946a3-a198-4465-bf9f-5c9c577a67fa", 
                 authority: msAuthority,
-                redirect_uri: "https://xeroxapp032.vercel.app/xboxs"
+                redirect_uri: "https://xeroxapp032.vercel.app/xboxs" // ハードコートで完全に固定
             }
         };
         
@@ -112,6 +111,7 @@
         }
 
         let currentStep = "login";
+        let isProcessing = false; // 🚀 多重実行防止ガード
         let peerConnection = null;
         let selectedTitleId = "1554522814";
 
@@ -132,6 +132,13 @@
 
         async function executeProcess(event) {
             if (event) event.preventDefault();
+
+            // 🚀 すでに処理中ならリクエストを即座に弾く
+            if (isProcessing) {
+                console.log("[WARN] Process already in progress. Ignored.");
+                return;
+            }
+
             console.log("[DEBUG] executeProcess triggered. Step:", currentStep);
             
             if (!msalClient) {
@@ -139,9 +146,12 @@
                 return;
             }
 
-            if (currentStep === "login") {
-                setStatus("OPENING POPUP...");
-                try {
+            isProcessing = true;
+
+            try {
+                if (currentStep === "login") {
+                    setStatus("OPENING POPUP...");
+                    
                     const loginResponse = await msalClient.loginPopup({
                         scopes: ["user.read"]
                     });
@@ -185,19 +195,14 @@
                     } else {
                         setStatus("SERVER REJECTED");
                     }
-                } catch (err) {
-                    console.error("[ERROR] Auth error:", err);
-                    setStatus("AUTH ERROR: " + err.message);
-                }
-            } 
-            else if (currentStep === "play") {
-                const select = document.getElementById('game-select');
-                if (select.value && select.value !== "") {
-                    selectedTitleId = select.value;
-                }
+                } 
+                else if (currentStep === "play") {
+                    const select = document.getElementById('game-select');
+                    if (select.value && select.value !== "") {
+                        selectedTitleId = select.value;
+                    }
 
-                setStatus("REQUESTING SESSION...");
-                try {
+                    setStatus("REQUESTING SESSION...");
                     const res = await fetch(xboxUrl, { 
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -208,14 +213,20 @@
                     
                     if (data.error) {
                         setStatus("LAUNCH FAILED: " + data.error);
+                        isProcessing = false;
                         return;
                     }
                     
                     setStatus("WEBRTC...");
                     setupWebRTC(data.sdp);
-                } catch (err) {
-                    console.error("[ERROR] Network error:", err);
-                    setStatus("NETWORK ERROR: " + err.message);
+                }
+            } catch (err) {
+                console.error("[ERROR] Auth/Network error:", err);
+                setStatus("ERROR: " + err.message);
+            } finally {
+                // playステップ以外（ログイン処理が完了した瞬間など）ではisProcessingを解除
+                if (currentStep !== "play") {
+                    isProcessing = false;
                 }
             }
         }
@@ -231,7 +242,7 @@
                     if (videoTag.srcObject !== event.streams[0]) {
                         videoTag.srcObject = event.streams[0];
                         showGameVideo();
-                        setStatus("STREAM ACTIVE");
+:                        setStatus("STREAM ACTIVE");
                     }
                 };
 
