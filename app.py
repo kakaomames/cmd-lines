@@ -29,6 +29,7 @@ import ctypes
 from werkzeug.utils import secure_filename
 from objTo3mf import convert_obj_to_3mf, ms
 import requests
+import uuid
 import subprocess
 import shutil
 import tarfile
