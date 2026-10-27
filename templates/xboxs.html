@@ -26,7 +26,7 @@
             gap: 8px;
         }
 
-        button, select {
+        button, a.auth-link, select {
             padding: 10px 20px;
             font-size: 14px;
             cursor: pointer;
@@ -37,9 +37,12 @@
             font-weight: bold;
             border-radius: 4px;
             outline: none;
+            text-decoration: none;
+            text-align: center;
+            display: inline-block;
         }
 
-        button:hover {
+        button:hover, a.auth-link:hover {
             background-color: #0f0;
             color: #000;
         }
@@ -48,6 +51,7 @@
             display: none;
             background-color: #222;
             color: #fff;
+            width: 100%;
         }
 
         #status {
@@ -71,7 +75,10 @@
 <body>
 
     <div class="top-right-bar">
-        <button id="main-btn" onclick="executeProcess()">LOGIN VIA MICROSOFT</button>
+        <!-- 🚀 ボタンタグとAタグの2段構え -->
+        <button id="main-btn" onclick="executeProcess(event)">LOGIN VIA MICROSOFT [BTN]</button>
+        <a href="javascript:void(0);" id="main-link" class="auth-link" onclick="executeProcess(event)">LOGIN VIA MICROSOFT [A]</a>
+        
         <select id="game-select">
             <option value="" disabled selected>-- SELECT GAME --</option>
         </select>
@@ -91,7 +98,7 @@
 
         const msalConfig = {
             auth: {
-                clientId: "1d9946a3-a198-4465-bf9f-5c9c577a67fa", // 🚀 新しいクライアントIDに更新
+                clientId: "1d9946a3-a198-4465-bf9f-5c9c577a67fa", 
                 authority: msAuthority
             }
         };
@@ -113,15 +120,21 @@
             console.log("[STATUS]", msg);
             document.getElementById('status').innerText = "STATUS: " + msg;
         };
-        const setBtnText = (msg) => document.getElementById('main-btn').innerText = msg;
+        
+        const updateButtonTexts = (msg) => {
+            document.getElementById('main-btn').innerText = msg + " [BTN]";
+            document.getElementById('main-link').innerText = msg + " [A]";
+        };
         
         const showGameVideo = () => {
             document.querySelector('.top-right-bar').style.display = 'none';
             document.getElementById('game-video').style.display = 'block';
         };
 
-        async function executeProcess() {
-            console.log("[DEBUG] executeProcess clicked. Step:", currentStep);
+        async function executeProcess(event) {
+            if (event) event.preventDefault();
+            console.log("[DEBUG] executeProcess triggered. Step:", currentStep);
+            
             if (!msalClient) {
                 setStatus("MSAL NOT INITIALIZED");
                 return;
@@ -143,4 +156,103 @@
                     });
                     
                     const resText = await res.text();
-                    console
+                    console.log("[DEBUG] Server login response:", res.status, resText);
+
+                    if (res.ok) {
+                        setStatus("FETCHING GAMES...");
+                        try {
+                            const gamesRes = await fetch(gamesUrl);
+                            const gamesData = await gamesRes.json();
+                            console.log("[DEBUG] Games data:", gamesData);
+
+                            if (gamesData.status === "success" && gamesData.games) {
+                                const select = document.getElementById('game-select');
+                                select.innerHTML = '<option value="" disabled selected>-- SELECT GAME --</option>';
+                                gamesData.games.forEach(game => {
+                                    const opt = document.createElement('option');
+                                    opt.value = game.titleId || game.id;
+                                    opt.innerText = game.name || game.titleName || "Unknown Game";
+                                    select.appendChild(opt);
+                                });
+                                select.style.display = 'block';
+                            }
+                        } catch (e) {
+                            console.warn("[WARN] Catalog fetch failed:", e);
+                        }
+
+                        setStatus("LOGGED IN");
+                        updateButtonTexts("LAUNCH GAME");
+                        currentStep = "play";
+                    } else {
+                        setStatus("SERVER REJECTED");
+                    }
+                } catch (err) {
+                    console.error("[ERROR] Auth error:", err);
+                    setStatus("AUTH ERROR: " + err.message);
+                }
+            } 
+            else if (currentStep === "play") {
+                const select = document.getElementById('game-select');
+                if (select.value && select.value !== "") {
+                    selectedTitleId = select.value;
+                }
+
+                setStatus("REQUESTING SESSION...");
+                try {
+                    const res = await fetch(xboxUrl, { 
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ titleId: selectedTitleId })
+                    });
+                    const data = await res.json();
+                    console.log("[DEBUG] XCloud session response:", data);
+                    
+                    if (data.error) {
+                        setStatus("LAUNCH FAILED: " + data.error);
+                        return;
+                    }
+                    
+                    setStatus("WEBRTC...");
+                    setupWebRTC(data.sdp);
+                } catch (err) {
+                    console.error("[ERROR] Network error:", err);
+                    setStatus("NETWORK ERROR: " + err.message);
+                }
+            }
+        }
+
+        async function setupWebRTC(serverSdp) {
+            try {
+                peerConnection = new RTCPeerConnection({
+                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                });
+
+                peerConnection.ontrack = (event) => {
+                    const videoTag = document.getElementById('game-video');
+                    if (videoTag.srcObject !== event.streams[0]) {
+                        videoTag.srcObject = event.streams[0];
+                        showGameVideo();
+                        setStatus("STREAM ACTIVE");
+                    }
+                };
+
+                const dataChannel = peerConnection.createDataChannel("input", { ordered: false });
+                dataChannel.onopen = () => console.log("[DEBUG] DataChannel opened.");
+
+                await peerConnection.setRemoteDescription(new RTCSessionDescription({
+                    type: 'offer',
+                    sdp: serverSdp
+                }));
+
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                console.log("[DEBUG] Local answer created.");
+
+            } catch (e) {
+                console.error("[ERROR] WebRTC error:", e);
+                setStatus("WEBRTC ERROR: " + e.message);
+            }
+        }
+    </script>
+</body>
+</html>
