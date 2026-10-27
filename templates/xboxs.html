@@ -15,7 +15,6 @@
             overflow: hidden;
         }
 
-        /* 🚀 右上に配置するログインボタン */
         .top-right-bar {
             position: absolute;
             top: 20px;
@@ -71,7 +70,6 @@
 </head>
 <body>
 
-    <!-- 右上コントロールエリア -->
     <div class="top-right-bar">
         <button id="main-btn" onclick="executeProcess()">LOGIN VIA MICROSOFT</button>
         <select id="game-select">
@@ -93,7 +91,7 @@
 
         const msalConfig = {
             auth: {
-                clientId: "43ba6394-4d59-4db5-96c3-92f238ab17de", 
+                clientId: "1d9946a3-a198-4465-bf9f-5c9c577a67fa", // 🚀 新しいクライアントIDに更新
                 authority: msAuthority
             }
         };
@@ -145,103 +143,4 @@
                     });
                     
                     const resText = await res.text();
-                    console.log("[DEBUG] Server login response:", res.status, resText);
-
-                    if (res.ok) {
-                        setStatus("FETCHING GAMES...");
-                        try {
-                            const gamesRes = await fetch(gamesUrl);
-                            const gamesData = await gamesRes.json();
-                            console.log("[DEBUG] Games data:", gamesData);
-
-                            if (gamesData.status === "success" && gamesData.games) {
-                                const select = document.getElementById('game-select');
-                                select.innerHTML = '<option value="" disabled selected>-- SELECT GAME --</option>';
-                                gamesData.games.forEach(game => {
-                                    const opt = document.createElement('option');
-                                    opt.value = game.titleId || game.id;
-                                    opt.innerText = game.name || game.titleName || "Unknown Game";
-                                    select.appendChild(opt);
-                                });
-                                select.style.display = 'block';
-                            }
-                        } catch (e) {
-                            console.warn("[WARN] Catalog fetch failed:", e);
-                        }
-
-                        setStatus("LOGGED IN");
-                        setBtnText("LAUNCH GAME");
-                        currentStep = "play";
-                    } else {
-                        setStatus("SERVER REJECTED");
-                    }
-                } catch (err) {
-                    console.error("[ERROR] Auth error:", err);
-                    setStatus("AUTH ERROR: " + err.message);
-                }
-            } 
-            else if (currentStep === "play") {
-                const select = document.getElementById('game-select');
-                if (select.value && select.value !== "") {
-                    selectedTitleId = select.value;
-                }
-
-                setStatus("REQUESTING SESSION...");
-                try {
-                    const res = await fetch(xboxUrl, { 
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ titleId: selectedTitleId })
-                    });
-                    const data = await res.json();
-                    console.log("[DEBUG] XCloud session response:", data);
-                    
-                    if (data.error) {
-                        setStatus("LAUNCH FAILED: " + data.error);
-                        return;
-                    }
-                    
-                    setStatus("WEBRTC...");
-                    setupWebRTC(data.sdp);
-                } catch (err) {
-                    console.error("[ERROR] Network error:", err);
-                    setStatus("NETWORK ERROR: " + err.message);
-                }
-            }
-        }
-
-        async function setupWebRTC(serverSdp) {
-            try {
-                peerConnection = new RTCPeerConnection({
-                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-                });
-
-                peerConnection.ontrack = (event) => {
-                    const videoTag = document.getElementById('game-video');
-                    if (videoTag.srcObject !== event.streams[0]) {
-                        videoTag.srcObject = event.streams[0];
-                        showGameVideo();
-                        setStatus("STREAM ACTIVE");
-                    }
-                };
-
-                const dataChannel = peerConnection.createDataChannel("input", { ordered: false });
-                dataChannel.onopen = () => console.log("[DEBUG] DataChannel opened.");
-
-                await peerConnection.setRemoteDescription(new RTCSessionDescription({
-                    type: 'offer',
-                    sdp: serverSdp
-                }));
-
-                const answer = await peerConnection.createAnswer();
-                await peerConnection.setLocalDescription(answer);
-                console.log("[DEBUG] Local answer created.");
-
-            } catch (e) {
-                console.error("[ERROR] WebRTC error:", e);
-                setStatus("WEBRTC ERROR: " + e.message);
-            }
-        }
-    </script>
-</body>
-</html>
+                    console
