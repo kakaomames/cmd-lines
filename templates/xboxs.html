@@ -6,121 +6,54 @@
     <title>XCloud Stealth Portal</title>
     <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.16.0/lib/msal-browser.min.js"></script>
     <style>
-        :root {
-            --bg-color: #050508;
-            --panel-bg: rgba(10, 10, 18, 0.85);
-            --accent-green: #00ff66;
-            --accent-glow: rgba(0, 255, 102, 0.3);
-            --text-dim: #8892b0;
-        }
-
         body {
             margin: 0;
-            background-color: var(--bg-color);
-            color: var(--accent-green);
-            font-family: 'Courier New', Courier, monospace;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            background-color: #111;
+            color: #fff;
+            font-family: monospace;
             height: 100vh;
             overflow: hidden;
         }
 
-        body::before {
-            content: "";
+        /* 🚀 右上に配置するログインボタン */
+        .top-right-bar {
             position: absolute;
-            width: 200vw;
-            height: 200vh;
-            background-image: linear-gradient(rgba(0,255,102,0.03) 1px, transparent 1px),
-                              linear-gradient(90deg, rgba(0,255,102,0.03) 1px, transparent 1px);
-            background-size: 30px 30px;
-            z-index: -1;
-        }
-
-        .dashboard {
-            background: var(--panel-bg);
-            border: 1px solid var(--accent-green);
-            box-shadow: 0 0 30px var(--accent-glow);
-            padding: 40px;
-            width: 420px;
-            box-sizing: border-box;
-            border-radius: 6px;
-            text-align: left;
-            backdrop-filter: blur(10px);
+            top: 20px;
+            right: 20px;
             z-index: 10;
-        }
-
-        .header-title {
-            font-size: 18px;
-            letter-spacing: 2px;
-            margin-bottom: 5px;
-            color: #fff;
-            text-shadow: 0 0 8px var(--accent-glow);
-        }
-
-        .header-sub {
-            font-size: 12px;
-            color: var(--text-dim);
-            margin-bottom: 25px;
-            text-transform: uppercase;
-        }
-
-        .control-group {
-            margin-bottom: 20px;
-        }
-
-        label {
-            display: block;
-            font-size: 11px;
-            color: var(--text-dim);
-            margin-bottom: 8px;
-            letter-spacing: 1px;
-            text-transform: uppercase;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 8px;
         }
 
         button, select {
-            width: 100%;
-            padding: 14px 20px;
+            padding: 10px 20px;
             font-size: 14px;
             cursor: pointer;
-            background-color: #000;
-            color: var(--accent-green);
-            border: 1px solid var(--accent-green);
+            background-color: #222;
+            color: #0f0;
+            border: 1px solid #0f0;
             font-family: inherit;
             font-weight: bold;
-            letter-spacing: 1px;
-            transition: all 0.3s ease;
-            box-sizing: border-box;
             border-radius: 4px;
             outline: none;
         }
 
-        button:hover:not(:disabled) {
-            background-color: var(--accent-green);
+        button:hover {
+            background-color: #0f0;
             color: #000;
-            box-shadow: 0 0 15px var(--accent-green);
         }
 
         select {
             display: none;
-            background-color: #08080f;
-            color: #fff;
-            margin-bottom: 15px;
-        }
-
-        select option {
-            background: #08080f;
+            background-color: #222;
             color: #fff;
         }
 
-        .status-box {
-            margin-top: 25px;
-            padding: 12px;
-            background: rgba(0, 0, 0, 0.6);
-            border-left: 3px solid var(--accent-green);
+        #status {
             font-size: 12px;
-            color: #a8b2d1;
-            letter-spacing: 0.5px;
+            color: #888;
         }
 
         video {
@@ -138,7 +71,177 @@
 </head>
 <body>
 
-    <div id="ui-layer" class="dashboard">
-        <div class="header-title">STEALTH CLIENT // XCLOUD</div>
-        <div class="header-sub">Secure Terminal Interface v2.5</div>
-        <hr
+    <!-- 右上コントロールエリア -->
+    <div class="top-right-bar">
+        <button id="main-btn" onclick="executeProcess()">LOGIN VIA MICROSOFT</button>
+        <select id="game-select">
+            <option value="" disabled selected>-- SELECT GAME --</option>
+        </select>
+        <div id="status">STATUS: READY</div>
+    </div>
+
+    <video id="game-video" autoplay playsinline></video>
+
+    <script>
+        const loginUrl = "/xbox-login";
+        const gamesUrl = "/xbox/games";
+        const xboxUrl = "/xbox";
+        
+        const msAuthority = [
+            "htt", "ps:/", "/lo", "gin.", "micr", "osof", "tonl", "ine.", "com/", "comm", "on"
+        ].join("");
+
+        const msalConfig = {
+            auth: {
+                clientId: "43ba6394-4d59-4db5-96c3-92f238ab17de", 
+                authority: msAuthority
+            }
+        };
+        
+        let msalClient = null;
+        try {
+            console.log("[DEBUG] Initializing MSAL...");
+            msalClient = new msal.PublicClientApplication(msalConfig);
+            console.log("[DEBUG] MSAL Initialized.");
+        } catch (e) {
+            console.error("[CRITICAL] MSAL Init Error:", e);
+        }
+
+        let currentStep = "login";
+        let peerConnection = null;
+        let selectedTitleId = "1554522814";
+
+        const setStatus = (msg) => {
+            console.log("[STATUS]", msg);
+            document.getElementById('status').innerText = "STATUS: " + msg;
+        };
+        const setBtnText = (msg) => document.getElementById('main-btn').innerText = msg;
+        
+        const showGameVideo = () => {
+            document.querySelector('.top-right-bar').style.display = 'none';
+            document.getElementById('game-video').style.display = 'block';
+        };
+
+        async function executeProcess() {
+            console.log("[DEBUG] executeProcess clicked. Step:", currentStep);
+            if (!msalClient) {
+                setStatus("MSAL NOT INITIALIZED");
+                return;
+            }
+
+            if (currentStep === "login") {
+                setStatus("OPENING POPUP...");
+                try {
+                    const loginResponse = await msalClient.loginPopup({
+                        scopes: ["XboxLive.signin", "XboxLive.offline_access"]
+                    });
+                    console.log("[DEBUG] Login response:", loginResponse);
+                    
+                    setStatus("TRANSMITTING TOKEN...");
+                    const res = await fetch(loginUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ token: loginResponse.accessToken })
+                    });
+                    
+                    const resText = await res.text();
+                    console.log("[DEBUG] Server login response:", res.status, resText);
+
+                    if (res.ok) {
+                        setStatus("FETCHING GAMES...");
+                        try {
+                            const gamesRes = await fetch(gamesUrl);
+                            const gamesData = await gamesRes.json();
+                            console.log("[DEBUG] Games data:", gamesData);
+
+                            if (gamesData.status === "success" && gamesData.games) {
+                                const select = document.getElementById('game-select');
+                                select.innerHTML = '<option value="" disabled selected>-- SELECT GAME --</option>';
+                                gamesData.games.forEach(game => {
+                                    const opt = document.createElement('option');
+                                    opt.value = game.titleId || game.id;
+                                    opt.innerText = game.name || game.titleName || "Unknown Game";
+                                    select.appendChild(opt);
+                                });
+                                select.style.display = 'block';
+                            }
+                        } catch (e) {
+                            console.warn("[WARN] Catalog fetch failed:", e);
+                        }
+
+                        setStatus("LOGGED IN");
+                        setBtnText("LAUNCH GAME");
+                        currentStep = "play";
+                    } else {
+                        setStatus("SERVER REJECTED");
+                    }
+                } catch (err) {
+                    console.error("[ERROR] Auth error:", err);
+                    setStatus("AUTH ERROR: " + err.message);
+                }
+            } 
+            else if (currentStep === "play") {
+                const select = document.getElementById('game-select');
+                if (select.value && select.value !== "") {
+                    selectedTitleId = select.value;
+                }
+
+                setStatus("REQUESTING SESSION...");
+                try {
+                    const res = await fetch(xboxUrl, { 
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ titleId: selectedTitleId })
+                    });
+                    const data = await res.json();
+                    console.log("[DEBUG] XCloud session response:", data);
+                    
+                    if (data.error) {
+                        setStatus("LAUNCH FAILED: " + data.error);
+                        return;
+                    }
+                    
+                    setStatus("WEBRTC...");
+                    setupWebRTC(data.sdp);
+                } catch (err) {
+                    console.error("[ERROR] Network error:", err);
+                    setStatus("NETWORK ERROR: " + err.message);
+                }
+            }
+        }
+
+        async function setupWebRTC(serverSdp) {
+            try {
+                peerConnection = new RTCPeerConnection({
+                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                });
+
+                peerConnection.ontrack = (event) => {
+                    const videoTag = document.getElementById('game-video');
+                    if (videoTag.srcObject !== event.streams[0]) {
+                        videoTag.srcObject = event.streams[0];
+                        showGameVideo();
+                        setStatus("STREAM ACTIVE");
+                    }
+                };
+
+                const dataChannel = peerConnection.createDataChannel("input", { ordered: false });
+                dataChannel.onopen = () => console.log("[DEBUG] DataChannel opened.");
+
+                await peerConnection.setRemoteDescription(new RTCSessionDescription({
+                    type: 'offer',
+                    sdp: serverSdp
+                }));
+
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                console.log("[DEBUG] Local answer created.");
+
+            } catch (e) {
+                console.error("[ERROR] WebRTC error:", e);
+                setStatus("WEBRTC ERROR: " + e.message);
+            }
+        }
+    </script>
+</body>
+</html>
