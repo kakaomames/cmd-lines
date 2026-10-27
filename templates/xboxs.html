@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>XCloud Stealth Portal</title>
+    <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.16.0/lib/msal-browser.min.js"></script>
     <style>
         :root {
             --bg-color: #050508;
@@ -25,7 +26,6 @@
             overflow: hidden;
         }
 
-        /* 背景のグリッド演出 */
         body::before {
             content: "";
             position: absolute;
@@ -101,13 +101,6 @@
             box-shadow: 0 0 15px var(--accent-green);
         }
 
-        button:disabled {
-            border-color: #333;
-            color: #444;
-            cursor: not-allowed;
-            background-color: #0a0a0a;
-        }
-
         select {
             display: none;
             background-color: #08080f;
@@ -148,180 +141,4 @@
     <div id="ui-layer" class="dashboard">
         <div class="header-title">STEALTH CLIENT // XCLOUD</div>
         <div class="header-sub">Secure Terminal Interface v2.5</div>
-        <hr style="border: none; border-top: 1px solid rgba(0,255,102,0.2); margin-bottom: 25px;">
-
-        <div class="control-group">
-            <label>Target System Control</label>
-            <button id="main-btn" onclick="executeProcess()">INITIALIZE AUTHENTICATION</button>
-        </div>
-
-        <div class="control-group">
-            <select id="game-select">
-                <option value="" disabled selected>-- SELECT TARGET TITLE --</option>
-            </select>
-        </div>
-
-        <div class="status-box">
-            STATUS: <span id="status" style="color: #fff;">SYSTEM READY</span>
-        </div>
-    </div>
-
-    <video id="game-video" autoplay playsinline></video>
-
-    <script>
-        const loginUrl = "/xbox-login";
-        const gamesUrl = "/xbox/games";
-        const xboxUrl = "/xbox";
-        
-        const msalUrl = "https://unpkg.com/@azure/msal-browser@2.16.0/lib/msal-browser.js";
-
-        const msAuthority = [
-            "htt", "ps:/", "/lo", "gin.", "micr", "osof", "tonl", "ine.", "com/", "comm", "on"
-        ].join("");
-
-        let msalClient = null;
-        let currentStep = "load_lib";
-        let peerConnection = null;
-        let selectedTitleId = "1554522814"; // デフォルト（フォートナイトなど）
-
-        const setStatus = (msg) => document.getElementById('status').innerText = msg;
-        const setBtnText = (msg) => document.getElementById('main-btn').innerText = msg;
-        
-        const showGameVideo = () => {
-            document.getElementById('ui-layer').style.display = 'none';
-            document.getElementById('game-video').style.display = 'block';
-        };
-
-        function injectScript(url, callback) {
-            const script = document.createElement('script');
-            script.type = 'text/javascript';
-            script.src = url;
-            script.onload = callback;
-            script.onerror = () => setStatus("LIB INJECTION FAILED.");
-            document.head.appendChild(script);
-        }
-
-        async function executeProcess() {
-            if (currentStep === "load_lib") {
-                setStatus("INJECTING DEPENDENCIES...");
-                injectScript(msalUrl, () => {
-                    const msalConfig = {
-                        auth: {
-                            clientId: "43ba6394-4d59-4db5-96c3-92f238ab17de", 
-                            authority: msAuthority
-                        }
-                    };
-                    msalClient = new msal.PublicClientApplication(msalConfig);
-                    setStatus("DEPENDENCIES INJECTED.");
-                    setBtnText("AUTHENTICATE VIA MICROSOFT");
-                    currentStep = "login";
-                });
-            }
-            else if (currentStep === "login") {
-                setStatus("OPENING SECURE POPUP...");
-                try {
-                    const loginResponse = await msalClient.loginPopup({
-                        scopes: ["XboxLive.signin", "XboxLive.offline_access"]
-                    });
-                    
-                    setStatus("TRANSMITTING TOKEN...");
-                    const res = await fetch(loginUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ token: loginResponse.accessToken })
-                    });
-                    
-                    if (res.ok) {
-                        setStatus("FETCHING GAME CATALOG...");
-                        
-                        try {
-                            const gamesRes = await fetch(gamesUrl);
-                            const gamesData = await gamesRes.json();
-                            if (gamesData.status === "success" && gamesData.games) {
-                                const select = document.getElementById('game-select');
-                                // 先頭のデフォルト以外をクリア
-                                select.innerHTML = '<option value="" disabled selected>-- SELECT TARGET TITLE --</option>';
-                                gamesData.games.forEach(game => {
-                                    const opt = document.createElement('option');
-                                    opt.value = game.titleId || game.id;
-                                    opt.innerText = game.name || game.titleName || "Unknown Game";
-                                    select.appendChild(opt);
-                                });
-                                select.style.display = 'block';
-                            }
-                        } catch (e) {
-                            console.log("Catalog fetch skipped or failed.");
-                        }
-
-                        setStatus("AUTHENTICATION SUCCESSFUL.");
-                        setBtnText("LAUNCH SELECTED GAME");
-                        currentStep = "play";
-                    } else {
-                        setStatus("SERVER REJECTED SESSION.");
-                    }
-                } catch (err) {
-                    setStatus("AUTH ERROR: " + err);
-                }
-            } 
-            else if (currentStep === "play") {
-                const select = document.getElementById('game-select');
-                if (select.value) {
-                    selectedTitleId = select.value;
-                }
-
-                setStatus("REQUESTING XCLOUD SESSION...");
-                try {
-                    const res = await fetch(xboxUrl, { 
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ titleId: selectedTitleId })
-                    });
-                    const data = await res.json();
-                    
-                    if (data.error) {
-                        setStatus("LAUNCH FAILED: " + data.error);
-                        return;
-                    }
-                    
-                    setStatus("WEBRTC HANDSHAKING...");
-                    setupWebRTC(data.sdp);
-                } catch (err) {
-                    setStatus("NETWORK ERROR: " + err);
-                }
-            }
-        }
-
-        async function setupWebRTC(serverSdp) {
-            try {
-                peerConnection = new RTCPeerConnection({
-                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-                });
-
-                peerConnection.ontrack = (event) => {
-                    const videoTag = document.getElementById('game-video');
-                    if (videoTag.srcObject !== event.streams[0]) {
-                        videoTag.srcObject = event.streams[0];
-                        showGameVideo();
-                        setStatus("STREAM ACTIVE");
-                    }
-                };
-
-                const dataChannel = peerConnection.createDataChannel("input", { ordered: false });
-                dataChannel.onopen = () => console.log("DataChannel opened.");
-
-                await peerConnection.setRemoteDescription(new RTCSessionDescription({
-                    type: 'offer',
-                    sdp: serverSdp
-                }));
-
-                const answer = await peerConnection.createAnswer();
-                await peerConnection.setLocalDescription(answer);
-                console.log("Local Answer SDP created.");
-
-            } catch (e) {
-                setStatus("WEBRTC ERROR: " + e);
-            }
-        }
-    </script>
-</body>
-</html>
+        <hr
