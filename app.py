@@ -65,15 +65,12 @@ XBOX_DOM_P2 = "li" + "ve"
 XBOX_DOM_P3 = ".c" + "om"
 X_BASE = XBOX_DOM_P1 + XBOX_DOM_P2 + XBOX_DOM_P3  # メモリ上で "xboxlive.com"
 
-# ==========================================
-# 1. ページ表示エンドポイント
-# ==========================================
 import os
 import uuid
 from flask import Flask, request, jsonify, render_template, session
 import requests
 
-app = Flask(__name__)
+
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "secure_stealth_xcloud_stable_key_" + uuid.uuid4().hex)
 
 X_BASE = "xboxlive.com"
@@ -87,7 +84,7 @@ def xboxs():
 
 
 # ==========================================
-# 2. ログイン処理エンドポイント
+# 2. ログイン処理（Microsoft Live / MSA トークン受領）
 # ==========================================
 @app.route('/xbox-login', methods=['POST'])
 def xboxLogin():
@@ -102,15 +99,15 @@ def xboxLogin():
 
 
 # ==========================================
-# 3. 共通認証ヘルパー（トークン取得の共通化）
+# 3. 共通認証ヘルパー（4段階リレー）
 # ==========================================
 def get_xbl_and_gssv_tokens():
     ms_token = session.get('ms_token')
     if not ms_token:
-        return None, None, "Unauthorized", 401
+        return None, None, None, "Unauthorized", 401
     
     try:
-        # --- [STEP 1] UserToken 取得 ---
+        # --- [STEP 1] UserToken 取得 (RPSチケット d=... として送信) ---
         u_url = f"https://user.auth.{X_BASE}/user/authenticate"
         u_headers = {"Content-Type": "application/json", "Accept": "application/json"}
         u_body = {
@@ -158,12 +155,12 @@ def get_xbl_and_gssv_tokens():
         g_res.raise_for_status()
         g_data = g_res.json()
         
-        return g_data["webSocketBaseUrl"], g_data["gsToken"], user_hash, 200
+        return g_data["webSocketBaseUrl"], g_data["gsToken"], user_hash, 200, 200
         
     except requests.exceptions.RequestException as e:
-        return None, None, f"Network Relay Failure: {str(e)}", 502
+        return None, None, None, f"Network Relay Failure: {str(e)}", 502
     except (KeyError, IndexError) as e:
-        return None, None, f"API Structure Parsing Error: Missing {str(e)}", 500
+        return None, None, None, f"API Structure Parsing Error: Missing {str(e)}", 500
 
 
 # ==========================================
@@ -171,12 +168,11 @@ def get_xbl_and_gssv_tokens():
 # ==========================================
 @app.route('/xbox/games', methods=['GET'])
 def get_xbox_games():
-    base_stream_url, gs_token, err_msg, status_code = get_xbl_and_gssv_tokens()
+    base_stream_url, gs_token, user_hash, err_msg, status_code = get_xbl_and_gssv_tokens()
     if status_code != 200:
         return jsonify({"error": err_msg}), status_code
     
     try:
-        # GSSVからゲームカタログを取得（エンドポイント構造に合わせて調整）
         catalog_url = base_stream_url.rstrip('/') + "/v1/wa/titles"
         headers = {
             "Authorization": f"Bearer {gs_token}",
@@ -186,8 +182,6 @@ def get_xbox_games():
         res.raise_for_status()
         games_data = res.json()
         
-        # タイトル名やIDを抽出してフロントに返す形に整形
-        # games_dataの構造に合わせてキー名を調整してください
         return jsonify({
             "status": "success",
             "games": games_data.get("titles", games_data)
@@ -204,23 +198,21 @@ def xbox():
     data = request.json or {}
     selected_title_id = data.get('titleId')
     
-    if not selected_title_id:
+    if not selected_titleId:
         return jsonify({"error": "Bad Request: Missing Title ID"}), 400
         
-    base_stream_url, gs_token, user_hash, status_code = get_xbl_and_gssv_tokens()
+    base_stream_url, gs_token, user_hash, err_msg, status_code = get_xbl_and_gssv_tokens()
     if status_code != 200:
-        return jsonify({"error": user_hash}), status_code
+        return jsonify({"error": err_msg}), status_code
     
     try:
-        # --- [STEP 4] 選択されたタイトルのストリームセッション（SDP）を要求 ---
         session_url = base_stream_url.rstrip('/') + "/v1/wa/stream/sessions"
-        
         s_headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {gs_token}"
         }
         s_body = {
-            "titleId": str(selected_title_id),  # フロントから選ばれたIDを動的にセット
+            "titleId": str(selected_titleId),
             "systemUpdate": "false"
         }
         s_res = requests.post(session_url, json=s_body, headers=s_headers, timeout=15)
@@ -238,7 +230,9 @@ def xbox():
     except requests.exceptions.RequestException as e:
         return jsonify({"error": f"Network Relay Failure: {str(e)}"}), 502
     except (KeyError, IndexError) as e:
-        return jsonify({"error": f"API Structure Parsing Error: Missing {str(e)}", "response": s_res.text if 's_res' in locals() else ""}), 500
+        return jsonify({"error": f"API Structure Parsing Error: Missing {str(e)}"}), 500
+
+
 
 
 
