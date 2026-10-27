@@ -86,15 +86,23 @@ def xboxs():
 # ==========================================
 # 2. ログイン処理（Microsoft Live / MSA トークン受領）
 # ==========================================
-@app.route('/xbox-login', methods=['POST'])
+@app.route('/xbox-login', methods=['GET', 'POST'])
 def xboxLogin():
-    data = request.json or {}
-    ms_token = data.get('token')
-    if not ms_token:
+    if request.method == 'GET':
+        # もしGETで踏まれた場合のデバッグ用
+        token = request.args.get('token')
+    else:
+        # POSTの場合
+        data = request.json or {}
+        token = data.get('token')
+
+    print(f"[DEBUG] /xbox-login hit! Method: {request.method}, Token received: {token}")
+
+    if not token:
         return jsonify({"error": "Bad Request: Missing Microsoft Token"}), 400
     
     session.clear()
-    session['ms_token'] = ms_token
+    session['ms_token'] = token
     return jsonify({"status": "verified"})
 
 
