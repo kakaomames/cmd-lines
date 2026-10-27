@@ -3740,6 +3740,31 @@ def proxy_listget():
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 from flask import Flask, send_from_directory
 import os
 
@@ -3747,7 +3772,7 @@ import os
 # プロジェクトのルートディレクトリを静的ファイルのベースとする
 # Vercel Lambdaの実行環境では、この app.py が存在するディレクトリがルートになります。
 ROOT_DIR = "."
-@app.route('/<path:filename>')
+#@app.route('/<path:filename>')
 def serve_file(filename):
     # もしリクエストされたパスが、既に定義済みのAPIなら、ここを通さずに即座に404を返す（あるいは何もしない）
     if filename in ['xbox-login', 'xbox/games', 'xbox']:
