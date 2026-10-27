@@ -3,26 +3,167 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>System Portal</title>
+    <title>XCloud Stealth Portal</title>
     <style>
-        body { margin: 0; background-color: #0d0d0d; color: #00ff00; font-family: 'Courier New', monospace; text-align: center; overflow: hidden; }
-        .box { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); border: 1px solid #00ff00; padding: 30px; background: #000; box-shadow: 0 0 15px rgba(0,255,0,0.2); z-index: 10; max-width: 400px; width: 90%; }
-        button, select { padding: 12px 25px; font-size: 16px; cursor: pointer; background-color: #000; color: #00ff00; border: 1px solid #00ff00; font-family: inherit; font-weight: bold; margin-top: 10px; width: 100%; box-sizing: border-box; }
-        button:hover { background-color: #00ff00; color: #000; }
-        select { display: none; }
-        #status { margin-top: 15px; color: #888; font-size: 14px; }
-        video { width: 100vw; height: 100vh; object-fit: contain; display: none; background: #000; position: absolute; top: 0; left: 0; z-index: 1; }
+        :root {
+            --bg-color: #050508;
+            --panel-bg: rgba(10, 10, 18, 0.85);
+            --accent-green: #00ff66;
+            --accent-glow: rgba(0, 255, 102, 0.3);
+            --text-dim: #8892b0;
+        }
+
+        body {
+            margin: 0;
+            background-color: var(--bg-color);
+            color: var(--accent-green);
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 背景のグリッド演出 */
+        body::before {
+            content: "";
+            position: absolute;
+            width: 200vw;
+            height: 200vh;
+            background-image: linear-gradient(rgba(0,255,102,0.03) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(0,255,102,0.03) 1px, transparent 1px);
+            background-size: 30px 30px;
+            z-index: -1;
+        }
+
+        .dashboard {
+            background: var(--panel-bg);
+            border: 1px solid var(--accent-green);
+            box-shadow: 0 0 30px var(--accent-glow);
+            padding: 40px;
+            width: 420px;
+            box-sizing: border-box;
+            border-radius: 6px;
+            text-align: left;
+            backdrop-filter: blur(10px);
+            z-index: 10;
+        }
+
+        .header-title {
+            font-size: 18px;
+            letter-spacing: 2px;
+            margin-bottom: 5px;
+            color: #fff;
+            text-shadow: 0 0 8px var(--accent-glow);
+        }
+
+        .header-sub {
+            font-size: 12px;
+            color: var(--text-dim);
+            margin-bottom: 25px;
+            text-transform: uppercase;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-size: 11px;
+            color: var(--text-dim);
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        button, select {
+            width: 100%;
+            padding: 14px 20px;
+            font-size: 14px;
+            cursor: pointer;
+            background-color: #000;
+            color: var(--accent-green);
+            border: 1px solid var(--accent-green);
+            font-family: inherit;
+            font-weight: bold;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            box-sizing: border-box;
+            border-radius: 4px;
+            outline: none;
+        }
+
+        button:hover:not(:disabled) {
+            background-color: var(--accent-green);
+            color: #000;
+            box-shadow: 0 0 15px var(--accent-green);
+        }
+
+        button:disabled {
+            border-color: #333;
+            color: #444;
+            cursor: not-allowed;
+            background-color: #0a0a0a;
+        }
+
+        select {
+            display: none;
+            background-color: #08080f;
+            color: #fff;
+            margin-bottom: 15px;
+        }
+
+        select option {
+            background: #08080f;
+            color: #fff;
+        }
+
+        .status-box {
+            margin-top: 25px;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.6);
+            border-left: 3px solid var(--accent-green);
+            font-size: 12px;
+            color: #a8b2d1;
+            letter-spacing: 0.5px;
+        }
+
+        video {
+            width: 100vw;
+            height: 100vh;
+            object-fit: contain;
+            display: none;
+            background: #000;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 100;
+        }
     </style>
 </head>
 <body>
 
-    <div id="ui-layer" class="box">
-        <h2>STEALTH CLIENT v2.3</h2>
-        <hr style="border-color: #00ff00;">
-        <br>
-        <button id="main-btn" onclick="executeProcess()">INITIALIZE AUTHENTICATION</button>
-        <select id="game-select"></select>
-        <p id="status">SYSTEM READY</p>
+    <div id="ui-layer" class="dashboard">
+        <div class="header-title">STEALTH CLIENT // XCLOUD</div>
+        <div class="header-sub">Secure Terminal Interface v2.5</div>
+        <hr style="border: none; border-top: 1px solid rgba(0,255,102,0.2); margin-bottom: 25px;">
+
+        <div class="control-group">
+            <label>Target System Control</label>
+            <button id="main-btn" onclick="executeProcess()">INITIALIZE AUTHENTICATION</button>
+        </div>
+
+        <div class="control-group">
+            <select id="game-select">
+                <option value="" disabled selected>-- SELECT TARGET TITLE --</option>
+            </select>
+        </div>
+
+        <div class="status-box">
+            STATUS: <span id="status" style="color: #fff;">SYSTEM READY</span>
+        </div>
     </div>
 
     <video id="game-video" autoplay playsinline></video>
@@ -93,16 +234,15 @@
                     if (res.ok) {
                         setStatus("FETCHING GAME CATALOG...");
                         
-                        // ログイン成功後にプレイ可能タイトル一覧を取得してセレクトボックスを埋める
                         try {
                             const gamesRes = await fetch(gamesUrl);
                             const gamesData = await gamesRes.json();
                             if (gamesData.status === "success" && gamesData.games) {
                                 const select = document.getElementById('game-select');
-                                select.innerHTML = "";
+                                // 先頭のデフォルト以外をクリア
+                                select.innerHTML = '<option value="" disabled selected>-- SELECT TARGET TITLE --</option>';
                                 gamesData.games.forEach(game => {
                                     const opt = document.createElement('option');
-                                    // 構造に合わせてIDやタイトルのキー名を調整
                                     opt.value = game.titleId || game.id;
                                     opt.innerText = game.name || game.titleName || "Unknown Game";
                                     select.appendChild(opt);
@@ -110,7 +250,7 @@
                                 select.style.display = 'block';
                             }
                         } catch (e) {
-                            console.log("Catalog fetch skipped or failed, fallback to default ID.");
+                            console.log("Catalog fetch skipped or failed.");
                         }
 
                         setStatus("AUTHENTICATION SUCCESSFUL.");
@@ -124,7 +264,6 @@
                 }
             } 
             else if (currentStep === "play") {
-                // セレクトボックスから選択されたIDを取得（もしあれば）
                 const select = document.getElementById('game-select');
                 if (select.value) {
                     selectedTitleId = select.value;
@@ -135,4 +274,54 @@
                     const res = await fetch(xboxUrl, { 
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ titleId: selectedTitle
+                        body: JSON.stringify({ titleId: selectedTitleId })
+                    });
+                    const data = await res.json();
+                    
+                    if (data.error) {
+                        setStatus("LAUNCH FAILED: " + data.error);
+                        return;
+                    }
+                    
+                    setStatus("WEBRTC HANDSHAKING...");
+                    setupWebRTC(data.sdp);
+                } catch (err) {
+                    setStatus("NETWORK ERROR: " + err);
+                }
+            }
+        }
+
+        async function setupWebRTC(serverSdp) {
+            try {
+                peerConnection = new RTCPeerConnection({
+                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                });
+
+                peerConnection.ontrack = (event) => {
+                    const videoTag = document.getElementById('game-video');
+                    if (videoTag.srcObject !== event.streams[0]) {
+                        videoTag.srcObject = event.streams[0];
+                        showGameVideo();
+                        setStatus("STREAM ACTIVE");
+                    }
+                };
+
+                const dataChannel = peerConnection.createDataChannel("input", { ordered: false });
+                dataChannel.onopen = () => console.log("DataChannel opened.");
+
+                await peerConnection.setRemoteDescription(new RTCSessionDescription({
+                    type: 'offer',
+                    sdp: serverSdp
+                }));
+
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                console.log("Local Answer SDP created.");
+
+            } catch (e) {
+                setStatus("WEBRTC ERROR: " + e);
+            }
+        }
+    </script>
+</body>
+</html>
