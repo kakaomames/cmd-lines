@@ -426,7 +426,7 @@ def get_or_create_repo(repo_name, filename, default_content):
 
 REPO_A = "my-repo"
 
-app = Flask(__name__)
+# app = Flask(__name__)
 print(app)
 # --- 🛰️ Gemini programming隊 専用 ログユニット ---
 def mission_log(log_type, message):
