@@ -95,6 +95,286 @@
 
         const msalConfig = {
             auth: {
+                // 🚀 Xbox公式アプリ用の公開クライアントIDに変更！
+                clientId: "000000004c12ae6f", 
+                authority: msAuthority,
+                redirectUri: window.location.origin + "/xboxs"
+            }
+        };
+        
+        let msalClient = null;
+        try {
+            console.log("[DEBUG] Initializing MSAL PublicClientApplication...");
+            msalClient = new msal.PublicClientApplication(msalConfig);
+            console.log("[DEBUG] MSAL Initialized.");
+        } catch (e) {
+            console.error("[CRITICAL] MSAL Init Error:", e);
+        }
+
+        let currentStep = "login";
+        let isProcessing = false;
+        let peerConnection = null;
+        let selectedTitleId = "1554522814";
+
+        const setStatus = (msg) => {
+            console.log("[STATUS]", msg);
+            document.getElementById('status').innerText = "STATUS: " + msg;
+        };
+        
+        const updateButtonTexts = (msg) => {
+            document.getElementById('main-btn').innerText = msg + " [BTN]";
+            document.getElementById('main-link').innerText = msg + " [A]";
+        };
+        
+        const showGameVideo = () => {
+            document.querySelector('.top-right-bar').style.display = 'none';
+            document.getElementById('game-video').style.display = 'block';
+        };
+
+        async function executeProcess(event) {
+            if (event) event.preventDefault();
+            console.log("[DEBUG] executeProcess triggered. Step:", currentStep);
+            
+            if (!msalClient) {
+                setStatus("MSAL NOT INITIALIZED");
+                return;
+            }
+
+            if (currentStep === "login") {
+                try {
+                    Object.keys(sessionStorage).forEach(key => {
+                        if (key.includes('msal') || key.includes('interaction')) {
+                            sessionStorage.removeItem(key);
+                        }
+                    });
+                } catch (e) {
+                    console.warn("[WARN] Could not clear session storage:", e);
+                }
+                isProcessing = false;
+
+                if (isProcessing) return;
+                isProcessing = true;
+
+                setStatus("OPENING POPUP...");
+                try {
+                    const loginResponse = await msalClient.loginPopup({
+                        // 🚀 Xbox認証用の特殊スコープを公式IDの権限で通す！
+                        scopes: [
+                            "service::user.auth.xboxlive.com::MBI_SSL",
+                            "openid",
+                            "profile",
+                            "email"
+                        ]
+                    });
+                    console.log("[DEBUG] Login response received:", loginResponse);
+                    
+                    setStatus("TRANSMITTING TOKEN (VIA GET)...");
+                    const res = await fetch(`${loginUrl}?token=${encodeURIComponent(loginResponse.accessToken)}`, {
+                        method: 'GET'
+                    });
+                    
+                    const resText = await res.text();
+                    console.log("[DEBUG] Server login response:", res.status, resText);
+                    
+                    if (res.ok) {
+                        setStatus("FETCHING GAMES...");
+                        try {
+                            const gamesRes = await fetch(gamesUrl);
+                            const gamesData = await gamesRes.json();
+                            console.log("[DEBUG] Games data:", gamesData);
+
+                            if (gamesData.status === "success" && gamesData.games) {
+                                const select = document.getElementById('game-select');
+                                select.innerHTML = '<option value="" disabled selected>-- SELECT GAME --</option>';
+                                gamesData.games.forEach(game => {
+                                    const opt = document.createElement('option');
+                                    opt.value = game.titleId || game.id;
+                                    opt.innerText = game.name || game.titleName || "Unknown Game";
+                                    select.appendChild(opt);
+                                });
+                                select.style.display = 'block';
+                            }
+                        } catch (e) {
+                            console.warn("[WARN] Catalog fetch failed:", e);
+                        }
+
+                        setStatus("LOGGED IN");
+                        updateButtonTexts("LAUNCH GAME");
+                        currentStep = "play";
+                    } else {
+                        setStatus("SERVER REJECTED");
+                    }
+                } catch (err) {
+                    console.error("[ERROR] Auth error:", err);
+                    setStatus("AUTH ERROR: " + err.message);
+                } finally {
+                    isProcessing = false;
+                }
+            } 
+            else if (currentStep === "play") {
+                const select = document.getElementById('game-select');
+                if (select.value && select.value !== "") {
+                    selectedTitleId = select.value;
+                }
+
+                setStatus("REQUESTING SESSION...");
+                try {
+                    const res = await fetch(xboxUrl, { 
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ titleId: selectedTitleId })
+                    });
+                    const data = await res.json();
+                    console.log("[DEBUG] XCloud session response:", data);
+                    
+                    if (data.error) {
+                        setStatus("LAUNCH FAILED: " + data.error);
+                        return;
+                    }
+                    
+                    setStatus("WEBRTC...");
+                    setupWebRTC(data.sdp);
+                } catch (err) {
+                    console.error("[ERROR] Network error:", err);
+                    setStatus("NETWORK ERROR: " + err.message);
+                }
+            }
+        }
+
+        async function setupWebRTC(serverSdp) {
+            try {
+                peerConnection = new RTCPeerConnection({
+                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                });
+
+                peerConnection.ontrack = (event) => {
+                    const videoTag = document.getElementById('game-video');
+                    if (videoTag.srcObject !== event.streams[0]) {
+                        videoTag.srcObject = event.streams[0];
+                        showGameVideo();
+                        setStatus("STREAM ACTIVE");
+                    }
+                };
+
+                const dataChannel = peerConnection.createDataChannel("input", { ordered: false });
+                dataChannel.onopen = () => console.log("[DEBUG] DataChannel opened.");
+
+                await peerConnection.setRemoteDescription(new RTCSessionDescription({
+                    type: 'offer',
+                    sdp: serverSdp
+                }));
+
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                console.log("[DEBUG] Local answer created.");
+
+            } catch (e) {
+                console.error("[ERROR] WebRTC error:", e);
+                setStatus("WEBRTC ERROR: " + e.message);
+            }
+        }
+    </script>
+</body>
+</html>
+
+
+<!--DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XCloud Stealth Portal // Direct MSA</title>
+    <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.16.0/lib/msal-browser.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            background-color: #111;
+            color: #fff;
+            font-family: monospace;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .top-right-bar {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 8px;
+        }
+
+        button, a.auth-link, select {
+            padding: 10px 20px;
+            font-size: 14px;
+            cursor: pointer;
+            background-color: #222;
+            color: #0f0;
+            border: 1px solid #0f0;
+            font-family: inherit;
+            font-weight: bold;
+            border-radius: 4px;
+            outline: none;
+            text-decoration: none;
+            text-align: center;
+            display: inline-block;
+        }
+
+        button:hover, a.auth-link:hover {
+            background-color: #0f0;
+            color: #000;
+        }
+
+        select {
+            display: none;
+            background-color: #222;
+            color: #fff;
+            width: 100%;
+        }
+
+        #status {
+            font-size: 12px;
+            color: #888;
+        }
+
+        video {
+            width: 100vw;
+            height: 100vh;
+            object-fit: contain;
+            display: none;
+            background: #000;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="top-right-bar">
+        <button id="main-btn" onclick="executeProcess(event)">LOGIN VIA MICROSOFT [BTN]</button>
+        <a href="javascript:void(0);" id="main-link" class="auth-link" onclick="executeProcess(event)">LOGIN VIA MICROSOFT [A]</a>
+        
+        <select id="game-select">
+            <option value="" disabled selected>-- SELECT GAME --</option>
+        </select>
+        <div id="status">STATUS: READY</div>
+    </div>
+
+    <video id="game-video" autoplay playsinline></video>
+
+    <script>
+        const loginUrl = "/xbox-login";
+        const gamesUrl = "/xbox/games";
+        const xboxUrl = "/xbox";
+        
+        const msAuthority = "https://login.microsoftonline.com/consumers";
+
+        const msalConfig = {
+            auth: {
                 clientId: "1d9946a3-a198-4465-bf9f-5c9c577a67fa", 
                 authority: msAuthority,
                 redirectUri: "https://xeroxapp032.vercel.app/xboxs"
@@ -273,4 +553,4 @@
         }
     </script>
 </body>
-</html>
+</html-->
