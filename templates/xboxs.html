@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>XCloud Stealth Portal</title>
+    <title>XCloud Stealth Portal // Direct MSA</title>
     <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.16.0/lib/msal-browser.min.js"></script>
     <style>
         body {
@@ -75,7 +75,6 @@
 <body>
 
     <div class="top-right-bar">
-        <!-- 🚀 ボタンタグとAタグの2段構え -->
         <button id="main-btn" onclick="executeProcess(event)">LOGIN VIA MICROSOFT [BTN]</button>
         <a href="javascript:void(0);" id="main-link" class="auth-link" onclick="executeProcess(event)">LOGIN VIA MICROSOFT [A]</a>
         
@@ -92,20 +91,20 @@
         const gamesUrl = "/xbox/games";
         const xboxUrl = "/xbox";
         
-        const msAuthority = [
-            "htt", "ps:/", "/lo", "gin.", "micr", "osof", "tonl", "ine.", "com/", "comm", "on"
-        ].join("");
+        // コンシューマー用エンドポイント対応のMSAL設定
+        const msAuthority = "https://login.microsoftonline.com/consumers";
 
         const msalConfig = {
             auth: {
                 clientId: "1d9946a3-a198-4465-bf9f-5c9c577a67fa", 
-                authority: msAuthority
+                authority: msAuthority,
+                redirectUri: window.location.origin
             }
         };
         
         let msalClient = null;
         try {
-            console.log("[DEBUG] Initializing MSAL...");
+            console.log("[DEBUG] Initializing MSAL PublicClientApplication...");
             msalClient = new msal.PublicClientApplication(msalConfig);
             console.log("[DEBUG] MSAL Initialized.");
         } catch (e) {
@@ -144,9 +143,9 @@
                 setStatus("OPENING POPUP...");
                 try {
                     const loginResponse = await msalClient.loginPopup({
-                        scopes: ["XboxLive.signin", "XboxLive.offline_access"]
+                        scopes: ["user.read"]
                     });
-                    console.log("[DEBUG] Login response:", loginResponse);
+                    console.log("[DEBUG] Login response received:", loginResponse);
                     
                     setStatus("TRANSMITTING TOKEN...");
                     const res = await fetch(loginUrl, {
