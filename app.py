@@ -68,9 +68,21 @@ X_BASE = XBOX_DOM_P1 + XBOX_DOM_P2 + XBOX_DOM_P3  # メモリ上で "xboxlive.co
 # ==========================================
 # 1. ページ表示エンドポイント
 # ==========================================
+import os
+import uuid
+from flask import Flask, request, jsonify, render_template, session
+import requests
+
+app = Flask(__name__)
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "secure_stealth_xcloud_stable_key_" + uuid.uuid4().hex)
+
+X_BASE = "xboxlive.com"
+
+# ==========================================
+# 1. ページ表示エンドポイント
+# ==========================================
 @app.route('/xboxs')
 def xboxs():
-    # 引数は不要。ただHTMLを呼び出すだけで完璧に動きます
     return render_template('xboxs.html')
 
 
@@ -88,21 +100,17 @@ def xboxLogin():
     session['ms_token'] = ms_token
     return jsonify({"status": "verified"})
 
+
 # ==========================================
-# 3. Xbox Live インナーAPI 4段階完全リレー
+# 3. 共通認証ヘルパー（トークン取得の共通化）
 # ==========================================
-@app.route('/xbox', methods=['POST'])
-def xbox():
+def get_xbl_and_gssv_tokens():
     ms_token = session.get('ms_token')
     if not ms_token:
-        return jsonify({"error": "Unauthorized"}), 401
-    
-    # 🚨【重大なバグ訂正】GSSV APIが要求するフォートナイトの正規の内部Title ID（10進数数値型）
-    # ストアID（bt5p2x999vh2）ではなく、公式クライアントが裏で送信している固有の数値に修正
-    FORTNITE_TITLE_ID = "1554522814" 
+        return None, None, "Unauthorized", 401
     
     try:
-        # --- [STEP 1] 正規のXbox Live UserToken 取得 ---
+        # --- [STEP 1] UserToken 取得 ---
         u_url = f"https://user.auth.{X_BASE}/user/authenticate"
         u_headers = {"Content-Type": "application/json", "Accept": "application/json"}
         u_body = {
@@ -119,10 +127,9 @@ def xbox():
         u_data = u_res.json()
         
         user_token = u_data["Token"]
-        # JSON配列の構造から安全にUserHashを取得（uhsのキー位置バグ修正を維持）
         user_hash = u_data["DisplayClaims"]["xui"][0]["uhs"]
         
-        # --- [STEP 2] 正規のXSTSトークン取得 ---
+        # --- [STEP 2] XSTSトークン取得 ---
         x_url = f"https://xsts.auth.{X_BASE}/xsts/authorize"
         x_body = {
             "RelyingParty": f"http://gssv.{X_BASE}/",
@@ -151,10 +158,61 @@ def xbox():
         g_res.raise_for_status()
         g_data = g_res.json()
         
-        base_stream_url = g_data["webSocketBaseUrl"]
-        gs_token = g_data["gsToken"]
+        return g_data["webSocketBaseUrl"], g_data["gsToken"], user_hash, 200
         
-        # --- [STEP 4] 映像配信サーバーへフォートナイトのストリームセッション（SDP）を要求 ---
+    except requests.exceptions.RequestException as e:
+        return None, None, f"Network Relay Failure: {str(e)}", 502
+    except (KeyError, IndexError) as e:
+        return None, None, f"API Structure Parsing Error: Missing {str(e)}", 500
+
+
+# ==========================================
+# 4. プレイ可能タイトル一覧の取得エンドポイント
+# ==========================================
+@app.route('/xbox/games', methods=['GET'])
+def get_xbox_games():
+    base_stream_url, gs_token, err_msg, status_code = get_xbl_and_gssv_tokens()
+    if status_code != 200:
+        return jsonify({"error": err_msg}), status_code
+    
+    try:
+        # GSSVからゲームカタログを取得（エンドポイント構造に合わせて調整）
+        catalog_url = base_stream_url.rstrip('/') + "/v1/wa/titles"
+        headers = {
+            "Authorization": f"Bearer {gs_token}",
+            "Accept": "application/json"
+        }
+        res = requests.get(catalog_url, headers=headers, timeout=10)
+        res.raise_for_status()
+        games_data = res.json()
+        
+        # タイトル名やIDを抽出してフロントに返す形に整形
+        # games_dataの構造に合わせてキー名を調整してください
+        return jsonify({
+            "status": "success",
+            "games": games_data.get("titles", games_data)
+        })
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": f"Failed to fetch games catalog: {str(e)}"}), 502
+
+
+# ==========================================
+# 5. 選択されたゲームのストリーム起動エンドポイント
+# ==========================================
+@app.route('/xbox', methods=['POST'])
+def xbox():
+    data = request.json or {}
+    selected_title_id = data.get('titleId')
+    
+    if not selected_title_id:
+        return jsonify({"error": "Bad Request: Missing Title ID"}), 400
+        
+    base_stream_url, gs_token, user_hash, status_code = get_xbl_and_gssv_tokens()
+    if status_code != 200:
+        return jsonify({"error": user_hash}), status_code
+    
+    try:
+        # --- [STEP 4] 選択されたタイトルのストリームセッション（SDP）を要求 ---
         session_url = base_stream_url.rstrip('/') + "/v1/wa/stream/sessions"
         
         s_headers = {
@@ -162,7 +220,7 @@ def xbox():
             "Authorization": f"Bearer {gs_token}"
         }
         s_body = {
-            "titleId": FORTNITE_TITLE_ID,  # 訂正した正しい内部IDをセット
+            "titleId": str(selected_title_id),  # フロントから選ばれたIDを動的にセット
             "systemUpdate": "false"
         }
         s_res = requests.post(session_url, json=s_body, headers=s_headers, timeout=15)
@@ -180,7 +238,7 @@ def xbox():
     except requests.exceptions.RequestException as e:
         return jsonify({"error": f"Network Relay Failure: {str(e)}"}), 502
     except (KeyError, IndexError) as e:
-        return jsonify({"error": f"API Structure Parsing Error: Missing {str(e)}"}), 500
+        return jsonify({"error": f"API Structure Parsing Error: Missing {str(e)}", "response": s_res.text if 's_res' in locals() else ""}), 500
 
 
 
