@@ -101,13 +101,17 @@ def xboxLogin():
 # ==========================================
 # 3. 共通認証ヘルパー（4段階リレー）
 # ==========================================
+# 3. 共通認証ヘルパー（4段階リレー - 爆裂ログ仕様）
+# ==========================================
 def get_xbl_and_gssv_tokens():
     ms_token = session.get('ms_token')
+    print(f"[DEBUG] session['ms_token'] exists?: {bool(ms_token)}")
     if not ms_token:
+        print("[ERROR] Unauthorized: No ms_token in session!")
         return None, None, None, "Unauthorized", 401
-    
+
     try:
-        # --- [STEP 1] UserToken 取得 (RPSチケット d=... として送信) ---
+        # --- [STEP 1] UserToken 取得 ---
         u_url = f"https://user.auth.{X_BASE}/user/authenticate"
         u_headers = {"Content-Type": "application/json", "Accept": "application/json"}
         u_body = {
@@ -119,13 +123,17 @@ def get_xbl_and_gssv_tokens():
                 "RpsTicket": f"d={ms_token}"
             }
         }
+        print(f"[DEBUG] STEP 1: Requesting UserToken to {u_url} ...")
         u_res = requests.post(u_url, json=u_body, headers=u_headers, timeout=10)
+        print(f"[DEBUG] STEP 1 Response Status: {u_res.status_code}")
+        print(f"[DEBUG] STEP 1 Response Body: {u_res.text[:500]}") # 長すぎるので先頭500文字
         u_res.raise_for_status()
         u_data = u_res.json()
-        
+
         user_token = u_data["Token"]
         user_hash = u_data["DisplayClaims"]["xui"][0]["uhs"]
-        
+        print(f"[DEBUG] STEP 1 Success! user_hash: {user_hash}")
+
         # --- [STEP 2] XSTSトークン取得 ---
         x_url = f"https://xsts.auth.{X_BASE}/xsts/authorize"
         x_body = {
@@ -136,12 +144,16 @@ def get_xbl_and_gssv_tokens():
                 "UserTokens": [user_token]
             }
         }
+        print(f"[DEBUG] STEP 2: Requesting XSTS token to {x_url} ...")
         x_res = requests.post(x_url, json=x_body, headers=u_headers, timeout=10)
+        print(f"[DEBUG] STEP 2 Response Status: {x_res.status_code}")
+        print(f"[DEBUG] STEP 2 Response Body: {x_res.text[:500]}")
         x_res.raise_for_status()
         x_data = x_res.json()
-        
+
         xsts_token = x_data["Token"]
-        
+        print(f"[DEBUG] STEP 2 Success! xsts_token acquired.")
+
         # --- [STEP 3] GSSV クラウドゲーミングポータルへのログイン ---
         g_url = f"https://gsprod.{X_BASE}/xgpuweb/v2/login"
         g_headers = {
@@ -151,16 +163,25 @@ def get_xbl_and_gssv_tokens():
         g_body = {
             "offeringId": "xgpuweb"
         }
+        print(f"[DEBUG] STEP 3: Requesting GSSV login to {g_url} ...")
         g_res = requests.post(g_url, json=g_body, headers=g_headers, timeout=10)
+        print(f"[DEBUG] STEP 3 Response Status: {g_res.status_code}")
+        print(f"[DEBUG] STEP 3 Response Body: {g_res.text[:500]}")
         g_res.raise_for_status()
         g_data = g_res.json()
-        
+
+        print(f"[DEBUG] STEP 3 Success! WebSocketBaseUrl: {g_data.get('webSocketBaseUrl')}")
         return g_data["webSocketBaseUrl"], g_data["gsToken"], user_hash, 200, 200
-        
+
     except requests.exceptions.RequestException as e:
+        print(f"[ERROR] Network Relay Failure in get_xbl_and_gssv_tokens: {str(e)}")
+        if hasattr(e, 'response') and e.response is not None:
+            print(f"[ERROR] Error Response Body: {e.response.text}")
         return None, None, None, f"Network Relay Failure: {str(e)}", 502
     except (KeyError, IndexError) as e:
+        print(f"[ERROR] API Structure Parsing Error: Missing {str(e)}")
         return None, None, None, f"API Structure Parsing Error: Missing {str(e)}", 500
+
 
 
 # ==========================================
