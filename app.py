@@ -3747,9 +3747,23 @@ import os
 # プロジェクトのルートディレクトリを静的ファイルのベースとする
 # Vercel Lambdaの実行環境では、この app.py が存在するディレクトリがルートになります。
 ROOT_DIR = "."
-
 @app.route('/<path:filename>')
 def serve_file(filename):
+    # もしリクエストされたパスが、既に定義済みのAPIなら、ここを通さずに即座に404を返す（あるいは何もしない）
+    if filename in ['xbox-login', 'xbox/games', 'xbox']:
+        return "API Route Mismatch", 404
+
+    path = filename.lstrip('/')
+    if not os.path.splitext(path)[1]:
+        target_html = f"{path}.html"
+        template_path = os.path.join(app.template_folder, target_html)
+        if os.path.exists(template_path):
+            return render_template(target_html)
+            
+    return "404 Not Found", 404
+
+# @app.route('/<path:filename>')
+def serve_fighhle(filename):
     """
     ワイルドカードパス（例: /script.js, /css/style.css）でアクセスされたリクエストに対して、
     プロジェクトのルートディレクトリから対応するファイルを検索し、安全に返します。
