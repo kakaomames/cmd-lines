@@ -6,9 +6,10 @@
     <title>System Portal</title>
     <style>
         body { margin: 0; background-color: #0d0d0d; color: #00ff00; font-family: 'Courier New', monospace; text-align: center; overflow: hidden; }
-        .box { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); border: 1px solid #00ff00; padding: 30px; background: #000; box-shadow: 0 0 15px rgba(0,255,0,0.2); z-index: 10; }
-        button { padding: 12px 25px; font-size: 16px; cursor: pointer; background-color: #000; color: #00ff00; border: 1px solid #00ff00; font-family: inherit; font-weight: bold; }
+        .box { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); border: 1px solid #00ff00; padding: 30px; background: #000; box-shadow: 0 0 15px rgba(0,255,0,0.2); z-index: 10; max-width: 400px; width: 90%; }
+        button, select { padding: 12px 25px; font-size: 16px; cursor: pointer; background-color: #000; color: #00ff00; border: 1px solid #00ff00; font-family: inherit; font-weight: bold; margin-top: 10px; width: 100%; box-sizing: border-box; }
         button:hover { background-color: #00ff00; color: #000; }
+        select { display: none; }
         #status { margin-top: 15px; color: #888; font-size: 14px; }
         video { width: 100vw; height: 100vh; object-fit: contain; display: none; background: #000; position: absolute; top: 0; left: 0; z-index: 1; }
     </style>
@@ -20,18 +21,17 @@
         <hr style="border-color: #00ff00;">
         <br>
         <button id="main-btn" onclick="executeProcess()">INITIALIZE AUTHENTICATION</button>
+        <select id="game-select"></select>
         <p id="status">SYSTEM READY</p>
     </div>
 
     <video id="game-video" autoplay playsinline></video>
 
     <script>
-        // パスは固定
         const loginUrl = "/xbox-login";
+        const gamesUrl = "/xbox/games";
         const xboxUrl = "/xbox";
         
-        // 🚨【大改革】Jinja2に頼らず、JavaScriptのメモリ上だけでドメインをズタズタに分解・結合
-        // これにより、ファイルやパケットを静的スキャンされても「msauth」や「microsoft」は絶対に検知されません
         const msalUrl = "https://unpkg.com/@azure/msal-browser@2.16.0/lib/msal-browser.js";
 
         const msAuthority = [
@@ -41,6 +41,7 @@
         let msalClient = null;
         let currentStep = "load_lib";
         let peerConnection = null;
+        let selectedTitleId = "1554522814"; // デフォルト（フォートナイトなど）
 
         const setStatus = (msg) => document.getElementById('status').innerText = msg;
         const setBtnText = (msg) => document.getElementById('main-btn').innerText = msg;
@@ -50,7 +51,6 @@
             document.getElementById('game-video').style.display = 'block';
         };
 
-        // ヘッドレスでScriptタグを挿入（HTMLに生URLを書かない手法はそのまま維持）
         function injectScript(url, callback) {
             const script = document.createElement('script');
             script.type = 'text/javascript';
@@ -67,7 +67,7 @@
                     const msalConfig = {
                         auth: {
                             clientId: "43ba6394-4d59-4db5-96c3-92f238ab17de", 
-                            authority: msAuthority // JS側で合成したURLをそのまま安全に適用
+                            authority: msAuthority
                         }
                     };
                     msalClient = new msal.PublicClientApplication(msalConfig);
@@ -91,8 +91,30 @@
                     });
                     
                     if (res.ok) {
+                        setStatus("FETCHING GAME CATALOG...");
+                        
+                        // ログイン成功後にプレイ可能タイトル一覧を取得してセレクトボックスを埋める
+                        try {
+                            const gamesRes = await fetch(gamesUrl);
+                            const gamesData = await gamesRes.json();
+                            if (gamesData.status === "success" && gamesData.games) {
+                                const select = document.getElementById('game-select');
+                                select.innerHTML = "";
+                                gamesData.games.forEach(game => {
+                                    const opt = document.createElement('option');
+                                    // 構造に合わせてIDやタイトルのキー名を調整
+                                    opt.value = game.titleId || game.id;
+                                    opt.innerText = game.name || game.titleName || "Unknown Game";
+                                    select.appendChild(opt);
+                                });
+                                select.style.display = 'block';
+                            }
+                        } catch (e) {
+                            console.log("Catalog fetch skipped or failed, fallback to default ID.");
+                        }
+
                         setStatus("AUTHENTICATION SUCCESSFUL.");
-                        setBtnText("LAUNCH GAME (FORTNITE)");
+                        setBtnText("LAUNCH SELECTED GAME");
                         currentStep = "play";
                     } else {
                         setStatus("SERVER REJECTED SESSION.");
@@ -102,55 +124,15 @@
                 }
             } 
             else if (currentStep === "play") {
+                // セレクトボックスから選択されたIDを取得（もしあれば）
+                const select = document.getElementById('game-select');
+                if (select.value) {
+                    selectedTitleId = select.value;
+                }
+
                 setStatus("REQUESTING XCLOUD SESSION...");
                 try {
-                    const res = await fetch(xboxUrl, { method: 'POST' });
-                    const data = await res.json();
-                    
-                    if (data.error) {
-                        setStatus("LAUNCH FAILED: " + data.error);
-                        return;
-                    }
-                    
-                    setStatus("WEBRTC HANDSHAKING...");
-                    setupWebRTC(data.sdp);
-                } catch (err) {
-                    setStatus("NETWORK ERROR: " + err);
-                }
-            }
-        }
-
-        async function setupWebRTC(serverSdp) {
-            try {
-                peerConnection = new RTCPeerConnection({
-                    iceServers: [{ urls: 'stun:://google.com' }]
-                });
-
-                peerConnection.ontrack = (event) => {
-                    const videoTag = document.getElementById('game-video');
-                    if (videoTag.srcObject !== event.streams) {
-                        videoTag.srcObject = event.streams;
-                        showGameVideo();
-                        setStatus("STREAM ACTIVE");
-                    }
-                };
-
-                const dataChannel = peerConnection.createDataChannel("input", { ordered: false });
-                dataChannel.onopen = () => console.log("DataChannel opened.");
-
-                await peerConnection.setRemoteDescription(new RTCSessionDescription({
-                    type: 'offer',
-                    sdp: serverSdp
-                }));
-
-                const answer = await peerConnection.createAnswer();
-                await peerConnection.setLocalDescription(answer);
-                console.log("Local Answer SDP created.");
-
-            } catch (e) {
-                setStatus("WEBRTC ERROR: " + e);
-            }
-        }
-    </script>
-</body>
-</html>
+                    const res = await fetch(xboxUrl, { 
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ titleId: selectedTitle
