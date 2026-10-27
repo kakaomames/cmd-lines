@@ -29,6 +29,7 @@ import ctypes
 from werkzeug.utils import secure_filename
 from objTo3mf import convert_obj_to_3mf, ms
 import requests
+import uuid
 import subprocess
 import shutil
 import tarfile
@@ -43,10 +44,6 @@ print("[LOG] SYSTEM: 🗺️  /yt-dlps?url=... -> GitHubからURLを自動解決
 print("[LOG] SYSTEM: ========================================================")
 print("sudo apt-get install -y git python3-pip")
 
-import os
-import uuid
-import requests
-from flask import Flask, request, jsonify, session, render_template
 
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "secure_stealth_xcloud_stable_key_" + uuid.uuid4().hex)
 
@@ -86,20 +83,15 @@ def xboxs():
 # ==========================================
 # 2. ログイン処理（Microsoft Live / MSA トークン受領）
 # ==========================================
-@app.route('/xbox-login', methods=['GET', 'POST'])
+@app.route('/xbox-login', methods=['GET'])
 def xboxLogin():
-    if request.method == 'GET':
-        # もしGETで踏まれた場合のデバッグ用
-        token = request.args.get('token')
-    else:
-        # POSTの場合
-        data = request.json or {}
-        token = data.get('token')
-
-    print(f"[DEBUG] /xbox-login hit! Method: {request.method}, Token received: {token}")
+    # URLのクエリパラメータ ?token=... から直接トークンを拾う
+    token = request.args.get('token')
+    
+    print(f"[DEBUG] /xbox-login hit! Token received via GET: {token}")
 
     if not token:
-        return jsonify({"error": "Bad Request: Missing Microsoft Token"}), 400
+        return jsonify({"error": "Bad Request: Missing Microsoft Token in Query"}), 400
     
     session.clear()
     session['ms_token'] = token

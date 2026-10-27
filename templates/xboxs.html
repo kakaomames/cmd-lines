@@ -162,15 +162,16 @@
                     });
                     console.log("[DEBUG] Login response received:", loginResponse);
                     
-                    setStatus("TRANSMITTING TOKEN...");
-                    const res = await fetch(loginUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ token: loginResponse.accessToken })
+                
+                    setStatus("TRANSMITTING TOKEN (VIA GET)...");
+                    // 🚀 トークンをURLのクエリパラメータに直接乗せてGETリクエストを送信！
+                    const res = await fetch(`${loginUrl}?token=${encodeURIComponent(loginResponse.accessToken)}`, {
+                        method: 'GET'
                     });
                     
                     const resText = await res.text();
                     console.log("[DEBUG] Server login response:", res.status, resText);
+                    
 
                     if (res.ok) {
                         setStatus("FETCHING GAMES...");
@@ -215,6 +216,7 @@
 
                 setStatus("REQUESTING SESSION...");
                 try {
+                    
                     const res = await fetch(xboxUrl, { 
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
