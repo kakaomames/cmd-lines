@@ -156,21 +156,21 @@
                 isProcessing = true;
 
                 setStatus("OPENING POPUP...");
+                
+                setStatus("OPENING POPUP...");
                 try {
                     const loginResponse = await msalClient.loginPopup({
-                        scopes: ["user.read"]
+                        // 🚀 スコープをXbox Live認証が受け付けられるサービススコープに変更！
+                        scopes: [
+                            "service::user.auth.xboxlive.com::MBI_SSL",
+                            "openid",
+                            "profile",
+                            "email"
+                        ]
                     });
                     console.log("[DEBUG] Login response received:", loginResponse);
-                    
-                
-                    setStatus("TRANSMITTING TOKEN (VIA GET)...");
-                    // 🚀 トークンをURLのクエリパラメータに直接乗せてGETリクエストを送信！
-                    const res = await fetch(`${loginUrl}?token=${encodeURIComponent(loginResponse.accessToken)}`, {
-                        method: 'GET'
-                    });
-                    
-                    const resText = await res.text();
-                    console.log("[DEBUG] Server login response:", res.status, resText);
+                    // const resText = await res.text();
+                    // console.log("[DEBUG] Server login response:", res.status, resText);
                     
 
                     if (res.ok) {
