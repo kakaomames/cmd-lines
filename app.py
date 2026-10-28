@@ -268,7 +268,7 @@ def rdt_mirror_page():
     print("[SYSTEM] 📝 /rdt ページにアクセスがありました")
     return render_template('rdt.html')
 
-@app.route('/api/rdt/get-devices', methods=['POST'], endpoint='rdt_devices_real_fixed_1234567890')
+@app.route('/api/rdt/get-devices', methods=['POST'], endpoint='rdt_devices_real_post_1234567890')
 def rdt_get_devices():
     data = request.json
     user_token = data.get('token')
@@ -277,11 +277,11 @@ def rdt_get_devices():
         print("[SYSTEM] ⚠️ RDTエラー: トークンがありません")
         return jsonify({"status": "error", "message": "Googleアクセストークンが送信されていません！"}), 400
 
-    print("[SYSTEM] 📝 本物のGoogleアクセストークンを受信。正しいChromoting APIへ問い合わせます...")
+    print("[SYSTEM] 📝 本物のGoogleアクセストークンを受信。Chromoting APIへ 【POST】 で問い合わせます...")
 
     try:
-        # 修正: Chrome Remote Desktopの正確なバックエンドドメインとAPIパス
-        api_url = "https://remotedesktop-pa.googleapis.com/_/oauth/chrome-remote-desktop/hosts" # もしくは公式の正しいエンドポイント
+        # Chrome Remote Desktop のホスト一覧取得エンドポイント (POST)
+        api_url = "https://remotedesktop-pa.googleapis.com/_/oauth/chrome-remote-desktop/hosts"
         
         headers = {
             "Authorization": f"Bearer {user_token}",
@@ -289,16 +289,19 @@ def rdt_get_devices():
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
         }
 
-        # Google APIへリクエスト
-        api_response = requests.get(api_url, headers=headers, timeout=15)
+        # GoogleのAPIはPOSTで空のオブジェクトや特定パラメータを求めることが多い
+        payload = {}
 
-        print(f"[SYSTEM] 📡 Google API応答コード: {api_response.status_code}")
+        # requests.post で突撃！
+        api_response = requests.post(api_url, headers=headers, json=payload, timeout=15)
+
+        print(f"[SYSTEM] 📡 Google API (POST) 応答コード: {api_response.status_code}")
 
         if api_response.status_code != 200:
             print(f"[SYSTEM] ⚠️ APIエラー詳細: {api_response.text}")
             return jsonify({
                 "status": "error", 
-                "message": f"Google APIから拒否されました (Status: {api_response.status_code}): {api_response.text[:100]}"
+                "message": f"Google APIから拒否されました (Status: {api_response.status_code}): {api_response.text[:150]}"
             }), 400
 
         real_data = api_response.json()
