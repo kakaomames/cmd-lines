@@ -275,17 +275,15 @@ def xbox():
 from flask import render_template, request, jsonify
 import requests
 
-# --- 【既存のFlaskアプリへ統合する「rdt」パーツ】 ---
-# ※ app はすでに存在しているものとします
+# --- 【乱数サフィックス武装版】絶対に被らないRDTパーツ ---
 
 @app.route('/rdt')
-def rdt_mirror_page():
-    # 状態が変わったときだけログに出す方針
+def rdt_mirror_page_1234567890():
     print("[SYSTEM] 📝 /rdt ページにアクセスがありました")
     return render_template('rdt.html')
 
 @app.route('/api/rdt/get-devices', methods=['POST'])
-def rdt_get_devices():
+def rdt_get_devices_1234567890():
     data = request.json
     user_token = data.get('token')
 
@@ -296,10 +294,6 @@ def rdt_get_devices():
     print("[SYSTEM] 📝 有効なRDTログインデータを受信しました。デバイスデータを取得します...")
 
     try:
-        # Flask（サーバー側）からGoogle API等を叩くため、CORSは完全回避！
-        # headers = { "Authorization": f"Bearer {user_token}" }
-        # api_response = requests.get("https://www.googleapis.com/chromoting/v1/devices", headers=headers, timeout=10)
-        
         # 模擬的なデバイスデータ
         mock_devices = [
             {
