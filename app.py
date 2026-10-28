@@ -275,45 +275,59 @@ def xbox():
 from flask import render_template, request, jsonify
 import requests
 
-# --- 【乱数サフィックス武装版】絶対に被らないRDTパーツ ---
+# --- 【完全本物志向】Google Chromoting API 連携パーツ ---
 
-@app.route('/rdt')
-def rdt_mirror_page_1234567890():
+@app.route('/rdt', endpoint='rdt_page_real_1234567890')
+def rdt_mirror_page():
     print("[SYSTEM] 📝 /rdt ページにアクセスがありました")
     return render_template('rdt.html')
 
-@app.route('/api/rdt/get-devices', methods=['POST'])
-def rdt_get_devices_1234567890():
+@app.route('/api/rdt/get-devices', methods=['POST'], endpoint='rdt_devices_real_1234567890')
+def rdt_get_devices():
     data = request.json
     user_token = data.get('token')
 
     if not user_token:
-        print("[SYSTEM] ⚠️ RDTエラー: トークンが空です")
-        return jsonify({"status": "error", "message": "ログインデータ（トークン）がありません！"}), 400
+        print("[SYSTEM] ⚠️ RDTエラー: トークンがありません")
+        return jsonify({"status": "error", "message": "Googleアクセストークンが送信されていません！"}), 400
 
-    print("[SYSTEM] 📝 有効なRDTログインデータを受信しました。デバイスデータを取得します...")
+    print("[SYSTEM] 📝 本物のGoogleアクセストークンを受信。Chromoting APIへ問い合わせます...")
 
     try:
-        # 模擬的なデバイスデータ
-        mock_devices = [
-            {
-                "deviceId": "host-pc-01",
-                "displayName": "俺のメイン開発マシン (RDT)",
-                "signalingUrl": "wss://remotedesktop.google.com/connect/direct",
-                "connectionTicket": "ticket_rdt_active"
-            }
-        ]
+        # Chrome Remote Desktop (Chromoting) のホスト一覧取得APIエンドポイント
+        # ※Googleの内部API仕様に合わせたリクエストを構築します
+        api_url = "https://chromoting-pa.googleapis.com/v1/hosts"  # または公式のエンドポイント
+        
+        headers = {
+            "Authorization": f"Bearer {user_token}",
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+        }
 
-        print(f"[SYSTEM] 📝 デバイスデータ取得成功: {len(mock_devices)}台")
+        # Google APIへ実際にリクエストを投げる
+        api_response = requests.get(api_url, headers=headers, timeout=15)
 
+        print(f"[SYSTEM] 📡 Google API応答コード: {api_response.status_code}")
+
+        if api_response.status_code != 200:
+            print(f"[SYSTEM] ⚠️ APIエラー詳細: {api_response.text}")
+            return jsonify({
+                "status": "error", 
+                "message": f"Google APIから拒否されました (Status: {api_response.status_code})。スコープや権限を確認してください。"
+            }), 400
+
+        real_data = api_response.json()
+        print(f"[SYSTEM] 🟢 本物のデバイスデータを正常に取得しました！")
+
+        # 取得した本物のデータをそのままフロントへ返す
         return jsonify({
             "status": "success",
-            "message": "デバイスデータの取得に成功しました！",
-            "devices": mock_devices
+            "message": "本物のデバイスデータの取得に成功しました！",
+            "devices": real_data.get('hosts', []) # ホスト一覧
         })
 
     except Exception as e:
-        print(f"[SYSTEM] ⚠️ RDT API通信エラー: {str(e)}")
+        print(f"[SYSTEM] 🚨 API通信中の致命的エラー: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
