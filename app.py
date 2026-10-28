@@ -258,6 +258,74 @@ def xbox():
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+from flask import render_template, request, jsonify
+import requests
+
+# --- 【乱数サフィックス武装版】絶対に被らないRDTパーツ ---
+
+@app.route('/rdt')
+def rdt_mirror_page_1234567890():
+    print("[SYSTEM] 📝 /rdt ページにアクセスがありました")
+    return render_template('rdt.html')
+
+@app.route('/api/rdt/get-devices', methods=['POST'])
+def rdt_get_devices_1234567890():
+    data = request.json
+    user_token = data.get('token')
+
+    if not user_token:
+        print("[SYSTEM] ⚠️ RDTエラー: トークンが空です")
+        return jsonify({"status": "error", "message": "ログインデータ（トークン）がありません！"}), 400
+
+    print("[SYSTEM] 📝 有効なRDTログインデータを受信しました。デバイスデータを取得します...")
+
+    try:
+        # 模擬的なデバイスデータ
+        mock_devices = [
+            {
+                "deviceId": "host-pc-01",
+                "displayName": "俺のメイン開発マシン (RDT)",
+                "signalingUrl": "wss://remotedesktop.google.com/connect/direct",
+                "connectionTicket": "ticket_rdt_active"
+            }
+        ]
+
+        print(f"[SYSTEM] 📝 デバイスデータ取得成功: {len(mock_devices)}台")
+
+        return jsonify({
+            "status": "success",
+            "message": "デバイスデータの取得に成功しました！",
+            "devices": mock_devices
+        })
+
+    except Exception as e:
+        print(f"[SYSTEM] ⚠️ RDT API通信エラー: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+
+
+
+
+
+
+
+
+
 pokemogukunns = app
 IS_VERCEL = os.environ.get("VERCEL") == "1"
 
@@ -3793,7 +3861,57 @@ import os
 # プロジェクトのルートディレクトリを静的ファイルのベースとする
 # Vercel Lambdaの実行環境では、この app.py が存在するディレクトリがルートになります。
 ROOT_DIR = "."
-#@app.route('/<path:filename>')
+from flask import render_template, request, jsonify
+import requests
+
+# --- 【既存のFlaskアプリへ統合する「rdt」パーツ】 ---
+# ※ app はすでに存在しているものとします
+
+@app.route('/rdt')
+def rdt_index():
+    # 状態が変わったときだけログに出す方針
+    print("[SYSTEM] 📝 /rdt ページにアクセスがありました")
+    return render_template('rdt.html')
+
+@app.route('/api/rdt/get-devices', methods=['POST'])
+def rdt_get_devices():
+    data = request.json
+    user_token = data.get('token')
+
+    if not user_token:
+        print("[SYSTEM] ⚠️ RDTエラー: トークンが空です")
+        return jsonify({"status": "error", "message": "ログインデータ（トークン）がありません！"}), 400
+
+    print("[SYSTEM] 📝 有効なRDTログインデータを受信しました。デバイスデータを取得します...")
+
+    try:
+        # Flask（サーバー側）からGoogle API等を叩くため、CORSは完全回避！
+        # headers = { "Authorization": f"Bearer {user_token}" }
+        # api_response = requests.get("https://www.googleapis.com/chromoting/v1/devices", headers=headers, timeout=10)
+        
+        # 模擬的なデバイスデータ
+        mock_devices = [
+            {
+                "deviceId": "host-pc-01",
+                "displayName": "俺のメイン開発マシン (RDT)",
+                "signalingUrl": "wss://remotedesktop.google.com/connect/direct",
+                "connectionTicket": "ticket_rdt_active"
+            }
+        ]
+
+        print(f"[SYSTEM] 📝 デバイスデータ取得成功: {len(mock_devices)}台")
+
+        return jsonify({
+            "status": "success",
+            "message": "デバイスデータの取得に成功しました！",
+            "devices": mock_devices
+        })
+
+    except Exception as e:
+        print(f"[SYSTEM] ⚠️ RDT API通信エラー: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+        
+@app.route('/<path:filename>')
 def serve_file(filename):
     # もしリクエストされたパスが、既に定義済みのAPIなら、ここを通さずに即座に404を返す（あるいは何もしない）
     if filename in ['xbox-login', 'xbox/games', 'xbox']:
