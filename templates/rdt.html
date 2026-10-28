@@ -7,6 +7,8 @@
     <meta name="theme-color" content="#0d1117">
     <link rel="icon" href="https://kakaomames.github.io/rei/logo.png">
     <title>Geminiプログラミング隊 - 爆速RDTミラー</title>
+    <!-- Google Identity Services (GIS) クライアントライブラリ -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -33,21 +35,42 @@
             border: 1px solid #30363d; box-shadow: 0 0 15px rgba(0,0,0,0.5); display: none;
         }
         .login-box {
-            background: #161b22; padding: 25px; border-radius: 8px;
-            border: 1px solid #30363d; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            background: #161b22; padding: 40px; border-radius: 12px;
+            border: 1px solid #30363d; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+            display: flex; flex-direction: column; align-items: center; gap: 20px;
+            max-width: 420px; width: 90%;
         }
-        input {
-            width: 300px; padding: 10px; background: #0d1117; border: 1px solid #30363d;
-            color: #fff; border-radius: 6px; margin-bottom: 15px; display: block;
+        /* ✨ Google公式風・洗練されたログインボタンの装飾 */
+        .google-btn {
+            background: #ffffff;
+            color: #24292e;
+            border: 1px solid #d0d7de;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            font-size: 1rem;
+            width: 100%;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+            transition: all 0.25s ease;
         }
-        button {
-            background: #238636; color: white; border: none;
-            padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%;
+        .google-btn:hover {
+            background: #f6f8fa;
+            border-color: #58a6ff;
+            box-shadow: 0 6px 15px rgba(88, 166, 255, 0.25);
+            transform: translateY(-2px);
         }
-        button:hover { background: #2ea043; }
+        .google-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
         #log-panel {
-            margin-top: 15px; font-size: 0.85rem; color: #8b949e; background: #161b22;
-            padding: 10px 15px; border-radius: 6px; border: 1px solid #30363d; width: 600px; text-align: left;
+            margin-top: 20px; font-size: 0.85rem; color: #8b949e; background: #161b22;
+            padding: 12px 18px; border-radius: 8px; border: 1px solid #30363d; width: 600px; text-align: left;
         }
     </style>
 </head>
@@ -55,23 +78,29 @@
 
     <header>
         <h1>⚡ 爆速RDTミラー (軽量クライアント)</h1>
-        <div id="status-display">Status: 🔑 ログイン待ち</div>
+        <div id="status-display">Status: 🔑 Googleログイン待ち...</div>
     </header>
 
     <div id="container">
-        <!-- ログイン入力セクション -->
+        <!-- ログインセクション -->
         <div id="login-section" class="login-box">
-            <h2 style="margin-bottom: 15px; color: #58a6ff;">🔑 Google / RDT認証データ入力</h2>
-            <input type="password" id="auth-token-input" placeholder="アクセストークンを入力">
-            <button onclick="sendLoginDataToFlask()">Flask経由でデバイスを取得</button>
+            <h2 style="color: #58a6ff; font-size: 1.4rem;">🚀 爆速RDTミラー</h2>
+            <p style="color: #8b949e; font-size: 0.9rem; line-height: 1.5;">
+                公式の重いUIを完全にバイパス。<br>Googleアカウント認証でサクサク安全に接続します。
+            </p>
+            <!-- Googleログインボタン（SVGアイコン付き） -->
+            <button class="google-btn" onclick="triggerGoogleLogin()">
+                <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.13 0-5.78-2.11-6.73-4.96H1.19v3.15C3.18 21.31 7.27 24 12 24z"/><path fill="#FBBC05" d="M5.27 14.24c-.25-.72-.38-1.49-.38-2.24s.13-1.52.38-2.24V6.6H1.19C.43 8.13 0 9.87 0 11.76s.43 3.63 1.19 5.16l4.08-2.68z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.27 0 3.18 2.69 1.19 6.6l4.08 3.15c.95-2.85 3.6-4.96 6.73-4.96z"/></svg>
+                Googleアカウントでログイン
+            </button>
         </div>
 
-        <!-- 描画用Canvas -->
+        <!-- 描画用Canvas (接続後に表示) -->
         <canvas id="rdp-screen" width="1280" height="720"></canvas>
 
         <div id="log-panel">
             <strong>📋 システムログ:</strong><br>
-            <span id="log-text">待機中... トークンを入力して接続を開始してください。</span>
+            <span id="log-text">待機中... 「Googleアカウントでログイン」を押してください。</span>
         </div>
     </div>
 
@@ -87,15 +116,34 @@
             console.log(`[RDT_CLIENT] ${message}`);
         }
 
-        async function sendLoginDataToFlask() {
-            const token = document.getElementById('auth-token-input').value.trim();
-            if (!token) {
-                alert("トークンを入力してください！");
-                return;
-            }
+        // --- 【Google認証の初期化】 ---
+        let tokenClient;
 
+        window.onload = function () {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com', // ← 必要に応じて書き換え
+                scope: 'https://www.googleapis.com/auth/chromoting https://www.googleapis.com/auth/userinfo.email',
+                callback: (tokenResponse) => {
+                    if (tokenResponse && tokenResponse.access_token) {
+                        updateLog("Google認証成功！アクセストークンを取得しました。Flaskへ送信します...");
+                        sendTokenToFlask(tokenResponse.access_token);
+                    } else {
+                        updateLog("⚠️ 認証がキャンセルされたか、トークンを取得できませんでした。");
+                        statusDisplay.innerText = "Status: 🔴 認証失敗";
+                    }
+                },
+            });
+        };
+
+        function triggerGoogleLogin() {
+            statusDisplay.innerText = "Status: 🔄 Google認証ポップアップ起動中...";
+            updateLog("Googleログイン画面を呼び出しています...");
+            tokenClient.requestAccessToken({ prompt: 'consent' });
+        }
+
+        // --- 【Flaskへアクセストークンを送信してデバイスを取得】 ---
+        async function sendTokenToFlask(token) {
             statusDisplay.innerText = "Status: 🔄 Flaskへ通信中...";
-            updateLog("Flaskサーバーへログインデータを送信中...");
 
             try {
                 const response = await fetch('/api/rdt/get-devices', {
@@ -122,6 +170,7 @@
             }
         }
 
+        // --- 【ダイレクト接続＆描画初期化】 ---
         function initializeDirectConnection(deviceInfo) {
             updateLog(`対象デバイス [${deviceInfo.displayName}] のチケット確認完了！`);
             
@@ -147,4 +196,4 @@
         }
     </script>
 </body>
-</html>
+</html>ー
