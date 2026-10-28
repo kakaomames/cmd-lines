@@ -279,7 +279,7 @@ import requests
 # ※ app はすでに存在しているものとします
 
 @app.route('/rdt')
-def rdt_index():
+def rdt_mirror_page():
     # 状態が変わったときだけログに出す方針
     print("[SYSTEM] 📝 /rdt ページにアクセスがありました")
     return render_template('rdt.html')
