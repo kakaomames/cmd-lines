@@ -6,7 +6,7 @@
     <meta name="description" content="Ultra-Lightweight Rdt Mirror Client">
     <meta name="theme-color" content="#0d1117">
     <link rel="icon" href="https://kakaomames.github.io/rei/logo.png">
-    <title>Geminiプログラミング隊 - 爆速RDTミラー</title>
+    <title>Geminiプログラミングv隊 - 爆速RDTミラー</title>
     <!-- Google Identity Services (GIS) クライアントライブラリ -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
@@ -121,7 +121,7 @@
 
         window.onload = function () {
             tokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com', // ← 必要に応じて書き換え
+                client_id: '844740267850-es9b7jg9c32np2fhc612u5rslbpc0637.apps.googleusercontent.com', // ← 必要に応じて書き換え
                 scope: 'https://www.googleapis.com/auth/chromoting https://www.googleapis.com/auth/userinfo.email',
                 callback: (tokenResponse) => {
                     if (tokenResponse && tokenResponse.access_token) {
