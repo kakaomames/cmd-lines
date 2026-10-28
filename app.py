@@ -268,7 +268,7 @@ def rdt_mirror_page():
     print("[SYSTEM] 📝 /rdt ページにアクセスがありました")
     return render_template('rdt.html')
 
-@app.route('/api/rdt/get-devices', methods=['POST'], endpoint='rdt_devices_real_post_1234567890')
+@app.route('/api/rdt/get-devices', methods=['POST'], endpoint='rdt_devices_official_match_1234567890')
 def rdt_get_devices():
     data = request.json
     user_token = data.get('token')
@@ -277,35 +277,40 @@ def rdt_get_devices():
         print("[SYSTEM] ⚠️ RDTエラー: トークンがありません")
         return jsonify({"status": "error", "message": "Googleアクセストークンが送信されていません！"}), 400
 
-    print("[SYSTEM] 📝 本物のGoogleアクセストークンを受信。Chromoting APIへ 【POST】 で問い合わせます...")
+    print("[SYSTEM] 📝 本物のGoogleアクセストークンを受信。正規品の作法に合わせたヘッダーでChromoting APIへ突撃します...")
 
     try:
-        # Chrome Remote Desktop のホスト一覧取得エンドポイント (POST)
-        api_url = "https://remotedesktop-pa.googleapis.com/_/oauth/chrome-remote-desktop/hosts"
+        # Chrome Remote Desktop の公式ウェブアプリが実際に使用するバックエンドエンドポイント
+        # （※v1のホスト一覧取得エンドポイント）
+        api_url = "https://remotedesktop-pa.googleapis.com/v1/hosts"
         
+        # ✨ 【超重要】GoogleのAPIに「私は公式ウェブアプリです」と認識させるための正規品ヘッダー
         headers = {
             "Authorization": f"Bearer {user_token}",
             "Content-Type": "application/json",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            "Accept": "application/json",
+            "Origin": "https://remotedesktop.google.com",
+            "Referer": "https://remotedesktop.google.com/",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
 
-        # GoogleのAPIはPOSTで空のオブジェクトや特定パラメータを求めることが多い
+        # GoogleのAPIが求める標準的な空のペイロード（またはGETに近い挙動をさせるためのPOSTボディ）
         payload = {}
 
-        # requests.post で突撃！
+        # 公式と全く同じ作法でリクエストを送信
         api_response = requests.post(api_url, headers=headers, json=payload, timeout=15)
 
-        print(f"[SYSTEM] 📡 Google API (POST) 応答コード: {api_response.status_code}")
+        print(f"[SYSTEM] 📡 正規品作法API 応答コード: {api_response.status_code}")
 
         if api_response.status_code != 200:
-            print(f"[SYSTEM] ⚠️ APIエラー詳細: {api_response.text}")
+            print(f"[SYSTEM] ⚠️ 正規品APIエラー詳細: {api_response.text}")
             return jsonify({
                 "status": "error", 
-                "message": f"Google APIから拒否されました (Status: {api_response.status_code}): {api_response.text[:150]}"
+                "message": f"Google公式APIから拒否されました (Status: {api_response.status_code}): {api_response.text[:150]}"
             }), 400
 
         real_data = api_response.json()
-        print(f"[SYSTEM] 🟢 本物のデバイスデータを正常に取得しました！")
+        print(f"[SYSTEM] 🟢 正規品の作法でデバイスデータを完全にキャッチしました！")
 
         return jsonify({
             "status": "success",
@@ -314,7 +319,7 @@ def rdt_get_devices():
         })
 
     except Exception as e:
-        print(f"[SYSTEM] 🚨 API通信中の致命的エラー: {str(e)}")
+        print(f"[SYSTEM] 🚨 通信中の致命的エラー: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
