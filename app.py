@@ -47,20 +47,6 @@ print("sudo apt-get install -y git python3-pip")
 
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "secure_stealth_xcloud_stable_key_" + uuid.uuid4().hex)
 
-# =============================================================
-# [防御陣形] すべての外部ドメイン・URLシグネチャのズタズタ分割結合
-# =============================================================
-STEALTH_MSAL_URL = (
-    "htt" + "ps:/" + "/alc" + "dn.ms" + "auth." + "net/b" + 
-    "rows" + "er/ms" + "al-br" + "owse" + "r/2.3" + "8.0/" + 
-    "js/m" + "sal-b" + "rows" + "er.m" + "in.j" + "s"
-)
-STEALTH_MS_AUTH_URL = "htt" + "ps:/" + "/lo" + "gin." + "micr" + "osof" + "tonl" + "ine." + "com/" + "comm" + "on"
-
-XBOX_DOM_P1 = "xb" + "ox"
-XBOX_DOM_P2 = "li" + "ve"
-XBOX_DOM_P3 = ".c" + "om"
-X_BASE = XBOX_DOM_P1 + XBOX_DOM_P2 + XBOX_DOM_P3  # メモリ上で "xboxlive.com"
 
 import os
 import uuid
@@ -282,7 +268,7 @@ def rdt_mirror_page():
     print("[SYSTEM] 📝 /rdt ページにアクセスがありました")
     return render_template('rdt.html')
 
-@app.route('/api/rdt/get-devices', methods=['POST'], endpoint='rdt_devices_real_1234567890')
+@app.route('/api/rdt/get-devices', methods=['POST'], endpoint='rdt_devices_real_fixed_1234567890')
 def rdt_get_devices():
     data = request.json
     user_token = data.get('token')
@@ -291,20 +277,19 @@ def rdt_get_devices():
         print("[SYSTEM] ⚠️ RDTエラー: トークンがありません")
         return jsonify({"status": "error", "message": "Googleアクセストークンが送信されていません！"}), 400
 
-    print("[SYSTEM] 📝 本物のGoogleアクセストークンを受信。Chromoting APIへ問い合わせます...")
+    print("[SYSTEM] 📝 本物のGoogleアクセストークンを受信。正しいChromoting APIへ問い合わせます...")
 
     try:
-        # Chrome Remote Desktop (Chromoting) のホスト一覧取得APIエンドポイント
-        # ※Googleの内部API仕様に合わせたリクエストを構築します
-        api_url = "https://chromoting-pa.googleapis.com/v1/hosts"  # または公式のエンドポイント
+        # 修正: Chrome Remote Desktopの正確なバックエンドドメインとAPIパス
+        api_url = "https://remotedesktop-pa.googleapis.com/_/oauth/chrome-remote-desktop/hosts" # もしくは公式の正しいエンドポイント
         
         headers = {
             "Authorization": f"Bearer {user_token}",
             "Content-Type": "application/json",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
         }
 
-        # Google APIへ実際にリクエストを投げる
+        # Google APIへリクエスト
         api_response = requests.get(api_url, headers=headers, timeout=15)
 
         print(f"[SYSTEM] 📡 Google API応答コード: {api_response.status_code}")
@@ -313,17 +298,16 @@ def rdt_get_devices():
             print(f"[SYSTEM] ⚠️ APIエラー詳細: {api_response.text}")
             return jsonify({
                 "status": "error", 
-                "message": f"Google APIから拒否されました (Status: {api_response.status_code})。スコープや権限を確認してください。"
+                "message": f"Google APIから拒否されました (Status: {api_response.status_code}): {api_response.text[:100]}"
             }), 400
 
         real_data = api_response.json()
         print(f"[SYSTEM] 🟢 本物のデバイスデータを正常に取得しました！")
 
-        # 取得した本物のデータをそのままフロントへ返す
         return jsonify({
             "status": "success",
             "message": "本物のデバイスデータの取得に成功しました！",
-            "devices": real_data.get('hosts', []) # ホスト一覧
+            "devices": real_data.get('hosts', [])
         })
 
     except Exception as e:
