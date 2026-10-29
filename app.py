@@ -36,6 +36,14 @@ import tarfile
 import urllib.request
 from av01ToH254 import convert_av1_to_h264
 
+import os
+import requests
+from flask import Flask, jsonify, render_template, request
+import os
+import uuid
+from flask import Flask, request, jsonify, render_template, session
+import requests
+
 
 
 print("[LOG] SYSTEM: ========================================================")
@@ -48,10 +56,7 @@ print("sudo apt-get install -y git python3-pip")
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "secure_stealth_xcloud_stable_key_" + uuid.uuid4().hex)
 
 
-import os
-import uuid
-from flask import Flask, request, jsonify, render_template, session
-import requests
+
 
 
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "secure_stealth_xcloud_stable_key_" + uuid.uuid4().hex)
@@ -323,6 +328,102 @@ def rdt_get_devices():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+
+
+
+
+
+
+
+
+
+# ログから抽出した認証情報
+BEARER_TOKEN = "eyJhbGciOiJFUzI1NiIsImtpZCI6ImU3YTBiNjA0LTJkNjAtNGY4ZS05NWM5LTk4MTY3NjZhOTk2YSIsInR5cCI6IkpXVCJ9.eyJhYWwiOiJhYWwxIiwiYW1yIjpbeyJtZXRob2QiOiJvYXV0aCIsInRpbWVzdGFtcCI6MTc5MzIzNzQ4MX1dLCJhcHBfbWV0YWRhdGEiOnsicHJvdmlkZXIiOiJnb29nbGUiLCJwcm92aWRlcnMiOlsiZ29vZ2xlIl19LCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZW1haWwiOiJrYXdhbXVyYS5uYW9raS4wMzE0QGdtYWlsLmNvbSIsImV4cCI6MTc5MzIzODM4MSwiaWF0IjoxNzkzMjM3NDgxLCJpc19hbm9yeW1vdXMiOmZhbHNlLCJpc3MiOiJodHRwczovL3luZnJlY2xzeGZncW52Z2ZweGNjLnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJwaG9uZSI6IiIsInJvbGUiOiJhdXRoZW50aWNhdGVkIiwic2Vzc2lvbl9pZCI6IjQzOGRhMzMxLWQ4Y2UtNGFiYy04NTUwLTNjMjc1ZmFlM2ZmNCIsInN1YiI6IjJhMWU1ZGZhLTY4ZDctNDI5NC05ZDRiLTk2MTgzNWY3OTIyNCIsInVzZXJfbWV0YWRhdGEiOnsiYXZhdGFyX3VybCI6Imh0dHBzOi8vbGgzLmdvb2dsZXVzZXJjb250ZW50LmNvbS9hL0FDZzhvY0taUGJNVnJmSTFyLXc5RE90UWhGVFVaSHc4eEZpQm1lbmhqTGJ3SWwteTJfNVYzQT1zOTYtYyIsImVtYWlsIjoia2F3YW11cmEubmFva2kuMDMxNEBnbWFpbC5jb20iLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwiZnVsbF9uYW1lIjoi44Kr44Kr44Kq44Oe44OhIiwiaXNzIjoiaHR0cHM6Ly9hY2NvdW50cy5nb29nbGUuY29tIiwibmFtZSI6IuOCq-OCq-OCquODnuODoSIsInBob25lX3ZlcmlmaWVkIjpmYWxzZSwicGljdHVyZSI6Imh0dHBzOi8vbGgzLmdvb2dsZXVzZXJjb250ZW50LmNvbS9hL0FDZzhvY0taUGJNVnJmSTFyLXc5RE90UWhGVFVaSHc4eEZpQm1lbmhqTGJ3SWwteTJfNVYzQT1zOTYtYyIsInByb3ZpZGVyX2lkIjoiMTA3MzM5MjY0NTY3MDY3MzcxMzY4Iiwic3ViIjoiMTA3MzM5MjY0NTY3MDY3MzcxMzY4In19.opyFQkDAg5MqBrxzYL0_fQS2ddbFXXX5CmqsbeV2b-y7RNOLPERy4b2TIK1wNS1NgikHjHntFSNjx1FvGDA5Uw"
+DEVICE_ID = "4048dba5-8a54-4f25-b558-e3bf51a5baf3"
+
+# 1. /img-obj : img2obj.html を返す
+@app.route('/img-obj', methods=['GET'])
+def img_obj_page():
+    # templatesフォルダ内にある前提、または適宜レンダリング
+    return render_template('img2obj.html')
+
+# 2. /up-img : HTMLから画像を受け取り、MeshyへアップロードしてURLを返す
+@app.route('/up-img', methods=['POST'])
+def up_img():
+    try:
+        if 'file' not in request.files:
+            return jsonify({"error": "No file part"}), 400
+        
+        file = request.files['file']
+        
+        # Meshyのアップロード用APIへ転送[cite: 1]
+        upload_url = "https://www.meshy.ai/meshyd-api/web/v1/files/images?skipNameGeneration"
+        headers = {
+            "Authorization": f"Bearer {BEARER_TOKEN}",
+            "X-Device-Id": DEVICE_ID
+        }
+        files = {
+            'file': (file.filename, file.read(), file.content_type)
+        }
+
+        response = requests.post(upload_url, headers=headers, files=files)
+        res_data = response.json()
+        
+        # アップロード成功したURLを抽出[cite: 1]
+        image_url = res_data.get("result", {}).get("url")
+        if not image_url:
+            return jsonify({"error": "Failed to get image URL from Meshy", "details": res_data}), 400
+
+        return jsonify({"success": True, "image_url": image_url})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# 3. /s-obj : 画像パス（URL）を受け取り、3D生成タスクをキックする
+@app.route('/s-obj', methods=['POST'])
+def s_obj():
+    try:
+        data = request.json
+        image_url = data.get('image_url')
+        
+        if not image_url:
+            return jsonify({"error": "image_url is required"}), 400
+
+        gen_url = "https://api.meshy.ai/openapi/v1/image-to-3d"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {BEARER_TOKEN}",
+            "X-API-Key-ID": "free"
+        }
+        payload = {
+            "image_url": image_url
+        }
+
+        response = requests.post(gen_url, json=payload, headers=headers)
+        return jsonify(response.json()), response.status_code
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# 4. /objS : タスクIDを指定してステータス（ストリーム）を取得する
+@app.route('/objS', methods=['GET'])
+def obj_status():
+    try:
+        task_id = request.args.get('task_id')
+        if not task_id:
+            return jsonify({"error": "task_id is required"}), 400
+
+        stream_url = f"https://api.meshy.ai/openapi/v1/image-to-3d/{task_id}/stream"
+        headers = {
+            "Authorization": f"Bearer {BEARER_TOKEN}",
+            "X-API-Key-ID": "free"
+        }
+
+        response = requests.get(stream_url, headers=headers)
+        return response.text, response.status_code, {'Content-Type': 'application/json'}
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 
