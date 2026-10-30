@@ -368,6 +368,7 @@ def up_img():
 
         response = requests.post(upload_url, headers=headers, files=files)
         res_data = response.json()
+        print(res_data)
         
         # アップロード成功したURLを抽出[cite: 1]
         image_url = res_data.get("result", {}).get("url")
@@ -400,6 +401,8 @@ def s_obj():
         }
 
         response = requests.post(gen_url, json=payload, headers=headers)
+        r = response.json()
+        print(r)
         return jsonify(response.json()), response.status_code
 
     except Exception as e:
