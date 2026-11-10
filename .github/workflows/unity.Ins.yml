@@ -50,14 +50,33 @@ jobs:
           # すでにキャッシュされていればこのコマンドは一瞬で終わるはず！
           unity install 6000.2.10f1 -m android webgl --accept-eula --yes
 
-      - name: Run Unity Build via CLI
+      - name: Run Unity Build via Batch Mode
         run: |
-          echo "🚀 Unityエディタによるビルド処理を開始するよ！"
+          echo "🚀 Unityのパスを動的に解決してビルドを開始するよ！"
           export PATH="$HOME/.local/bin:$PATH"
+
+          # ハードコードを避け、unityコマンドやCLIからエディタの実行パスを動的に取得・実行
+          # または、CLIで管理されているエディタをバッチモードで呼び出す
+          UNITY_EDITOR_PATH=$(unity editors --format json | grep -o '"path":"[^"]*' | head -1 | cut -d'"' -f4)
           
-          unity build --projectPath . --buildTarget WebGL --outputPath Build/WebGL
-          
-          echo "✨ ビルドが完了したぞ！"
+          if [ -z "$UNITY_EDITOR_PATH" ]; then
+            echo "⚠️ 動的取得に失敗したため、標準的なパスフォールバックを使用します"
+            UNITY_EDITOR_PATH="$HOME/.local/share/unity/editors/6000.2.10f1/Editor/Unity"
+          fi
+
+          echo "📍 使用するUnityエディタ: $UNITY_EDITOR_PATH"
+
+          # バッチモード実行（プロジェクトパスはカレントディレクトリ '.' なのでハードコード不要）
+          "$UNITY_EDITOR_PATH" \
+            -batchmode \
+            -quit \
+            -projectPath "$(pwd)" \
+            -executeMethod BuildScript.BuildWebGL \
+            -logFile build.log || true
+
+          if [ -f build.log ]; then
+            cat build.log
+          fi
 
       - name: Cleanup and Commit
         run: |
