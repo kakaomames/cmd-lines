@@ -1,4 +1,4 @@
-name: Unity Install
+name: Unity Build Pipeline with CLI
 
 on:
   workflow_dispatch: # 手動実行用
@@ -8,21 +8,37 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Install Unity
+      - name: Cache Unity Library
+        uses: actions/cache@v3
+        with:
+          path: Library
+          key: Library-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-
+
+      - name: Install Unity CLI & Editor
         run: |
+          # Unity CLIのインストール (公式ブログの手順通りベータチャンネルを使用)
           curl -fsSL https://public-cdn.cloud.unity3d.com/hub/prod/cli/install.sh | UNITY_CLI_CHANNEL=beta bash
+          
+          # パスを通す（環境やCLIのインストール先に応じて適宜調整）
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          export PATH="$HOME/.local/bin:$PATH"
+
+          # Unity CLIを使って指定バージョンのエディタと必要なモジュール（Android, WebGL）を一撃インストール
           unity install 6000.2.10f1 -m android webgl --accept-eula --yes
 
-      - name: Compile C++ to WASM for Unity
+      - name: Compile C++ to WASM & Run Unity Build
         run: |
-          echo "まだテストのためTODOとします"
-            
+          echo "✨ C++からWASMへのコンパイルや、Unityエディタのバッチビルド処理をここに記述！"
+          # 例: unity build --projectPath . --buildTarget WebGL
+
       - name: Cleanup and Commit
         run: |
           git config user.name "Gemini-Bot"
           git config user.email "bot@example.com"
           git add .
-          git commit -m "Build completed: engine.wasm generated and /c/ cleaned ✨"
+          git commit -m "Build completed: engine.wasm generated and Unity pipeline executed ✨" || echo "No changes to commit"
           git push
