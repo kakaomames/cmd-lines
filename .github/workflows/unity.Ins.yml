@@ -1,7 +1,7 @@
 name: Unity Build Pipeline with CLI
 
 on:
-  workflow_dispatch: # 手動実行用
+  workflow_dispatch: # 手動実行用ボタン
 
 jobs:
   build:
@@ -9,7 +9,27 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          submodules: false
 
+      - name: Ensure Directories Exist
+        run: |
+          mkdir -p Library
+          mkdir -p $HOME/.local/share/unity # Unityエディタやモジュールの保存先になりやすいパスの確保
+
+      # 1. Unityエディタ本体のキャッシュ
+      - name: Cache Unity Editor
+        uses: actions/cache@v3
+        with:
+          path: |
+            $HOME/.local/bin/unity
+            $HOME/.local/share/unity
+            /opt/unity
+          key: unity-editor-6000.2.10f1-${{ runner.os }}
+          restore-keys: |
+            unity-editor-
+
+      # 2. Project Libraryのキャッシュ
       - name: Cache Unity Library
         uses: actions/cache@v3
         with:
@@ -18,27 +38,32 @@ jobs:
           restore-keys: |
             Library-
 
-      - name: Install Unity CLI & Editor
+      - name: Install Unity CLI & Editor (Cached if exists)
         run: |
-          # Unity CLIのインストール (公式ブログの手順通りベータチャンネルを使用)
-          curl -fsSL https://public-cdn.cloud.unity3d.com/hub/prod/cli/install.sh | UNITY_CLI_CHANNEL=beta bash
-          
-          # パスを通す（環境やCLIのインストール先に応じて適宜調整）
+          # まだインストールされていなければCLIを入れてインストールを実行（キャッシュがあればスキップ/高速化される）
+          if ! command -v unity &> /dev/null; then
+            curl -fsSL https://public-cdn.cloud.unity3d.com/hub/prod/cli/install.sh | UNITY_CLI_CHANNEL=beta bash
+          fi
           echo "$HOME/.local/bin" >> $GITHUB_PATH
           export PATH="$HOME/.local/bin:$PATH"
-
-          # Unity CLIを使って指定バージョンのエディタと必要なモジュール（Android, WebGL）を一撃インストール
+          
+          # すでにキャッシュされていればこのコマンドは一瞬で終わるはず！
           unity install 6000.2.10f1 -m android webgl --accept-eula --yes
 
-      - name: Compile C++ to WASM & Run Unity Build
+      - name: Run Unity Build via CLI
         run: |
-          echo "✨ C++からWASMへのコンパイルや、Unityエディタのバッチビルド処理をここに記述！"
-          # 例: unity build --projectPath . --buildTarget WebGL
+          echo "🚀 Unityエディタによるビルド処理を開始するよ！"
+          export PATH="$HOME/.local/bin:$PATH"
+          
+          unity build --projectPath . --buildTarget WebGL --outputPath Build/WebGL
+          
+          echo "✨ ビルドが完了したぞ！"
 
       - name: Cleanup and Commit
         run: |
           git config user.name "Gemini-Bot"
           git config user.email "bot@example.com"
           git add .
-          git commit -m "Build completed: engine.wasm generated and Unity pipeline executed ✨" || echo "No changes to commit"
+          git commit -m "Build completed: WebGL build and artifacts generated ✨" || echo "No changes to commit"
           git push
+        continue-on-error: true
